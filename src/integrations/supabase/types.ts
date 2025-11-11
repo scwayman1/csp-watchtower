@@ -76,6 +76,30 @@ export type Database = {
           },
         ]
       }
+      position_shares: {
+        Row: {
+          created_at: string | null
+          id: string
+          owner_id: string
+          shared_with_email: string
+          shared_with_user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          owner_id: string
+          shared_with_email: string
+          shared_with_user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          owner_id?: string
+          shared_with_email?: string
+          shared_with_user_id?: string | null
+        }
+        Relationships: []
+      }
       positions: {
         Row: {
           broker: string | null
