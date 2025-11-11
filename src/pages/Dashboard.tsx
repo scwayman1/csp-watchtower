@@ -3,7 +3,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { ImportBar } from "@/components/dashboard/ImportBar";
 import { FiltersToolbar } from "@/components/dashboard/FiltersToolbar";
 import { PositionsTable } from "@/components/dashboard/PositionsTable";
-import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp } from "lucide-react";
+import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
 import { useSettings } from "@/hooks/useSettings";
@@ -13,11 +13,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { positions, loading: positionsLoading, sharedOwners } = usePositions();
+  const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions();
   const { settings } = useSettings(user?.id);
+  const { toast } = useToast();
+  const [refreshing, setRefreshing] = useState(false);
   
   const hasSharedPositions = sharedOwners && sharedOwners.size > 0;
   const ownPositions = positions.filter(p => !sharedOwners?.has(p.id));
@@ -29,6 +33,26 @@ const Dashboard = () => {
       case 'black-scholes': return 'Black-Scholes';
       case 'heuristic': return 'Heuristic';
       default: return model;
+    }
+  };
+
+  const handleRefreshMarketData = async () => {
+    setRefreshing(true);
+    try {
+      await supabase.functions.invoke('refresh-market-data');
+      await refetch();
+      toast({
+        title: "Market data refreshed",
+        description: "All stock prices have been updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Refresh failed",
+        description: "Could not update market data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRefreshing(false);
     }
   };
   
@@ -99,6 +123,14 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleRefreshMarketData} 
+              disabled={refreshing}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh Prices
+            </Button>
             <Button variant="outline" onClick={exportToCSV} disabled={positions.length === 0}>
               <Download className="mr-2 h-4 w-4" />
               Export CSV

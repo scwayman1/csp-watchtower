@@ -115,8 +115,24 @@ export function usePositions() {
       )
       .subscribe();
 
+    // Set up market data refresh interval
+    const refreshMarketData = async () => {
+      try {
+        await supabase.functions.invoke('refresh-market-data');
+      } catch (error) {
+        console.error('Error refreshing market data:', error);
+      }
+    };
+
+    // Initial fetch
+    refreshMarketData();
+
+    // Refresh every 60 seconds (can be made configurable from settings)
+    const intervalId = setInterval(refreshMarketData, 60000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(intervalId);
     };
   }, []);
 
