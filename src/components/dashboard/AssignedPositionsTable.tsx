@@ -1,14 +1,18 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import type { AssignedPosition } from "@/hooks/useAssignedPositions";
+import { SellCallDialog } from "./SellCallDialog";
 
 interface AssignedPositionsTableProps {
   positions: AssignedPosition[];
+  onRefetch: () => void;
 }
 
-export function AssignedPositionsTable({ positions }: AssignedPositionsTableProps) {
+export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositionsTableProps) {
+  const [selectedPosition, setSelectedPosition] = useState<{ id: string; symbol: string } | null>(null);
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
@@ -84,7 +88,12 @@ export function AssignedPositionsTable({ positions }: AssignedPositionsTableProp
                   {formatCurrency(position.net_position || 0)}
                 </TableCell>
                 <TableCell>
-                  <Button size="sm" variant="outline" className="gap-1">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-1"
+                    onClick={() => setSelectedPosition({ id: position.id, symbol: position.symbol })}
+                  >
                     <Plus className="h-3 w-3" />
                     Sell Call
                   </Button>
@@ -94,6 +103,14 @@ export function AssignedPositionsTable({ positions }: AssignedPositionsTableProp
           )}
         </TableBody>
       </Table>
+
+      <SellCallDialog
+        open={!!selectedPosition}
+        onOpenChange={(open) => !open && setSelectedPosition(null)}
+        assignedPositionId={selectedPosition?.id || ""}
+        symbol={selectedPosition?.symbol || ""}
+        onSuccess={onRefetch}
+      />
     </div>
   );
 }

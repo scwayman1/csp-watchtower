@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions();
-  const { assignedPositions, loading: assignedLoading } = useAssignedPositions();
+  const { assignedPositions, loading: assignedLoading, refetch: refetchAssigned } = useAssignedPositions();
   const { settings } = useSettings(user?.id);
   const { toast } = useToast();
   const [refreshing, setRefreshing] = useState(false);
@@ -237,7 +237,7 @@ const Dashboard = () => {
 
         {/* Assigned Positions Section */}
         <div>
-          <AssignedPositionsTable positions={assignedPositions} />
+          <AssignedPositionsTable positions={assignedPositions} onRefetch={refetchAssigned} />
         </div>
       </div>
     </div>
