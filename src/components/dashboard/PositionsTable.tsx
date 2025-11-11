@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 export interface Position {
   id: string;
@@ -35,6 +37,19 @@ export function PositionsTable({ positions }: PositionsTableProps) {
     if (band === "warning") return "warning";
     if (band === "destructive") return "destructive";
     return "default";
+  };
+
+  const getProbabilityExplanation = (position: Position) => {
+    const priceDiff = position.underlyingPrice - position.strikePrice;
+    const pctDiff = position.pctAboveStrike;
+    
+    if (pctDiff >= 10) {
+      return `Low probability (${position.probAssignment.toFixed(1)}%) because the underlying price ($${position.underlyingPrice.toFixed(2)}) is ${pctDiff.toFixed(1)}% above the strike ($${position.strikePrice.toFixed(2)}), with ${position.daysToExp} days remaining. The stock would need to drop significantly for assignment.`;
+    } else if (pctDiff >= 5) {
+      return `Moderate probability (${position.probAssignment.toFixed(1)}%) as the underlying price ($${position.underlyingPrice.toFixed(2)}) is ${pctDiff.toFixed(1)}% above strike ($${position.strikePrice.toFixed(2)}), with ${position.daysToExp} days to expiration. Assignment is possible if the stock declines.`;
+    } else {
+      return `Higher probability (${position.probAssignment.toFixed(1)}%) because the underlying price ($${position.underlyingPrice.toFixed(2)}) is only ${pctDiff.toFixed(1)}% above strike ($${position.strikePrice.toFixed(2)}), with ${position.daysToExp} days remaining. Close to the money - assignment risk is elevated.`;
+    }
   };
 
   return (
@@ -83,7 +98,21 @@ export function PositionsTable({ positions }: PositionsTableProps) {
                   {position.daysToExp}
                 </span>
               </TableCell>
-              <TableCell>{position.probAssignment.toFixed(1)}%</TableCell>
+              <TableCell>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 cursor-help">
+                        <span>{position.probAssignment.toFixed(1)}%</span>
+                        <Info className="h-3 w-3 text-muted-foreground" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-sm">{getProbabilityExplanation(position)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
