@@ -126,6 +126,7 @@ const Dashboard = () => {
   const totalUnrealizedPnL = filteredPositions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
   const activeContracts = filteredPositions.reduce((sum, p) => sum + p.contracts, 0);
   const atRiskCount = filteredPositions.filter(p => p.pctAboveStrike < 5).length;
+  const cashSecured = filteredPositions.reduce((sum, p) => sum + (p.strikePrice * 100 * p.contracts), 0);
   
   // Find next expiration (use filtered positions)
   const sortedByExp = [...filteredPositions].sort((a, b) => a.daysToExp - b.daysToExp);
@@ -230,12 +231,18 @@ const Dashboard = () => {
         />
 
         {/* Portfolio Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <StatCard
             title="Total Premium Collected"
             value={`$${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             subtitle="Across all positions"
             icon={DollarSign}
+          />
+          <StatCard
+            title="Cash Secured"
+            value={`$${cashSecured.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+            subtitle="Total capital reserved"
+            icon={TrendingUp}
           />
           <StatCard
             title="Active Contracts"
