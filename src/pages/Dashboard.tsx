@@ -3,14 +3,21 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { ImportBar } from "@/components/dashboard/ImportBar";
 import { FiltersToolbar } from "@/components/dashboard/FiltersToolbar";
 import { PositionsTable } from "@/components/dashboard/PositionsTable";
-import { mockPositions } from "@/lib/mockData";
-import { DollarSign, FileText, Calendar, AlertTriangle } from "lucide-react";
+import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { usePositions } from "@/hooks/usePositions";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const Dashboard = () => {
-  const [positions] = useState(mockPositions);
+  const { user, loading: authLoading, signOut } = useAuth();
+  const { positions, loading: positionsLoading } = usePositions();
   
   // Calculate portfolio stats
   const totalPremium = positions.reduce((sum, p) => sum + p.totalPremium, 0);
+  const totalUnrealizedPnL = positions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
   const activeContracts = positions.reduce((sum, p) => sum + p.contracts, 0);
   const atRiskCount = positions.filter(p => p.pctAboveStrike < 5).length;
   
@@ -18,15 +25,66 @@ const Dashboard = () => {
   const sortedByExp = [...positions].sort((a, b) => a.daysToExp - b.daysToExp);
   const nextExp = sortedByExp[0];
 
+  // Export to CSV
+  const exportToCSV = () => {
+    const headers = ['Symbol', 'Strike', 'Expiration', 'Contracts', 'Premium/ct', 'Total Premium', 'Unrealized P/L', 'Days to Exp', '% Above Strike', 'Prob Assignment'];
+    const rows = positions.map(p => [
+      p.symbol,
+      p.strikePrice,
+      p.expiration,
+      p.contracts,
+      p.premiumPerContract,
+      p.totalPremium,
+      p.unrealizedPnL,
+      p.daysToExp,
+      p.pctAboveStrike,
+      p.probAssignment,
+    ]);
+    
+    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `csp-positions-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
+  // Chart data for P/L over time (mock for now)
+  const chartData = positions.map(p => ({
+    name: p.symbol,
+    pnl: p.unrealizedPnL,
+  })).sort((a, b) => b.pnl - a.pnl).slice(0, 10);
+
+  if (authLoading || positionsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6 space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold">Cash-Secured Put Tracker</h1>
-          <p className="text-muted-foreground">
-            Monitor your positions with real-time risk metrics and assignment probabilities
-          </p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Cash-Secured Put Tracker</h1>
+            <p className="text-muted-foreground">
+              Monitor your positions with real-time risk metrics and assignment probabilities
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={exportToCSV} disabled={positions.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button variant="outline" onClick={signOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
 
         {/* Portfolio Summary Cards */}
@@ -69,10 +127,40 @@ const Dashboard = () => {
           onExpirationChange={() => {}}
         />
 
+        {/* P/L Chart */}
+        {positions.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Position Performance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={{ pnl: { label: "Unrealized P/L", color: "hsl(var(--primary))" } }} className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line type="monotone" dataKey="pnl" stroke="hsl(var(--primary))" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Positions Table */}
         <div>
           <h2 className="text-xl font-semibold mb-4">Active Positions</h2>
-          <PositionsTable positions={positions} />
+          {positions.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                No positions yet. Use the import bar above to add your first position.
+              </CardContent>
+            </Card>
+          ) : (
+            <PositionsTable positions={positions} />
+          )}
         </div>
       </div>
     </div>
