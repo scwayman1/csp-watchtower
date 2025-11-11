@@ -14,7 +14,125 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      market_data: {
+        Row: {
+          id: string
+          last_updated: string | null
+          symbol: string
+          underlying_price: number | null
+        }
+        Insert: {
+          id?: string
+          last_updated?: string | null
+          symbol: string
+          underlying_price?: number | null
+        }
+        Update: {
+          id?: string
+          last_updated?: string | null
+          symbol?: string
+          underlying_price?: number | null
+        }
+        Relationships: []
+      }
+      option_data: {
+        Row: {
+          ask_price: number | null
+          bid_price: number | null
+          delta: number | null
+          id: string
+          implied_volatility: number | null
+          last_updated: string | null
+          mark_price: number | null
+          position_id: string
+        }
+        Insert: {
+          ask_price?: number | null
+          bid_price?: number | null
+          delta?: number | null
+          id?: string
+          implied_volatility?: number | null
+          last_updated?: string | null
+          mark_price?: number | null
+          position_id: string
+        }
+        Update: {
+          ask_price?: number | null
+          bid_price?: number | null
+          delta?: number | null
+          id?: string
+          implied_volatility?: number | null
+          last_updated?: string | null
+          mark_price?: number | null
+          position_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "option_data_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      positions: {
+        Row: {
+          broker: string | null
+          closed_at: string | null
+          contracts: number
+          created_at: string | null
+          expiration: string
+          id: string
+          is_active: boolean | null
+          open_fees: number | null
+          opened_at: string | null
+          premium_per_contract: number
+          raw_order_text: string | null
+          strike_price: number
+          symbol: string
+          underlying_name: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          broker?: string | null
+          closed_at?: string | null
+          contracts?: number
+          created_at?: string | null
+          expiration: string
+          id?: string
+          is_active?: boolean | null
+          open_fees?: number | null
+          opened_at?: string | null
+          premium_per_contract: number
+          raw_order_text?: string | null
+          strike_price: number
+          symbol: string
+          underlying_name?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          broker?: string | null
+          closed_at?: string | null
+          contracts?: number
+          created_at?: string | null
+          expiration?: string
+          id?: string
+          is_active?: boolean | null
+          open_fees?: number | null
+          opened_at?: string | null
+          premium_per_contract?: number
+          raw_order_text?: string | null
+          strike_price?: number
+          symbol?: string
+          underlying_name?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
