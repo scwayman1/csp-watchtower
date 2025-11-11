@@ -34,6 +34,11 @@ export function ShareManagement({ userId }: { userId: string }) {
 
   const addShareMutation = useMutation({
     mutationFn: async (emailToShare: string) => {
+      // Get current user email
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error("User not authenticated");
+
+      // Insert share record
       const { error } = await supabase
         .from("position_shares")
         .insert({
@@ -42,13 +47,28 @@ export function ShareManagement({ userId }: { userId: string }) {
         });
 
       if (error) throw error;
+
+      // Send invitation email
+      const appUrl = window.location.origin;
+      const { error: emailError } = await supabase.functions.invoke('send-invite-email', {
+        body: {
+          inviterEmail: user.email,
+          recipientEmail: emailToShare,
+          appUrl,
+        },
+      });
+
+      if (emailError) {
+        console.error("Failed to send invitation email:", emailError);
+        // Don't throw - the share was created successfully
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["position-shares"] });
       setEmail("");
       toast({
-        title: "Dashboard shared",
-        description: "They'll be able to view your positions once they sign up or log in.",
+        title: "Invitation sent!",
+        description: "They'll receive an email with instructions to view your dashboard.",
       });
     },
     onError: (error: any) => {
