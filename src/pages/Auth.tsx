@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = searchParams.get("returnUrl") || "/";
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,12 +26,12 @@ const Auth = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast({ title: "Welcome back!" });
-        navigate("/");
+        navigate(returnUrl);
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         toast({ title: "Account created successfully!" });
-        navigate("/");
+        navigate(returnUrl);
       }
     } catch (error: any) {
       toast({

@@ -4,20 +4,22 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Trash2, UserPlus, Mail } from "lucide-react";
+import { Trash2, UserPlus, Link2, Check } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Share {
   id: string;
   shared_with_email: string;
   created_at: string;
+  invite_token: string;
+  accepted_at: string | null;
 }
 
 export function ShareManagement({ userId }: { userId: string }) {
   const [email, setEmail] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [emailWarningDismissed, setEmailWarningDismissed] = useState(false);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   const { data: shares = [], isLoading } = useQuery({
     queryKey: ["position-shares", userId],
@@ -35,11 +37,7 @@ export function ShareManagement({ userId }: { userId: string }) {
 
   const addShareMutation = useMutation({
     mutationFn: async (emailToShare: string) => {
-      // Get current user email
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) throw new Error("User not authenticated");
-
-      // Insert share record
+      // Insert share record (invite_token is auto-generated)
       const { error } = await supabase
         .from("position_shares")
         .insert({
@@ -48,33 +46,13 @@ export function ShareManagement({ userId }: { userId: string }) {
         });
 
       if (error) throw error;
-
-      // Send invitation email
-      const appUrl = window.location.origin;
-      const { error: emailError } = await supabase.functions.invoke('send-invite-email', {
-        body: {
-          inviterEmail: user.email,
-          recipientEmail: emailToShare,
-          appUrl,
-        },
-      });
-
-      if (emailError) {
-        console.error("Failed to send invitation email:", emailError);
-        toast({
-          title: "Share created (email not sent)",
-          description: "Access granted, but email requires domain verification. Contact them manually.",
-          variant: "default",
-        });
-        return;
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["position-shares"] });
       setEmail("");
       toast({
-        title: "Invitation sent!",
-        description: "They'll receive an email with instructions to view your dashboard.",
+        title: "Share created!",
+        description: "Copy the invite link and share it with them.",
       });
     },
     onError: (error: any) => {
@@ -111,38 +89,16 @@ export function ShareManagement({ userId }: { userId: string }) {
     },
   });
 
-  const resendInviteMutation = useMutation({
-    mutationFn: async (recipientEmail: string) => {
-      // Get current user email
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) throw new Error("User not authenticated");
-
-      // Send invitation email
-      const appUrl = window.location.origin;
-      const { error } = await supabase.functions.invoke('send-invite-email', {
-        body: {
-          inviterEmail: user.email,
-          recipientEmail,
-          appUrl,
-        },
-      });
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast({
-        title: "Invitation resent!",
-        description: "The invitation email has been sent again.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Failed to send invitation",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  const copyInviteLink = (token: string) => {
+    const inviteUrl = `${window.location.origin}/accept-invite/${token}`;
+    navigator.clipboard.writeText(inviteUrl);
+    setCopiedToken(token);
+    toast({
+      title: "Link copied!",
+      description: "Share this link to grant dashboard access.",
+    });
+    setTimeout(() => setCopiedToken(null), 2000);
+  };
 
   const handleShare = (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,24 +125,12 @@ export function ShareManagement({ userId }: { userId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!emailWarningDismissed && (
-          <div className="p-3 rounded-md bg-muted border border-border">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm text-muted-foreground">
-                <strong>Note:</strong> Email invitations require domain verification with Resend. 
-                For now, share access is granted but users must be notified manually to sign up with their invited email.
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEmailWarningDismissed(true)}
-                className="shrink-0"
-              >
-                ✕
-              </Button>
-            </div>
-          </div>
-        )}
+        <div className="p-3 rounded-md bg-muted border border-border">
+          <p className="text-sm text-muted-foreground">
+            <strong>Tip:</strong> Share the invite link via text, email, or any messaging app. 
+            Recipients must sign up with the invited email to gain access.
+          </p>
+        </div>
         <form onSubmit={handleShare} className="flex gap-2">
           <Input
             type="email"
@@ -214,16 +158,26 @@ export function ShareManagement({ userId }: { userId: string }) {
                   key={share.id}
                   className="flex items-center justify-between p-2 rounded-md bg-muted"
                 >
-                  <span className="text-sm">{share.shared_with_email}</span>
+                  <div className="flex flex-col">
+                    <span className="text-sm">{share.shared_with_email}</span>
+                    {share.accepted_at && (
+                      <span className="text-xs text-muted-foreground">
+                        Accepted {new Date(share.accepted_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => resendInviteMutation.mutate(share.shared_with_email)}
-                      disabled={resendInviteMutation.isPending}
-                      title="Resend invitation email"
+                      onClick={() => copyInviteLink(share.invite_token)}
+                      title="Copy invite link"
                     >
-                      <Mail className="h-4 w-4 text-primary" />
+                      {copiedToken === share.invite_token ? (
+                        <Check className="h-4 w-4 text-success" />
+                      ) : (
+                        <Link2 className="h-4 w-4 text-primary" />
+                      )}
                     </Button>
                     <Button
                       variant="ghost"
