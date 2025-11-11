@@ -34,60 +34,57 @@ serve(async (req) => {
       );
     }
 
-    const POLYGON_API_KEY = Deno.env.get('POLYGON_API_KEY');
-    
-    if (!POLYGON_API_KEY) {
-      throw new Error('POLYGON_API_KEY not configured');
-    }
-
-    // Fetch daily aggregate data from Polygon.io (free tier compatible)
-    // Rate limit: 5 requests per minute, so delay 12 seconds between each call
+    // Fetch prices from Yahoo Finance API (free, no API key needed)
     const priceUpdates = [];
     
     for (const symbol of symbols) {
       try {
-        // Get yesterday's data for daily open and previous close
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const dateStr = yesterday.toISOString().split('T')[0];
-        
-        // Fetch daily aggregate (open, close, high, low) - single API call
-        const aggregateResponse = await fetch(
-          `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${dateStr}/${dateStr}?adjusted=true&apiKey=${POLYGON_API_KEY}`
+        // Fetch quote data from Yahoo Finance
+        const quoteResponse = await fetch(
+          `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=5m&range=1d`
         );
         
-        if (!aggregateResponse.ok) {
-          console.error(`Failed to fetch data for ${symbol}:`, aggregateResponse.status);
-          await new Promise(resolve => setTimeout(resolve, 12000));
+        if (!quoteResponse.ok) {
+          console.error(`Failed to fetch data for ${symbol}:`, quoteResponse.status);
           continue;
         }
         
-        const aggregateData = await aggregateResponse.json();
+        const quoteData = await quoteResponse.json();
+        const result = quoteData.chart?.result?.[0];
         
-        if (aggregateData.results && aggregateData.results.length > 0) {
-          const dayData = aggregateData.results[0];
-          const previousClose = dayData.c; // Previous day close
-          const currentOpen = dayData.o; // Yesterday's open (best we can get with free tier)
+        if (result && result.indicators?.quote?.[0]) {
+          const quote = result.indicators.quote[0];
+          const timestamps = result.timestamp || [];
+          const closes = quote.close || [];
           
-          // Use yesterday's close as current price approximation for free tier
-          const currentPrice = previousClose;
-          const dayChangePct = ((currentPrice - currentOpen) / currentOpen) * 100;
+          // Filter out null values and get valid prices
+          const validPrices = closes
+            .map((price: number | null, idx: number) => ({ price, time: timestamps[idx] }))
+            .filter((item: any) => item.price !== null);
           
-          priceUpdates.push({
-            symbol,
-            underlying_price: currentPrice,
-            day_open: currentOpen,
-            day_change_pct: dayChangePct,
-            intraday_prices: null, // Not available in free tier
-            last_updated: new Date().toISOString(),
-          });
+          if (validPrices.length > 0) {
+            const currentPrice = validPrices[validPrices.length - 1].price;
+            const dayOpen = validPrices[0].price;
+            const dayChangePct = ((currentPrice - dayOpen) / dayOpen) * 100;
+            
+            // Extract prices for sparkline (sample every few points for performance)
+            const step = Math.max(1, Math.ceil(validPrices.length / 20));
+            const intradayPrices = validPrices
+              .filter((_: any, idx: number) => idx % step === 0)
+              .map((item: any) => item.price);
+            
+            priceUpdates.push({
+              symbol,
+              underlying_price: currentPrice,
+              day_open: dayOpen,
+              day_change_pct: dayChangePct,
+              intraday_prices: intradayPrices,
+              last_updated: new Date().toISOString(),
+            });
+          }
         }
-        
-        // Wait 12 seconds before next request (5 per minute = 1 every 12 seconds)
-        await new Promise(resolve => setTimeout(resolve, 12000));
       } catch (error) {
         console.error(`Error fetching ${symbol}:`, error);
-        await new Promise(resolve => setTimeout(resolve, 12000));
       }
     }
 
