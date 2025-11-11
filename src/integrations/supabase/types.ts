@@ -14,6 +14,115 @@ export type Database = {
   }
   public: {
     Tables: {
+      assigned_positions: {
+        Row: {
+          assignment_date: string
+          assignment_price: number
+          closed_at: string | null
+          cost_basis: number
+          created_at: string
+          id: string
+          is_active: boolean
+          original_position_id: string | null
+          original_put_premium: number
+          shares: number
+          sold_price: number | null
+          symbol: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assignment_date: string
+          assignment_price: number
+          closed_at?: string | null
+          cost_basis: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          original_position_id?: string | null
+          original_put_premium?: number
+          shares: number
+          sold_price?: number | null
+          symbol: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assignment_date?: string
+          assignment_price?: number
+          closed_at?: string | null
+          cost_basis?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          original_position_id?: string | null
+          original_put_premium?: number
+          shares?: number
+          sold_price?: number | null
+          symbol?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assigned_positions_original_position_id_fkey"
+            columns: ["original_position_id"]
+            isOneToOne: false
+            referencedRelation: "positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      covered_calls: {
+        Row: {
+          assigned_position_id: string
+          closed_at: string | null
+          contracts: number
+          created_at: string
+          expiration: string
+          id: string
+          is_active: boolean
+          opened_at: string
+          premium_per_contract: number
+          strike_price: number
+          updated_at: string
+        }
+        Insert: {
+          assigned_position_id: string
+          closed_at?: string | null
+          contracts?: number
+          created_at?: string
+          expiration: string
+          id?: string
+          is_active?: boolean
+          opened_at?: string
+          premium_per_contract: number
+          strike_price: number
+          updated_at?: string
+        }
+        Update: {
+          assigned_position_id?: string
+          closed_at?: string | null
+          contracts?: number
+          created_at?: string
+          expiration?: string
+          id?: string
+          is_active?: boolean
+          opened_at?: string
+          premium_per_contract?: number
+          strike_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "covered_calls_assigned_position_id_fkey"
+            columns: ["assigned_position_id"]
+            isOneToOne: false
+            referencedRelation: "assigned_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       market_data: {
         Row: {
           day_change_pct: number | null

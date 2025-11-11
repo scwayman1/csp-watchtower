@@ -3,9 +3,11 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { ImportBar } from "@/components/dashboard/ImportBar";
 import { FiltersToolbar } from "@/components/dashboard/FiltersToolbar";
 import { PositionsTable } from "@/components/dashboard/PositionsTable";
+import { AssignedPositionsTable } from "@/components/dashboard/AssignedPositionsTable";
 import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
+import { useAssignedPositions } from "@/hooks/useAssignedPositions";
 import { useSettings } from "@/hooks/useSettings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions();
+  const { assignedPositions, loading: assignedLoading } = useAssignedPositions();
   const { settings } = useSettings(user?.id);
   const { toast } = useToast();
   const [refreshing, setRefreshing] = useState(false);
@@ -230,6 +233,11 @@ const Dashboard = () => {
           ) : (
             <PositionsTable positions={positions} />
           )}
+        </div>
+
+        {/* Assigned Positions Section */}
+        <div>
+          <AssignedPositionsTable positions={assignedPositions} />
         </div>
       </div>
     </div>
