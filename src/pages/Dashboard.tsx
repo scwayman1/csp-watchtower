@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ImportBar } from "@/components/dashboard/ImportBar";
 import { FiltersToolbar } from "@/components/dashboard/FiltersToolbar";
 import { PositionsTable } from "@/components/dashboard/PositionsTable";
 import { AssignedPositionsTable } from "@/components/dashboard/AssignedPositionsTable";
+import { TimePeriodFilter, TimePeriod } from "@/components/dashboard/TimePeriodFilter";
 import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
@@ -17,6 +18,8 @@ import { CartesianGrid, Line, LineChart, XAxis, YAxis, Tooltip, ResponsiveContai
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { DateRange } from "react-day-picker";
+import { startOfMonth, startOfYear, isAfter, isBefore, isWithinInterval } from "date-fns";
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -25,10 +28,69 @@ const Dashboard = () => {
   const { settings } = useSettings(user?.id);
   const { toast } = useToast();
   const [refreshing, setRefreshing] = useState(false);
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
   
   const hasSharedPositions = sharedOwners && sharedOwners.size > 0;
   const ownPositions = positions.filter(p => !sharedOwners?.has(p.id));
   const sharedPositions = positions.filter(p => sharedOwners?.has(p.id));
+
+  // Filter positions by time period
+  const filteredPositions = useMemo(() => {
+    const now = new Date();
+    
+    return positions.filter(position => {
+      // Parse the opened_at date from the position
+      // Note: positions don't have opened_at in the Position type, using created_at logic
+      // You may need to add opened_at field if it exists in your database
+      const positionDate = new Date(position.expiration); // Using expiration as proxy for now
+      
+      switch (timePeriod) {
+        case "mtd":
+          return isAfter(positionDate, startOfMonth(now));
+        case "ytd":
+          return isAfter(positionDate, startOfYear(now));
+        case "custom":
+          if (customDateRange?.from && customDateRange?.to) {
+            return isWithinInterval(positionDate, {
+              start: customDateRange.from,
+              end: customDateRange.to,
+            });
+          }
+          return true;
+        case "all":
+        default:
+          return true;
+      }
+    });
+  }, [positions, timePeriod, customDateRange]);
+
+  // Filter assigned positions by time period
+  const filteredAssignedPositions = useMemo(() => {
+    const now = new Date();
+    
+    return assignedPositions.filter(position => {
+      const assignmentDate = new Date(position.assignment_date);
+      
+      switch (timePeriod) {
+        case "mtd":
+          return isAfter(assignmentDate, startOfMonth(now));
+        case "ytd":
+          return isAfter(assignmentDate, startOfYear(now));
+        case "custom":
+          if (customDateRange?.from && customDateRange?.to) {
+            return isWithinInterval(assignmentDate, {
+              start: customDateRange.from,
+              end: customDateRange.to,
+            });
+          }
+          return true;
+        case "all":
+        default:
+          return true;
+      }
+    });
+  }, [assignedPositions, timePeriod, customDateRange]);
 
   const getModelDisplayName = (model: string) => {
     switch (model) {
@@ -59,20 +121,20 @@ const Dashboard = () => {
     }
   };
   
-  // Calculate portfolio stats
-  const totalPremium = positions.reduce((sum, p) => sum + p.totalPremium, 0);
-  const totalUnrealizedPnL = positions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
-  const activeContracts = positions.reduce((sum, p) => sum + p.contracts, 0);
-  const atRiskCount = positions.filter(p => p.pctAboveStrike < 5).length;
+  // Calculate portfolio stats (use filtered positions)
+  const totalPremium = filteredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
+  const totalUnrealizedPnL = filteredPositions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
+  const activeContracts = filteredPositions.reduce((sum, p) => sum + p.contracts, 0);
+  const atRiskCount = filteredPositions.filter(p => p.pctAboveStrike < 5).length;
   
-  // Find next expiration
-  const sortedByExp = [...positions].sort((a, b) => a.daysToExp - b.daysToExp);
+  // Find next expiration (use filtered positions)
+  const sortedByExp = [...filteredPositions].sort((a, b) => a.daysToExp - b.daysToExp);
   const nextExp = sortedByExp[0];
 
-  // Export to CSV
+  // Export to CSV (use filtered positions)
   const exportToCSV = () => {
     const headers = ['Symbol', 'Strike', 'Expiration', 'Contracts', 'Premium/ct', 'Total Premium', 'Unrealized P/L', 'Days to Exp', '% Above Strike', 'Prob Assignment'];
-    const rows = positions.map(p => [
+    const rows = filteredPositions.map(p => [
       p.symbol,
       p.strikePrice,
       p.expiration,
@@ -94,8 +156,8 @@ const Dashboard = () => {
     a.click();
   };
 
-  // Chart data for P/L over time (mock for now)
-  const chartData = positions.map(p => ({
+  // Chart data for P/L over time (use filtered positions)
+  const chartData = filteredPositions.map(p => ({
     name: p.symbol,
     pnl: p.unrealizedPnL,
   })).sort((a, b) => b.pnl - a.pnl).slice(0, 10);
@@ -134,7 +196,7 @@ const Dashboard = () => {
               <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh Prices
             </Button>
-            <Button variant="outline" onClick={exportToCSV} disabled={positions.length === 0}>
+            <Button variant="outline" onClick={exportToCSV} disabled={filteredPositions.length === 0}>
               <Download className="mr-2 h-4 w-4" />
               Export CSV
             </Button>
@@ -159,6 +221,14 @@ const Dashboard = () => {
           </Alert>
         )}
 
+        {/* Time Period Filter */}
+        <TimePeriodFilter
+          selectedPeriod={timePeriod}
+          onPeriodChange={setTimePeriod}
+          customDateRange={customDateRange}
+          onCustomDateRangeChange={setCustomDateRange}
+        />
+
         {/* Portfolio Summary Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
@@ -170,7 +240,7 @@ const Dashboard = () => {
           <StatCard
             title="Active Contracts"
             value={activeContracts.toString()}
-            subtitle={`${positions.length} positions`}
+            subtitle={`${filteredPositions.length} positions`}
             icon={FileText}
           />
           <StatCard
@@ -200,7 +270,7 @@ const Dashboard = () => {
         />
 
         {/* P/L Chart */}
-        {positions.length > 0 && (
+        {filteredPositions.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Position Performance</CardTitle>
@@ -224,20 +294,20 @@ const Dashboard = () => {
         {/* Positions Table */}
         <div>
           <h2 className="text-xl font-semibold mb-4">Active Positions</h2>
-          {positions.length === 0 ? (
+          {filteredPositions.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center text-muted-foreground">
-                No positions yet. Use the import bar above to add your first position.
+                No positions found for the selected time period.
               </CardContent>
             </Card>
           ) : (
-            <PositionsTable positions={positions} />
+            <PositionsTable positions={filteredPositions} />
           )}
         </div>
 
         {/* Assigned Positions Section */}
         <div>
-          <AssignedPositionsTable positions={assignedPositions} onRefetch={refetchAssigned} />
+          <AssignedPositionsTable positions={filteredAssignedPositions} onRefetch={refetchAssigned} />
         </div>
       </div>
     </div>
