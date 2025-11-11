@@ -196,22 +196,28 @@ export type Database = {
       }
       position_shares: {
         Row: {
+          accepted_at: string | null
           created_at: string | null
           id: string
+          invite_token: string
           owner_id: string
           shared_with_email: string
           shared_with_user_id: string | null
         }
         Insert: {
+          accepted_at?: string | null
           created_at?: string | null
           id?: string
+          invite_token?: string
           owner_id: string
           shared_with_email: string
           shared_with_user_id?: string | null
         }
         Update: {
+          accepted_at?: string | null
           created_at?: string | null
           id?: string
+          invite_token?: string
           owner_id?: string
           shared_with_email?: string
           shared_with_user_id?: string | null
