@@ -1,0 +1,56 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface UserSettings {
+  probability_model: string;
+  safe_threshold: number;
+  warning_threshold: number;
+  market_data_provider: string;
+  refresh_rate_seconds: number;
+  volatility_sensitivity: number;
+}
+
+export function useSettings(userId: string | undefined) {
+  const [settings, setSettings] = useState<UserSettings>({
+    probability_model: 'delta',
+    safe_threshold: 10,
+    warning_threshold: 5,
+    market_data_provider: 'polygon',
+    refresh_rate_seconds: 60,
+    volatility_sensitivity: 0.15,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const fetchSettings = async () => {
+      try {
+        const { data } = await supabase
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (data) {
+          setSettings({
+            probability_model: data.probability_model || 'delta',
+            safe_threshold: data.safe_threshold || 10,
+            warning_threshold: data.warning_threshold || 5,
+            market_data_provider: data.market_data_provider || 'polygon',
+            refresh_rate_seconds: data.refresh_rate_seconds || 60,
+            volatility_sensitivity: data.volatility_sensitivity || 0.15,
+          });
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, [userId]);
+
+  return { settings, loading };
+}

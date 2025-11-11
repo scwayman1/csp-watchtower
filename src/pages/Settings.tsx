@@ -6,9 +6,97 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Settings as SettingsIcon } from "lucide-react";
 import { ShareManagement } from "@/components/settings/ShareManagement";
 import { useAuth } from "@/hooks/useAuth";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Settings = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
+  const [provider, setProvider] = useState("polygon");
+  const [refreshRate, setRefreshRate] = useState("60");
+  const [safeThreshold, setSafeThreshold] = useState("10");
+  const [warningThreshold, setWarningThreshold] = useState("5");
+  const [probabilityModel, setProbabilityModel] = useState("delta");
+  const [volSensitivity, setVolSensitivity] = useState("0.15");
+
+  useEffect(() => {
+    if (user) {
+      loadSettings();
+    }
+  }, [user]);
+
+  const loadSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setProvider(data.market_data_provider || "polygon");
+        setRefreshRate(String(data.refresh_rate_seconds || 60));
+        setSafeThreshold(String(data.safe_threshold || 10));
+        setWarningThreshold(String(data.warning_threshold || 5));
+        setProbabilityModel(data.probability_model || "delta");
+        setVolSensitivity(String(data.volatility_sensitivity || 0.15));
+      }
+    } catch (error: any) {
+      console.error('Error loading settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveSettings = async () => {
+    if (!user) return;
+    
+    setSaving(true);
+    try {
+      const settings = {
+        user_id: user.id,
+        market_data_provider: provider,
+        refresh_rate_seconds: parseInt(refreshRate),
+        safe_threshold: parseFloat(safeThreshold),
+        warning_threshold: parseFloat(warningThreshold),
+        probability_model: probabilityModel,
+        volatility_sensitivity: parseFloat(volSensitivity),
+      };
+
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert(settings, { onConflict: 'user_id' });
+
+      if (error) throw error;
+
+      toast({
+        title: "Settings saved",
+        description: "Your preferences have been updated successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error saving settings",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading settings...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -35,7 +123,7 @@ const Settings = () => {
           <CardContent className="space-y-4">
             <div className="grid gap-2">
               <Label htmlFor="provider">Market Data Provider</Label>
-              <Select defaultValue="polygon">
+              <Select value={provider} onValueChange={setProvider}>
                 <SelectTrigger id="provider">
                   <SelectValue />
                 </SelectTrigger>
@@ -48,11 +136,12 @@ const Settings = () => {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="refresh">Refresh Rate (seconds)</Label>
-              <Input id="refresh" type="number" defaultValue="60" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="api-key">API Key</Label>
-              <Input id="api-key" type="password" placeholder="Enter your API key" />
+              <Input 
+                id="refresh" 
+                type="number" 
+                value={refreshRate} 
+                onChange={(e) => setRefreshRate(e.target.value)}
+              />
             </div>
           </CardContent>
         </Card>
@@ -68,12 +157,24 @@ const Settings = () => {
           <CardContent className="space-y-4">
             <div className="grid gap-2">
               <Label htmlFor="safe-threshold">Safe Zone (% above strike)</Label>
-              <Input id="safe-threshold" type="number" defaultValue="10" step="0.5" />
+              <Input 
+                id="safe-threshold" 
+                type="number" 
+                value={safeThreshold} 
+                onChange={(e) => setSafeThreshold(e.target.value)}
+                step="0.5" 
+              />
               <p className="text-xs text-muted-foreground">Green badge when ≥ this value</p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="warning-threshold">Warning Zone (% above strike)</Label>
-              <Input id="warning-threshold" type="number" defaultValue="5" step="0.5" />
+              <Input 
+                id="warning-threshold" 
+                type="number" 
+                value={warningThreshold} 
+                onChange={(e) => setWarningThreshold(e.target.value)}
+                step="0.5" 
+              />
               <p className="text-xs text-muted-foreground">Amber badge between this and safe zone</p>
             </div>
             <div className="grid gap-2">
@@ -96,7 +197,7 @@ const Settings = () => {
           <CardContent className="space-y-4">
             <div className="grid gap-2">
               <Label htmlFor="model">Probability Model</Label>
-              <Select defaultValue="delta">
+              <Select value={probabilityModel} onValueChange={setProbabilityModel}>
                 <SelectTrigger id="model">
                   <SelectValue />
                 </SelectTrigger>
@@ -109,9 +210,15 @@ const Settings = () => {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="vol-sensitivity">Volatility Sensitivity</Label>
-              <Input id="vol-sensitivity" type="number" defaultValue="0.15" step="0.01" />
+              <Input 
+                id="vol-sensitivity" 
+                type="number" 
+                value={volSensitivity} 
+                onChange={(e) => setVolSensitivity(e.target.value)}
+                step="0.01" 
+              />
               <p className="text-xs text-muted-foreground">
-                Used in heuristic model calculations (default: 0.15)
+                Used in heuristic and Black-Scholes calculations (default: 0.15)
               </p>
             </div>
           </CardContent>
@@ -122,7 +229,9 @@ const Settings = () => {
 
         {/* Save Button */}
         <div className="flex justify-end">
-          <Button size="lg">Save Settings</Button>
+          <Button size="lg" onClick={saveSettings} disabled={saving}>
+            {saving ? "Saving..." : "Save Settings"}
+          </Button>
         </div>
       </div>
     </div>

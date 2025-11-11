@@ -3,22 +3,34 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { ImportBar } from "@/components/dashboard/ImportBar";
 import { FiltersToolbar } from "@/components/dashboard/FiltersToolbar";
 import { PositionsTable } from "@/components/dashboard/PositionsTable";
-import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2 } from "lucide-react";
+import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
+import { useSettings } from "@/hooks/useSettings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const { positions, loading: positionsLoading, sharedOwners } = usePositions();
+  const { settings } = useSettings(user?.id);
   
   const hasSharedPositions = sharedOwners && sharedOwners.size > 0;
   const ownPositions = positions.filter(p => !sharedOwners?.has(p.id));
   const sharedPositions = positions.filter(p => sharedOwners?.has(p.id));
+
+  const getModelDisplayName = (model: string) => {
+    switch (model) {
+      case 'delta': return 'Option Delta';
+      case 'black-scholes': return 'Black-Scholes';
+      case 'heuristic': return 'Heuristic';
+      default: return model;
+    }
+  };
   
   // Calculate portfolio stats
   const totalPremium = positions.reduce((sum, p) => sum + p.totalPremium, 0);
@@ -79,6 +91,12 @@ const Dashboard = () => {
             <p className="text-muted-foreground">
               Monitor your positions with real-time risk metrics and assignment probabilities
             </p>
+            <div className="flex items-center gap-2 mt-2">
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                Using <Badge variant="outline" className="ml-1">{getModelDisplayName(settings.probability_model)}</Badge> probability model
+              </span>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={exportToCSV} disabled={positions.length === 0}>

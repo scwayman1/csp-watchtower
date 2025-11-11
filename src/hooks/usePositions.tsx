@@ -54,9 +54,13 @@ export function usePositions() {
         positionsData.map(async (pos) => {
           const underlyingPrice = marketDataMap.get(pos.symbol) || pos.strike_price * 1.1;
 
-          // Calculate metrics using edge function
+          // Calculate metrics using edge function with user settings
           const { data: metrics } = await supabase.functions.invoke('calculate-metrics', {
-            body: { position: pos, underlyingPrice },
+            body: { 
+              position: pos, 
+              underlyingPrice,
+              userId: user.id 
+            },
           });
 
           return {

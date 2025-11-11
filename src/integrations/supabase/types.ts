@@ -157,6 +157,48 @@ export type Database = {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          api_key: string | null
+          created_at: string | null
+          id: string
+          market_data_provider: string | null
+          probability_model: string | null
+          refresh_rate_seconds: number | null
+          safe_threshold: number | null
+          updated_at: string | null
+          user_id: string
+          volatility_sensitivity: number | null
+          warning_threshold: number | null
+        }
+        Insert: {
+          api_key?: string | null
+          created_at?: string | null
+          id?: string
+          market_data_provider?: string | null
+          probability_model?: string | null
+          refresh_rate_seconds?: number | null
+          safe_threshold?: number | null
+          updated_at?: string | null
+          user_id: string
+          volatility_sensitivity?: number | null
+          warning_threshold?: number | null
+        }
+        Update: {
+          api_key?: string | null
+          created_at?: string | null
+          id?: string
+          market_data_provider?: string | null
+          probability_model?: string | null
+          refresh_rate_seconds?: number | null
+          safe_threshold?: number | null
+          updated_at?: string | null
+          user_id?: string
+          volatility_sensitivity?: number | null
+          warning_threshold?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
