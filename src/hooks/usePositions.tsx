@@ -135,8 +135,8 @@ export function usePositions() {
     // Initial fetch
     refreshMarketData();
 
-    // Refresh every 60 seconds (can be made configurable from settings)
-    const intervalId = setInterval(refreshMarketData, 60000);
+    // Refresh every 3 minutes to allow time for rate-limited API calls
+    const intervalId = setInterval(refreshMarketData, 180000);
 
     return () => {
       supabase.removeChannel(channel);

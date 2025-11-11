@@ -41,54 +41,59 @@ serve(async (req) => {
     }
 
     // Fetch prices and intraday data from Polygon.io
-    const priceUpdates = await Promise.all(
-      symbols.map(async (symbol) => {
-        try {
-          // Get today's date range
-          const today = new Date();
-          const dateStr = today.toISOString().split('T')[0];
-          
-          // Fetch intraday data (5-minute bars for today)
-          const intradayResponse = await fetch(
-            `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/5/minute/${dateStr}/${dateStr}?adjusted=true&sort=asc&apiKey=${POLYGON_API_KEY}`
-          );
-          
-          if (!intradayResponse.ok) {
-            console.error(`Failed to fetch intraday for ${symbol}:`, intradayResponse.status);
-            return null;
-          }
-          
-          const intradayData = await intradayResponse.json();
-          
-          if (intradayData.results && intradayData.results.length > 0) {
-            const results = intradayData.results;
-            const dayOpen = results[0].o; // First bar's open
-            const currentPrice = results[results.length - 1].c; // Last bar's close
-            const dayChangePct = ((currentPrice - dayOpen) / dayOpen) * 100;
-            
-            // Extract closing prices for sparkline (max 20 points for performance)
-            const step = Math.ceil(results.length / 20);
-            const intradayPrices = results
-              .filter((_: any, idx: number) => idx % step === 0)
-              .map((r: any) => r.c);
-            
-            return {
-              symbol,
-              underlying_price: currentPrice,
-              day_open: dayOpen,
-              day_change_pct: dayChangePct,
-              intraday_prices: intradayPrices,
-              last_updated: new Date().toISOString(),
-            };
-          }
-          
-          return null;
-        } catch (error) {
-          console.error(`Error fetching ${symbol}:`, error);
-          return null;
+    // Rate limit: 5 requests per minute, so delay 12 seconds between each call
+    const priceUpdates = [];
+    
+    for (const symbol of symbols) {
+      try {
+        // Get today's date range
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0];
+        
+        // Fetch intraday data (5-minute bars for today)
+        const intradayResponse = await fetch(
+          `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/5/minute/${dateStr}/${dateStr}?adjusted=true&sort=asc&apiKey=${POLYGON_API_KEY}`
+        );
+        
+        if (!intradayResponse.ok) {
+          console.error(`Failed to fetch intraday for ${symbol}:`, intradayResponse.status);
+          // Wait 12 seconds before next request (5 per minute = 1 every 12 seconds)
+          await new Promise(resolve => setTimeout(resolve, 12000));
+          continue;
         }
-      })
-    );
+        
+        const intradayData = await intradayResponse.json();
+        
+        if (intradayData.results && intradayData.results.length > 0) {
+          const results = intradayData.results;
+          const dayOpen = results[0].o; // First bar's open
+          const currentPrice = results[results.length - 1].c; // Last bar's close
+          const dayChangePct = ((currentPrice - dayOpen) / dayOpen) * 100;
+          
+          // Extract closing prices for sparkline (max 20 points for performance)
+          const step = Math.ceil(results.length / 20);
+          const intradayPrices = results
+            .filter((_: any, idx: number) => idx % step === 0)
+            .map((r: any) => r.c);
+          
+          priceUpdates.push({
+            symbol,
+            underlying_price: currentPrice,
+            day_open: dayOpen,
+            day_change_pct: dayChangePct,
+            intraday_prices: intradayPrices,
+            last_updated: new Date().toISOString(),
+          });
+        }
+        
+        // Wait 12 seconds before next request (5 per minute = 1 every 12 seconds)
+        await new Promise(resolve => setTimeout(resolve, 12000));
+      } catch (error) {
+        console.error(`Error fetching ${symbol}:`, error);
+        // Still wait to respect rate limit
+        await new Promise(resolve => setTimeout(resolve, 12000));
+      }
+    }
 
     const validUpdates = priceUpdates.filter(u => u !== null);
 
