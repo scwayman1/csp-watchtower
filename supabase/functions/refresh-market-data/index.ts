@@ -40,48 +40,45 @@ serve(async (req) => {
       throw new Error('POLYGON_API_KEY not configured');
     }
 
-    // Fetch prices and intraday data from Polygon.io
+    // Fetch daily aggregate data from Polygon.io (free tier compatible)
     // Rate limit: 5 requests per minute, so delay 12 seconds between each call
     const priceUpdates = [];
     
     for (const symbol of symbols) {
       try {
-        // Get today's date range
-        const today = new Date();
-        const dateStr = today.toISOString().split('T')[0];
+        // Get yesterday's data for daily open and previous close
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const dateStr = yesterday.toISOString().split('T')[0];
         
-        // Fetch intraday data (5-minute bars for today)
-        const intradayResponse = await fetch(
-          `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/5/minute/${dateStr}/${dateStr}?adjusted=true&sort=asc&apiKey=${POLYGON_API_KEY}`
+        // Fetch daily aggregate (open, close, high, low) - single API call
+        const aggregateResponse = await fetch(
+          `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${dateStr}/${dateStr}?adjusted=true&apiKey=${POLYGON_API_KEY}`
         );
         
-        if (!intradayResponse.ok) {
-          console.error(`Failed to fetch intraday for ${symbol}:`, intradayResponse.status);
-          // Wait 12 seconds before next request (5 per minute = 1 every 12 seconds)
+        if (!aggregateResponse.ok) {
+          console.error(`Failed to fetch data for ${symbol}:`, aggregateResponse.status);
           await new Promise(resolve => setTimeout(resolve, 12000));
           continue;
         }
         
-        const intradayData = await intradayResponse.json();
+        const aggregateData = await aggregateResponse.json();
         
-        if (intradayData.results && intradayData.results.length > 0) {
-          const results = intradayData.results;
-          const dayOpen = results[0].o; // First bar's open
-          const currentPrice = results[results.length - 1].c; // Last bar's close
-          const dayChangePct = ((currentPrice - dayOpen) / dayOpen) * 100;
+        if (aggregateData.results && aggregateData.results.length > 0) {
+          const dayData = aggregateData.results[0];
+          const previousClose = dayData.c; // Previous day close
+          const currentOpen = dayData.o; // Yesterday's open (best we can get with free tier)
           
-          // Extract closing prices for sparkline (max 20 points for performance)
-          const step = Math.ceil(results.length / 20);
-          const intradayPrices = results
-            .filter((_: any, idx: number) => idx % step === 0)
-            .map((r: any) => r.c);
+          // Use yesterday's close as current price approximation for free tier
+          const currentPrice = previousClose;
+          const dayChangePct = ((currentPrice - currentOpen) / currentOpen) * 100;
           
           priceUpdates.push({
             symbol,
             underlying_price: currentPrice,
-            day_open: dayOpen,
+            day_open: currentOpen,
             day_change_pct: dayChangePct,
-            intraday_prices: intradayPrices,
+            intraday_prices: null, // Not available in free tier
             last_updated: new Date().toISOString(),
           });
         }
@@ -90,7 +87,6 @@ serve(async (req) => {
         await new Promise(resolve => setTimeout(resolve, 12000));
       } catch (error) {
         console.error(`Error fetching ${symbol}:`, error);
-        // Still wait to respect rate limit
         await new Promise(resolve => setTimeout(resolve, 12000));
       }
     }

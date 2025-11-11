@@ -85,13 +85,15 @@ export function PositionsTable({ positions }: PositionsTableProps) {
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
-                  {position.intradayPrices && position.intradayPrices.length > 0 ? (
+                  {position.dayChangePct !== undefined && position.dayChangePct !== null ? (
                     <>
-                      <TrendSparkline 
-                        data={position.intradayPrices} 
-                        isPositive={(position.dayChangePct || 0) >= 0} 
-                      />
-                      <span className={(position.dayChangePct || 0) >= 0 ? "text-success text-xs" : "text-destructive text-xs"}>
+                      {position.intradayPrices && position.intradayPrices.length > 0 && (
+                        <TrendSparkline 
+                          data={position.intradayPrices} 
+                          isPositive={(position.dayChangePct || 0) >= 0} 
+                        />
+                      )}
+                      <span className={(position.dayChangePct || 0) >= 0 ? "text-success text-xs font-medium" : "text-destructive text-xs font-medium"}>
                         {formatPercent(position.dayChangePct || 0)}
                       </span>
                     </>
