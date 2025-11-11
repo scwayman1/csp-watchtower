@@ -17,6 +17,7 @@ export function ShareManagement({ userId }: { userId: string }) {
   const [email, setEmail] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [emailWarningDismissed, setEmailWarningDismissed] = useState(false);
 
   const { data: shares = [], isLoading } = useQuery({
     queryKey: ["position-shares", userId],
@@ -60,7 +61,12 @@ export function ShareManagement({ userId }: { userId: string }) {
 
       if (emailError) {
         console.error("Failed to send invitation email:", emailError);
-        // Don't throw - the share was created successfully
+        toast({
+          title: "Share created (email not sent)",
+          description: "Access granted, but email requires domain verification. Contact them manually.",
+          variant: "default",
+        });
+        return;
       }
     },
     onSuccess: () => {
@@ -163,6 +169,24 @@ export function ShareManagement({ userId }: { userId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!emailWarningDismissed && (
+          <div className="p-3 rounded-md bg-muted border border-border">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                <strong>Note:</strong> Email invitations require domain verification with Resend. 
+                For now, share access is granted but users must be notified manually to sign up with their invited email.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEmailWarningDismissed(true)}
+                className="shrink-0"
+              >
+                ✕
+              </Button>
+            </div>
+          </div>
+        )}
         <form onSubmit={handleShare} className="flex gap-2">
           <Input
             type="email"
