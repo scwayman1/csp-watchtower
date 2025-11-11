@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+import { Info, TrendingUp, TrendingDown } from "lucide-react";
 import { TrendSparkline } from "./TrendSparkline";
 
 export interface Position {
@@ -87,14 +87,19 @@ export function PositionsTable({ positions }: PositionsTableProps) {
                 <div className="flex items-center gap-2">
                   {position.dayChangePct !== undefined && position.dayChangePct !== null ? (
                     <>
+                      {position.dayChangePct >= 0 ? (
+                        <TrendingUp className="h-4 w-4 text-success" />
+                      ) : (
+                        <TrendingDown className="h-4 w-4 text-destructive" />
+                      )}
                       {position.intradayPrices && position.intradayPrices.length > 0 && (
                         <TrendSparkline 
                           data={position.intradayPrices} 
-                          isPositive={(position.dayChangePct || 0) >= 0} 
+                          isPositive={position.dayChangePct >= 0} 
                         />
                       )}
-                      <span className={(position.dayChangePct || 0) >= 0 ? "text-success text-xs font-medium" : "text-destructive text-xs font-medium"}>
-                        {formatPercent(position.dayChangePct || 0)}
+                      <span className={position.dayChangePct >= 0 ? "text-success text-xs font-semibold" : "text-destructive text-xs font-semibold"}>
+                        {formatPercent(position.dayChangePct)}
                       </span>
                     </>
                   ) : (
