@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
+import { TrendSparkline } from "./TrendSparkline";
 
 export interface Position {
   id: string;
@@ -19,6 +20,8 @@ export interface Position {
   pctAboveStrike: number;
   probAssignment: number;
   statusBand: "success" | "warning" | "destructive";
+  dayChangePct?: number;
+  intradayPrices?: number[];
 }
 
 interface PositionsTableProps {
@@ -58,6 +61,7 @@ export function PositionsTable({ positions }: PositionsTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead>Symbol</TableHead>
+            <TableHead>Daily Trend</TableHead>
             <TableHead>Strike</TableHead>
             <TableHead>Underlying</TableHead>
             <TableHead>% Above</TableHead>
@@ -77,6 +81,23 @@ export function PositionsTable({ positions }: PositionsTableProps) {
                 <div>
                   <div className="font-semibold">{position.symbol}</div>
                   <div className="text-xs text-muted-foreground">{position.underlyingName}</div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  {position.intradayPrices && position.intradayPrices.length > 0 ? (
+                    <>
+                      <TrendSparkline 
+                        data={position.intradayPrices} 
+                        isPositive={(position.dayChangePct || 0) >= 0} 
+                      />
+                      <span className={(position.dayChangePct || 0) >= 0 ? "text-success text-xs" : "text-destructive text-xs"}>
+                        {formatPercent(position.dayChangePct || 0)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </div>
               </TableCell>
               <TableCell>{formatCurrency(position.strikePrice)}</TableCell>

@@ -16,19 +16,28 @@ export type Database = {
     Tables: {
       market_data: {
         Row: {
+          day_change_pct: number | null
+          day_open: number | null
           id: string
+          intraday_prices: Json | null
           last_updated: string | null
           symbol: string
           underlying_price: number | null
         }
         Insert: {
+          day_change_pct?: number | null
+          day_open?: number | null
           id?: string
+          intraday_prices?: Json | null
           last_updated?: string | null
           symbol: string
           underlying_price?: number | null
         }
         Update: {
+          day_change_pct?: number | null
+          day_open?: number | null
           id?: string
+          intraday_prices?: Json | null
           last_updated?: string | null
           symbol?: string
           underlying_price?: number | null

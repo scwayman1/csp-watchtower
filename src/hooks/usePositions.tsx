@@ -46,13 +46,19 @@ export function usePositions() {
         .in('symbol', symbols);
 
       const marketDataMap = new Map(
-        marketData?.map(m => [m.symbol, m.underlying_price]) || []
+        marketData?.map(m => [m.symbol, {
+          price: m.underlying_price,
+          dayOpen: m.day_open,
+          dayChangePct: m.day_change_pct,
+          intradayPrices: m.intraday_prices
+        }]) || []
       );
 
       // Calculate metrics for each position
       const enrichedPositions = await Promise.all(
         positionsData.map(async (pos) => {
-          const underlyingPrice = marketDataMap.get(pos.symbol) || pos.strike_price * 1.1;
+          const marketInfo = marketDataMap.get(pos.symbol);
+          const underlyingPrice = marketInfo?.price || pos.strike_price * 1.1;
 
           // Calculate metrics using edge function with user settings
           const { data: metrics } = await supabase.functions.invoke('calculate-metrics', {
@@ -79,6 +85,8 @@ export function usePositions() {
             pctAboveStrike: metrics?.pctAboveStrike || 0,
             probAssignment: metrics?.probAssignment || 0,
             statusBand: (metrics?.statusBand as "success" | "warning" | "destructive") || 'success',
+            dayChangePct: marketInfo?.dayChangePct || 0,
+            intradayPrices: marketInfo?.intradayPrices || [],
           } as Position;
         })
       );

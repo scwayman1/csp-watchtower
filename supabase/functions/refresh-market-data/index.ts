@@ -40,25 +40,44 @@ serve(async (req) => {
       throw new Error('POLYGON_API_KEY not configured');
     }
 
-    // Fetch prices from Polygon.io
+    // Fetch prices and intraday data from Polygon.io
     const priceUpdates = await Promise.all(
       symbols.map(async (symbol) => {
         try {
-          const response = await fetch(
-            `https://api.polygon.io/v2/aggs/ticker/${symbol}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`
+          // Get today's date range
+          const today = new Date();
+          const dateStr = today.toISOString().split('T')[0];
+          
+          // Fetch intraday data (5-minute bars for today)
+          const intradayResponse = await fetch(
+            `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/5/minute/${dateStr}/${dateStr}?adjusted=true&sort=asc&apiKey=${POLYGON_API_KEY}`
           );
           
-          if (!response.ok) {
-            console.error(`Failed to fetch ${symbol}:`, response.status);
+          if (!intradayResponse.ok) {
+            console.error(`Failed to fetch intraday for ${symbol}:`, intradayResponse.status);
             return null;
           }
           
-          const data = await response.json();
+          const intradayData = await intradayResponse.json();
           
-          if (data.results && data.results[0]) {
+          if (intradayData.results && intradayData.results.length > 0) {
+            const results = intradayData.results;
+            const dayOpen = results[0].o; // First bar's open
+            const currentPrice = results[results.length - 1].c; // Last bar's close
+            const dayChangePct = ((currentPrice - dayOpen) / dayOpen) * 100;
+            
+            // Extract closing prices for sparkline (max 20 points for performance)
+            const step = Math.ceil(results.length / 20);
+            const intradayPrices = results
+              .filter((_: any, idx: number) => idx % step === 0)
+              .map((r: any) => r.c);
+            
             return {
               symbol,
-              underlying_price: data.results[0].c, // Close price
+              underlying_price: currentPrice,
+              day_open: dayOpen,
+              day_change_pct: dayChangePct,
+              intraday_prices: intradayPrices,
               last_updated: new Date().toISOString(),
             };
           }
