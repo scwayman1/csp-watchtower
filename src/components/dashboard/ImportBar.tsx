@@ -8,7 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 export function ImportBar() {
   const [orderText, setOrderText] = useState("");
-
   const [loading, setLoading] = useState(false);
 
   const handleParse = async () => {
@@ -24,33 +23,40 @@ export function ImportBar() {
     setLoading(true);
     try {
       // Parse order using edge function
-      const { data: parsed, error: parseError } = await supabase.functions.invoke('parse-order', {
+      const { data: parseResult, error: parseError } = await supabase.functions.invoke('parse-order', {
         body: { orderText },
       });
 
       if (parseError) throw parseError;
 
-      // Fetch market data for the symbol
-      await supabase.functions.invoke('fetch-market-data', {
-        body: { symbol: parsed.symbol },
-      });
-
-      // Insert position
+      const positions = parseResult.positions || [parseResult];
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Insert all positions
+      const positionsToInsert = positions.map((p: any) => ({
+        user_id: user.id,
+        raw_order_text: parseResult.raw_order_text || orderText,
+        ...p,
+      }));
+
+      // Fetch market data for all unique symbols
+      const uniqueSymbols = [...new Set(positions.map((p: any) => p.symbol))];
+      await Promise.all(
+        uniqueSymbols.map(symbol =>
+          supabase.functions.invoke('fetch-market-data', { body: { symbol } })
+        )
+      );
+
       const { error: insertError } = await supabase
         .from('positions')
-        .insert({
-          user_id: user.id,
-          ...parsed,
-        });
+        .insert(positionsToInsert);
 
       if (insertError) throw insertError;
 
       toast({
-        title: "Order parsed successfully",
-        description: `Position added: ${parsed.symbol} ${parsed.strike_price}P`,
+        title: "Orders parsed successfully",
+        description: `${positions.length} position${positions.length > 1 ? 's' : ''} added to your dashboard.`,
       });
       setOrderText("");
     } catch (error: any) {
@@ -74,11 +80,11 @@ export function ImportBar() {
               Import Broker Order
             </label>
             <Textarea
-              placeholder="Paste broker order text here (e.g., 'SELL TO OPEN 10 ACVA 2025-11-28 5.00 PUT @ 0.35')..."
+              placeholder="Paste broker order text or portfolio export here (supports multiple positions)..."
               value={orderText}
               onChange={(e) => setOrderText(e.target.value)}
-              rows={3}
-              className="resize-none"
+              rows={6}
+              className="resize-none font-mono text-xs"
             />
           </div>
           <div className="flex gap-2">
