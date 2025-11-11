@@ -37,14 +37,13 @@ export default function AcceptInvite() {
         return;
       }
 
-      // Find the share by token
-      const { data: share, error: fetchError } = await supabase
-        .from("position_shares")
-        .select("*")
-        .eq("invite_token", token)
-        .maybeSingle();
+      // Find the share by token using secure function
+      const { data, error: fetchError } = await supabase
+        .rpc("get_share_by_invite_token", { token_input: token });
 
       if (fetchError) throw fetchError;
+
+      const share = data && data.length > 0 ? data[0] : null;
 
       if (!share) {
         setStatus("error");

@@ -328,7 +328,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_share_by_invite_token: {
+        Args: { token_input: string }
+        Returns: {
+          accepted_at: string
+          created_at: string
+          id: string
+          invite_token: string
+          owner_id: string
+          shared_with_email: string
+          shared_with_user_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
