@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Trash2, UserPlus } from "lucide-react";
+import { Trash2, UserPlus, Mail } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Share {
@@ -105,6 +105,39 @@ export function ShareManagement({ userId }: { userId: string }) {
     },
   });
 
+  const resendInviteMutation = useMutation({
+    mutationFn: async (recipientEmail: string) => {
+      // Get current user email
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error("User not authenticated");
+
+      // Send invitation email
+      const appUrl = window.location.origin;
+      const { error } = await supabase.functions.invoke('send-invite-email', {
+        body: {
+          inviterEmail: user.email,
+          recipientEmail,
+          appUrl,
+        },
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Invitation resent!",
+        description: "The invitation email has been sent again.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to send invitation",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleShare = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
@@ -158,14 +191,26 @@ export function ShareManagement({ userId }: { userId: string }) {
                   className="flex items-center justify-between p-2 rounded-md bg-muted"
                 >
                   <span className="text-sm">{share.shared_with_email}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeShareMutation.mutate(share.id)}
-                    disabled={removeShareMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => resendInviteMutation.mutate(share.shared_with_email)}
+                      disabled={resendInviteMutation.isPending}
+                      title="Resend invitation email"
+                    >
+                      <Mail className="h-4 w-4 text-primary" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeShareMutation.mutate(share.id)}
+                      disabled={removeShareMutation.isPending}
+                      title="Remove access"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
