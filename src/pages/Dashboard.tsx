@@ -3,17 +3,22 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { ImportBar } from "@/components/dashboard/ImportBar";
 import { FiltersToolbar } from "@/components/dashboard/FiltersToolbar";
 import { PositionsTable } from "@/components/dashboard/PositionsTable";
-import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download } from "lucide-react";
+import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { positions, loading: positionsLoading } = usePositions();
+  const { positions, loading: positionsLoading, sharedOwners } = usePositions();
+  
+  const hasSharedPositions = sharedOwners && sharedOwners.size > 0;
+  const ownPositions = positions.filter(p => !sharedOwners?.has(p.id));
+  const sharedPositions = positions.filter(p => sharedOwners?.has(p.id));
   
   // Calculate portfolio stats
   const totalPremium = positions.reduce((sum, p) => sum + p.totalPremium, 0);
@@ -86,6 +91,20 @@ const Dashboard = () => {
             </Button>
           </div>
         </div>
+
+        {/* Shared Dashboard Alert */}
+        {hasSharedPositions && (
+          <Alert>
+            <Share2 className="h-4 w-4" />
+            <AlertDescription>
+              {sharedPositions.length === positions.length ? (
+                <>Viewing shared dashboard. You have read-only access to these positions.</>
+              ) : (
+                <>You're viewing {ownPositions.length} of your own positions and {sharedPositions.length} shared position{sharedPositions.length !== 1 ? 's' : ''}.</>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Portfolio Summary Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

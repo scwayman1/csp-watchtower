@@ -4,8 +4,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings as SettingsIcon } from "lucide-react";
+import { ShareManagement } from "@/components/settings/ShareManagement";
+import { useAuth } from "@/hooks/useAuth";
 
 const Settings = () => {
+  const { user } = useAuth();
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6 space-y-6">
@@ -112,6 +116,9 @@ const Settings = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Share Management */}
+        {user && <ShareManagement userId={user.id} />}
 
         {/* Save Button */}
         <div className="flex justify-end">

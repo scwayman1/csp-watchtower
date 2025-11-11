@@ -6,9 +6,14 @@ import type { Position } from "@/components/dashboard/PositionsTable";
 export function usePositions() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sharedOwners, setSharedOwners] = useState<Map<string, string>>(new Map());
 
   const fetchPositions = async () => {
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data: positionsData, error: positionsError } = await supabase
         .from('positions')
         .select('*')
@@ -19,9 +24,19 @@ export function usePositions() {
 
       if (!positionsData || positionsData.length === 0) {
         setPositions([]);
+        setSharedOwners(new Map());
         setLoading(false);
         return;
       }
+
+      // Track which positions are shared (not owned by current user)
+      const sharedOwnersMap = new Map<string, string>();
+      positionsData.forEach(pos => {
+        if (pos.user_id !== user.id) {
+          sharedOwnersMap.set(pos.id, pos.user_id);
+        }
+      });
+      setSharedOwners(sharedOwnersMap);
 
       // Fetch market data for all symbols
       const symbols = [...new Set(positionsData.map(p => p.symbol))];
@@ -101,5 +116,5 @@ export function usePositions() {
     };
   }, []);
 
-  return { positions, loading, refetch: fetchPositions };
+  return { positions, loading, refetch: fetchPositions, sharedOwners };
 }
