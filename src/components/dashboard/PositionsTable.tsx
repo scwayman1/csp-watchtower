@@ -80,10 +80,15 @@ export function PositionsTable({ positions }: PositionsTableProps) {
           {positions.map((position) => (
             <TableRow key={position.id} className="hover:bg-muted/50">
               <TableCell className="font-medium">
-                <div>
-                  <div className="font-semibold">{position.symbol}</div>
+                <a
+                  href={`https://finance.yahoo.com/quote/${position.symbol}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block hover:opacity-70 transition-opacity"
+                >
+                  <div className="font-semibold underline">{position.symbol}</div>
                   <div className="text-xs text-muted-foreground">{position.underlyingName}</div>
-                </div>
+                </a>
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1.5">
