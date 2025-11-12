@@ -5,6 +5,8 @@ import { FiltersToolbar } from "@/components/dashboard/FiltersToolbar";
 import { PositionsTable } from "@/components/dashboard/PositionsTable";
 import { AssignedPositionsTable } from "@/components/dashboard/AssignedPositionsTable";
 import { TimePeriodFilter, TimePeriod } from "@/components/dashboard/TimePeriodFilter";
+import { DrippyMascot } from "@/components/dashboard/DrippyMascot";
+import { DropletBadge } from "@/components/dashboard/DropletBadge";
 import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
@@ -126,6 +128,7 @@ const Dashboard = () => {
   const totalUnrealizedPnL = filteredPositions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
   const activeContracts = filteredPositions.reduce((sum, p) => sum + p.contracts, 0);
   const atRiskCount = filteredPositions.filter(p => p.pctAboveStrike < 5).length;
+  const warningCount = filteredPositions.filter(p => p.pctAboveStrike >= 5 && p.pctAboveStrike < 10).length;
   const cashSecured = filteredPositions.reduce((sum, p) => sum + (p.strikePrice * 100 * p.contracts), 0);
   
   // Find next expiration (use filtered positions)
@@ -176,17 +179,24 @@ const Dashboard = () => {
       <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Cash-Secured Put Tracker</h1>
-            <p className="text-sm sm:text-base text-foreground/70 mt-1">
-              Monitor your positions with real-time risk metrics and assignment probabilities
-            </p>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <TrendingUp className="h-4 w-4 text-foreground/70" />
-              <span className="text-xs sm:text-sm text-foreground/70">
-                Using <Badge variant="outline" className="ml-1 text-xs">{getModelDisplayName(settings.probability_model)}</Badge> probability model
-              </span>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold">Cash-Secured Put Tracker</h1>
+              <p className="text-sm sm:text-base text-foreground/70 mt-1">
+                Monitor your positions with real-time risk metrics and assignment probabilities
+              </p>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <TrendingUp className="h-4 w-4 text-foreground/70" />
+                <span className="text-xs sm:text-sm text-foreground/70">
+                  Using <Badge variant="outline" className="ml-1 text-xs">{getModelDisplayName(settings.probability_model)}</Badge> probability model
+                </span>
+              </div>
             </div>
+            <DrippyMascot 
+              atRiskCount={atRiskCount} 
+              warningCount={warningCount}
+              totalPositions={filteredPositions.length}
+            />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button 
@@ -194,7 +204,7 @@ const Dashboard = () => {
               onClick={handleRefreshMarketData} 
               disabled={refreshing}
               size="sm"
-              className="flex-1 sm:flex-none"
+              className="flex-1 sm:flex-none ripple-effect"
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh Prices</span>
@@ -205,7 +215,7 @@ const Dashboard = () => {
               onClick={exportToCSV} 
               disabled={filteredPositions.length === 0}
               size="sm"
-              className="flex-1 sm:flex-none"
+              className="flex-1 sm:flex-none ripple-effect"
             >
               <Download className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Export CSV</span>
@@ -215,7 +225,7 @@ const Dashboard = () => {
               variant="outline" 
               onClick={signOut}
               size="sm"
-              className="flex-1 sm:flex-none"
+              className="flex-1 sm:flex-none ripple-effect"
             >
               <LogOut className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Sign Out</span>
@@ -279,6 +289,35 @@ const Dashboard = () => {
             icon={AlertTriangle}
             badgeVariant={atRiskCount > 0 ? "destructive" : "success"}
             badgeLabel={atRiskCount > 0 ? "ALERT" : "SAFE"}
+          />
+        </div>
+
+        {/* Achievement Badges */}
+        <div className="flex flex-wrap gap-2">
+          <DropletBadge 
+            milestone="$100 Premium" 
+            achieved={totalPremium >= 100}
+            description="Collected your first $100 in premium!"
+          />
+          <DropletBadge 
+            milestone="$500 Premium" 
+            achieved={totalPremium >= 500}
+            description="Reached $500 in total premium collected!"
+          />
+          <DropletBadge 
+            milestone="$1,000 Premium" 
+            achieved={totalPremium >= 1000}
+            description="Milestone: $1,000 in premium collected!"
+          />
+          <DropletBadge 
+            milestone="10 Positions" 
+            achieved={positions.length >= 10}
+            description="Managing 10 or more positions!"
+          />
+          <DropletBadge 
+            milestone="Perfect Week" 
+            achieved={atRiskCount === 0 && positions.length > 0}
+            description="All positions in safe zone!"
           />
         </div>
 
