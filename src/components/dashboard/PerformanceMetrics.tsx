@@ -39,16 +39,22 @@ interface PerformanceMetricsProps {
 export function PerformanceMetrics({ positions }: PerformanceMetricsProps) {
   // Calculate comprehensive metrics
   const totalPositions = positions.length;
-  const profitablePositions = positions.filter(p => p.unrealizedPnL > 0).length;
-  const losingPositions = positions.filter(p => p.unrealizedPnL < 0).length;
-  const winRate = totalPositions > 0 ? (profitablePositions / totalPositions) * 100 : 0;
+  
+  // Moneyness breakdown
+  const otmPositions = positions.filter(p => p.pctAboveStrike > 2).length;
+  const atmPositions = positions.filter(p => p.pctAboveStrike >= -2 && p.pctAboveStrike <= 2).length;
+  const itmPositions = positions.filter(p => p.pctAboveStrike < -2).length;
+  const otmPercentage = totalPositions > 0 ? (otmPositions / totalPositions) * 100 : 0;
+  
+  // Expiring soon
+  const expiringSoon = positions.filter(p => p.daysToExp <= 7);
+  const expiringSoonContracts = expiringSoon.reduce((sum, p) => sum + p.contracts, 0);
   
   const totalPremiumCollected = positions.reduce((sum, p) => sum + p.totalPremium, 0);
   const totalUnrealizedPnL = positions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
   const totalCapitalAtRisk = positions.reduce((sum, p) => sum + (p.strikePrice * 100 * p.contracts), 0);
   const returnOnCapital = totalCapitalAtRisk > 0 ? (totalPremiumCollected / totalCapitalAtRisk) * 100 : 0;
   
-  const avgPnLPerPosition = totalPositions > 0 ? totalUnrealizedPnL / totalPositions : 0;
   const avgPremiumPerPosition = totalPositions > 0 ? totalPremiumCollected / totalPositions : 0;
   
   const bestPosition = positions.length > 0 
@@ -116,14 +122,16 @@ export function PerformanceMetrics({ positions }: PerformanceMetricsProps) {
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Moneyness</CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{winRate.toFixed(1)}%</div>
-            <Progress value={winRate} className="mt-2" />
-            <p className="text-xs text-muted-foreground mt-2">
-              {profitablePositions} profitable / {losingPositions} losing
+            <div className="text-2xl font-bold text-success">{otmPercentage.toFixed(0)}% OTM</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {otmPositions} OTM • {atmPositions} ATM • {itmPositions} ITM
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Out-of-the-money positions favorable for expiration
             </p>
           </CardContent>
         </Card>
@@ -143,15 +151,16 @@ export function PerformanceMetrics({ positions }: PerformanceMetricsProps) {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg P/L per Position</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Expiring Soon</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${avgPnLPerPosition >= 0 ? 'text-success' : 'text-destructive'}`}>
-              ${avgPnLPerPosition.toFixed(2)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Avg premium: ${avgPremiumPerPosition.toFixed(2)}
+            <div className="text-2xl font-bold text-warning">{expiringSoon.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {expiringSoonContracts} contracts expiring in 7 days
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Total premium: ${expiringSoon.reduce((sum, p) => sum + p.totalPremium, 0).toLocaleString()}
             </p>
           </CardContent>
         </Card>
