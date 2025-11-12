@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Loader2, TrendingUp } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Position } from "./PositionsTable";
@@ -27,6 +27,11 @@ export function PremiumAnalysisDialog({ position, open, onOpenChange }: PremiumA
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
+
+  // Reset result when position changes
+  useEffect(() => {
+    setResult(null);
+  }, [position.id]);
 
   const analyzePosition = async () => {
     setLoading(true);
