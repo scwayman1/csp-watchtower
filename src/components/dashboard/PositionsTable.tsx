@@ -6,7 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Info, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
 import { TrendSparkline } from "./TrendSparkline";
 import { PremiumAnalysisDialog } from "./PremiumAnalysisDialog";
-import { useState } from "react";
+import { useState, createContext, useContext } from "react";
+
+interface AnalysisCache {
+  [positionId: string]: {
+    qualityRating: 'excellent' | 'good' | 'fair' | 'poor';
+    timestamp: number;
+  };
+}
+
+const AnalysisCacheContext = createContext<{
+  cache: AnalysisCache;
+  setCache: (id: string, rating: 'excellent' | 'good' | 'fair' | 'poor') => void;
+}>({
+  cache: {},
+  setCache: () => {},
+});
 
 export interface Position {
   id: string;
@@ -35,6 +50,31 @@ interface PositionsTableProps {
 export function PositionsTable({ positions }: PositionsTableProps) {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [analysisCache, setAnalysisCache] = useState<AnalysisCache>({});
+
+  const updateCache = (id: string, rating: 'excellent' | 'good' | 'fair' | 'poor') => {
+    setAnalysisCache(prev => ({
+      ...prev,
+      [id]: { qualityRating: rating, timestamp: Date.now() }
+    }));
+  };
+
+  const getPremiumColorClass = (positionId: string) => {
+    const cached = analysisCache[positionId];
+    if (!cached) return '';
+    
+    switch (cached.qualityRating) {
+      case 'excellent':
+      case 'good':
+        return 'text-success font-semibold';
+      case 'fair':
+        return 'text-warning font-semibold';
+      case 'poor':
+        return 'text-destructive font-semibold';
+      default:
+        return '';
+    }
+  };
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -68,7 +108,7 @@ export function PositionsTable({ positions }: PositionsTableProps) {
   };
 
   return (
-    <>
+    <AnalysisCacheContext.Provider value={{ cache: analysisCache, setCache: updateCache }}>
       <div className="rounded-2xl border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <Table className="min-w-[1000px]">
@@ -133,7 +173,9 @@ export function PositionsTable({ positions }: PositionsTableProps) {
                   {formatPercent(position.pctAboveStrike)}
                 </Badge>
               </TableCell>
-              <TableCell>{formatCurrency(position.premiumPerContract)}</TableCell>
+              <TableCell className={getPremiumColorClass(position.id)}>
+                {formatCurrency(position.premiumPerContract)}
+              </TableCell>
               <TableCell className="font-semibold">{formatCurrency(position.totalPremium)}</TableCell>
               <TableCell>{formatCurrency(position.contractValue)}</TableCell>
               <TableCell className={position.unrealizedPnL >= 0 ? "text-success" : "text-destructive"}>
@@ -185,6 +227,8 @@ export function PositionsTable({ positions }: PositionsTableProps) {
           onOpenChange={setAnalysisOpen}
         />
       )}
-    </>
+    </AnalysisCacheContext.Provider>
   );
 }
+
+export const useAnalysisCache = () => useContext(AnalysisCacheContext);

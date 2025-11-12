@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Position } from "./PositionsTable";
+import { useAnalysisCache } from "./PositionsTable";
 
 interface PremiumAnalysisDialogProps {
   position: Position;
@@ -27,6 +28,7 @@ export function PremiumAnalysisDialog({ position, open, onOpenChange }: PremiumA
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
+  const { setCache } = useAnalysisCache();
 
   // Reset result when position changes
   useEffect(() => {
@@ -46,6 +48,11 @@ export function PremiumAnalysisDialog({ position, open, onOpenChange }: PremiumA
       if (error) throw error;
 
       setResult(data);
+      
+      // Cache the quality rating for color-coding in the table
+      if (data?.metrics?.qualityRating) {
+        setCache(position.id, data.metrics.qualityRating);
+      }
     } catch (error: any) {
       console.error('Error analyzing premium:', error);
       toast({
