@@ -13,21 +13,12 @@ import {
 } from "lucide-react";
 import { 
   CartesianGrid, 
-  Line, 
-  LineChart, 
   XAxis, 
   YAxis, 
   ResponsiveContainer,
   Bar,
   BarChart,
-  Area,
-  AreaChart,
-  Scatter,
-  ScatterChart,
-  ZAxis,
   Cell,
-  Tooltip,
-  Legend
 } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Position } from "@/components/dashboard/PositionsTable";
@@ -75,42 +66,6 @@ export function PerformanceMetrics({ positions }: PerformanceMetricsProps) {
     }))
     .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl))
     .slice(0, 10);
-
-  // Performance distribution by days to expiration
-  interface DTEBucket {
-    range: string;
-    totalPnL: number;
-    count: number;
-    avgPnL: number;
-  }
-
-  const performanceByDTE = positions.reduce((acc, p) => {
-    const dteRange = p.daysToExp < 7 ? "< 7 days" 
-      : p.daysToExp < 30 ? "7-30 days"
-      : p.daysToExp < 60 ? "30-60 days"
-      : "> 60 days";
-    
-    if (!acc[dteRange]) {
-      acc[dteRange] = { range: dteRange, totalPnL: 0, count: 0, avgPnL: 0 };
-    }
-    acc[dteRange].totalPnL += p.unrealizedPnL;
-    acc[dteRange].count += 1;
-    return acc;
-  }, {} as Record<string, DTEBucket>);
-
-  const dteChartData = Object.values(performanceByDTE).map(item => ({
-    range: item.range,
-    avgPnL: item.count > 0 ? item.totalPnL / item.count : 0,
-    count: item.count
-  }));
-
-  // Risk/Return scatter data
-  const riskReturnData = positions.map(p => ({
-    symbol: p.symbol,
-    risk: p.pctAboveStrike < 5 ? 10 : p.pctAboveStrike < 10 ? 5 : 1,
-    return: (p.unrealizedPnL / p.totalPremium) * 100,
-    size: p.totalPremium
-  }));
 
   if (totalPositions === 0) {
     return null;
@@ -270,70 +225,37 @@ export function PerformanceMetrics({ positions }: PerformanceMetricsProps) {
         )}
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        {/* P/L by Symbol */}
-        <Card>
-          <CardHeader>
-            <CardTitle>P/L by Symbol (Top 10)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer 
-              config={{ 
-                pnl: { label: "Unrealized P/L", color: "hsl(var(--primary))" } 
-              }} 
-              className="h-[300px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={pnlBySymbol}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="symbol" />
-                  <YAxis />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
-                    {pnlBySymbol.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.pnl >= 0 ? 'hsl(var(--success))' : 'hsl(var(--destructive))'}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Performance by Days to Expiration */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Avg P/L by Days to Expiration</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer 
-              config={{ 
-                avgPnL: { label: "Avg P/L", color: "hsl(var(--primary))" } 
-              }} 
-              className="h-[300px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dteChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="range" />
-                  <YAxis />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Area 
-                    type="monotone" 
-                    dataKey="avgPnL" 
-                    stroke="hsl(var(--primary))" 
-                    fill="hsl(var(--primary) / 0.2)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
+      {/* P/L by Symbol Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>P/L by Symbol (Top 10)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer 
+            config={{ 
+              pnl: { label: "Unrealized P/L", color: "hsl(var(--primary))" } 
+            }} 
+            className="h-[300px]"
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={pnlBySymbol}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="symbol" />
+                <YAxis />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
+                  {pnlBySymbol.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={entry.pnl >= 0 ? 'hsl(var(--success))' : 'hsl(var(--destructive))'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartContainer>
+        </CardContent>
+      </Card>
     </div>
   );
 }
