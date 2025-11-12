@@ -30,10 +30,13 @@ export function PremiumAnalysisDialog({ position, open, onOpenChange }: PremiumA
 
   const analyzePosition = async () => {
     setLoading(true);
+    console.log('Starting AI analysis for position:', position.symbol);
     try {
       const { data, error } = await supabase.functions.invoke('analyze-premium', {
         body: { position }
       });
+
+      console.log('AI response:', { data, error });
 
       if (error) throw error;
 
@@ -51,10 +54,10 @@ export function PremiumAnalysisDialog({ position, open, onOpenChange }: PremiumA
   };
 
   const handleOpenChange = (newOpen: boolean) => {
+    onOpenChange(newOpen);
     if (newOpen && !result) {
       analyzePosition();
     }
-    onOpenChange(newOpen);
   };
 
   const getQualityColor = (rating: string) => {
@@ -97,6 +100,16 @@ export function PremiumAnalysisDialog({ position, open, onOpenChange }: PremiumA
           <div className="flex flex-col items-center justify-center py-12 gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Analyzing premium quality and market conditions...</p>
+          </div>
+        )}
+
+        {!loading && !result && (
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <p className="text-sm text-muted-foreground">Click Reanalyze to start the AI analysis</p>
+            <Button onClick={analyzePosition}>
+              <Sparkles className="h-4 w-4 mr-2" />
+              Analyze
+            </Button>
           </div>
         )}
 
