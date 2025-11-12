@@ -173,37 +173,53 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Cash-Secured Put Tracker</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold">Cash-Secured Put Tracker</h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
               Monitor your positions with real-time risk metrics and assignment probabilities
             </p>
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                Using <Badge variant="outline" className="ml-1">{getModelDisplayName(settings.probability_model)}</Badge> probability model
+              <span className="text-xs sm:text-sm text-muted-foreground">
+                Using <Badge variant="outline" className="ml-1 text-xs">{getModelDisplayName(settings.probability_model)}</Badge> probability model
               </span>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button 
               variant="outline" 
               onClick={handleRefreshMarketData} 
               disabled={refreshing}
+              size="sm"
+              className="flex-1 sm:flex-none"
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh Prices
+              <span className="hidden sm:inline">Refresh Prices</span>
+              <span className="sm:hidden">Refresh</span>
             </Button>
-            <Button variant="outline" onClick={exportToCSV} disabled={filteredPositions.length === 0}>
+            <Button 
+              variant="outline" 
+              onClick={exportToCSV} 
+              disabled={filteredPositions.length === 0}
+              size="sm"
+              className="flex-1 sm:flex-none"
+            >
               <Download className="mr-2 h-4 w-4" />
-              Export CSV
+              <span className="hidden sm:inline">Export CSV</span>
+              <span className="sm:hidden">Export</span>
             </Button>
-            <Button variant="outline" onClick={signOut}>
+            <Button 
+              variant="outline" 
+              onClick={signOut}
+              size="sm"
+              className="flex-1 sm:flex-none"
+            >
               <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
+              <span className="hidden sm:inline">Sign Out</span>
+              <span className="sm:hidden">Out</span>
             </Button>
           </div>
         </div>
@@ -231,7 +247,7 @@ const Dashboard = () => {
         />
 
         {/* Portfolio Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <StatCard
             title="Total Premium Collected"
             value={`$${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}

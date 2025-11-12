@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
@@ -21,10 +22,12 @@ export function TimePeriodFilter({
   customDateRange,
   onCustomDateRangeChange,
 }: TimePeriodFilterProps) {
+  const isMobile = useIsMobile();
+  
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-sm font-medium text-muted-foreground">View:</span>
-      <div className="flex gap-1">
+      <span className="text-xs sm:text-sm font-medium text-muted-foreground">View:</span>
+      <div className="flex flex-wrap gap-1 sm:gap-2">
         <Button
           variant={selectedPeriod === "all" ? "default" : "outline"}
           size="sm"
@@ -52,19 +55,19 @@ export function TimePeriodFilter({
               variant={selectedPeriod === "custom" ? "default" : "outline"}
               size="sm"
               className={cn(
-                "justify-start text-left font-normal",
+                "justify-start text-left font-normal text-xs sm:text-sm",
                 !customDateRange && "text-muted-foreground"
               )}
             >
-              <CalendarIcon className="mr-2 h-4 w-4" />
+              <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               {customDateRange?.from ? (
                 customDateRange.to ? (
                   <>
-                    {format(customDateRange.from, "MMM d")} -{" "}
-                    {format(customDateRange.to, "MMM d, yyyy")}
+                    {format(customDateRange.from, isMobile ? "M/d" : "MMM d")} -{" "}
+                    {format(customDateRange.to, isMobile ? "M/d/yy" : "MMM d, yyyy")}
                   </>
                 ) : (
-                  format(customDateRange.from, "MMM d, yyyy")
+                  format(customDateRange.from, isMobile ? "M/d/yyyy" : "MMM d, yyyy")
                 )
               ) : (
                 "Custom"
@@ -83,7 +86,7 @@ export function TimePeriodFilter({
                   onPeriodChange("custom");
                 }
               }}
-              numberOfMonths={2}
+              numberOfMonths={isMobile ? 1 : 2}
             />
           </PopoverContent>
         </Popover>

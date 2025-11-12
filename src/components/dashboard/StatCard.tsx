@@ -22,14 +22,14 @@ export function StatCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+        <CardTitle className="text-xs sm:text-sm font-medium">{title}</CardTitle>
+        {Icon && <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />}
       </CardHeader>
       <CardContent>
-        <div className="flex items-baseline justify-between">
-          <div className="text-2xl font-bold">{value}</div>
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="text-xl sm:text-2xl font-bold break-all">{value}</div>
           {badgeLabel && badgeVariant && (
-            <Badge variant={badgeVariant}>{badgeLabel}</Badge>
+            <Badge variant={badgeVariant} className="text-xs shrink-0">{badgeLabel}</Badge>
           )}
         </div>
         {subtitle && (

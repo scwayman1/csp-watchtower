@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import type { AssignedPosition } from "@/hooks/useAssignedPositions";
@@ -20,19 +21,21 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
     new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
-    <div className="rounded-2xl border bg-card">
-      <div className="p-6 border-b">
+    <div className="rounded-2xl border bg-card overflow-hidden">
+      <div className="p-4 sm:p-6 border-b">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold">Assigned Shares (Wheel Strategy)</h3>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h3 className="text-base sm:text-lg font-semibold">Assigned Shares (Wheel Strategy)</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Track shares from assigned puts and covered call premiums
             </p>
           </div>
         </div>
       </div>
       
-      <Table>
+      <ScrollArea className="w-full">
+        <div className="min-w-[1000px]">
+          <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Symbol</TableHead>
@@ -103,6 +106,8 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
           )}
         </TableBody>
       </Table>
+        </div>
+      </ScrollArea>
 
       <SellCallDialog
         open={!!selectedPosition}
