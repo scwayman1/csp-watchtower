@@ -58,9 +58,8 @@ export function PositionsTable({ positions }: PositionsTableProps) {
 
   return (
     <div className="rounded-2xl border bg-card overflow-hidden">
-      <ScrollArea className="w-full">
-        <div className="min-w-[1000px]">
-          <Table>
+      <div className="overflow-x-auto">
+        <Table className="min-w-[1000px]">
         <TableHeader>
           <TableRow>
             <TableHead>Symbol</TableHead>
@@ -142,8 +141,7 @@ export function PositionsTable({ positions }: PositionsTableProps) {
           ))}
         </TableBody>
       </Table>
-        </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

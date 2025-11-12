@@ -33,9 +33,8 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
         </div>
       </div>
       
-      <ScrollArea className="w-full">
-        <div className="min-w-[1000px]">
-          <Table>
+      <div className="overflow-x-auto">
+        <Table className="min-w-[1000px]">
         <TableHeader>
           <TableRow>
             <TableHead>Symbol</TableHead>
@@ -106,8 +105,7 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
           )}
         </TableBody>
       </Table>
-        </div>
-      </ScrollArea>
+      </div>
 
       <SellCallDialog
         open={!!selectedPosition}
