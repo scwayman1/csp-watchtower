@@ -5,6 +5,7 @@ import { FiltersToolbar } from "@/components/dashboard/FiltersToolbar";
 import { PositionsTable } from "@/components/dashboard/PositionsTable";
 import { AssignedPositionsTable } from "@/components/dashboard/AssignedPositionsTable";
 import { TimePeriodFilter, TimePeriod } from "@/components/dashboard/TimePeriodFilter";
+import { PerformanceMetrics } from "@/components/dashboard/PerformanceMetrics";
 import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
@@ -292,27 +293,8 @@ const Dashboard = () => {
           onExpirationChange={() => {}}
         />
 
-        {/* P/L Chart */}
-        {filteredPositions.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Position Performance</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={{ pnl: { label: "Unrealized P/L", color: "hsl(var(--primary))" } }} className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line type="monotone" dataKey="pnl" stroke="hsl(var(--primary))" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        )}
+        {/* Performance Analytics */}
+        <PerformanceMetrics positions={filteredPositions} />
 
         {/* Positions Table */}
         <div>
