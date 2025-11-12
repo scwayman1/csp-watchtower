@@ -16,7 +16,7 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
-  const [provider, setProvider] = useState("polygon");
+  const [provider, setProvider] = useState("yahoo");
   const [refreshRate, setRefreshRate] = useState("60");
   const [safeThreshold, setSafeThreshold] = useState("10");
   const [warningThreshold, setWarningThreshold] = useState("5");
@@ -40,7 +40,7 @@ const Settings = () => {
       if (error) throw error;
 
       if (data) {
-        setProvider(data.market_data_provider || "polygon");
+        setProvider(data.market_data_provider || "yahoo");
         setRefreshRate(String(data.refresh_rate_seconds || 60));
         setSafeThreshold(String(data.safe_threshold || 10));
         setWarningThreshold(String(data.warning_threshold || 5));
@@ -128,9 +128,7 @@ const Settings = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="polygon">Polygon.io</SelectItem>
                   <SelectItem value="yahoo">Yahoo Finance</SelectItem>
-                  <SelectItem value="alpha">Alpha Vantage</SelectItem>
                 </SelectContent>
               </Select>
             </div>

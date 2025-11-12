@@ -15,7 +15,7 @@ export function useSettings(userId: string | undefined) {
     probability_model: 'delta',
     safe_threshold: 10,
     warning_threshold: 5,
-    market_data_provider: 'polygon',
+    market_data_provider: 'yahoo',
     refresh_rate_seconds: 60,
     volatility_sensitivity: 0.15,
   });
@@ -37,7 +37,7 @@ export function useSettings(userId: string | undefined) {
             probability_model: data.probability_model || 'delta',
             safe_threshold: data.safe_threshold || 10,
             warning_threshold: data.warning_threshold || 5,
-            market_data_provider: data.market_data_provider || 'polygon',
+            market_data_provider: data.market_data_provider || 'yahoo',
             refresh_rate_seconds: data.refresh_rate_seconds || 60,
             volatility_sensitivity: data.volatility_sensitivity || 0.15,
           });
