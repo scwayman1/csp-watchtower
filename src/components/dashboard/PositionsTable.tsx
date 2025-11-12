@@ -88,16 +88,21 @@ export function PositionsTable({ positions }: PositionsTableProps) {
               <TableCell>
                 <div className="flex items-center gap-1.5">
                   {position.dayChangePct !== undefined && position.dayChangePct !== null ? (
-                    <>
+                    <a
+                      href={`https://finance.yahoo.com/quote/${position.symbol}/news`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+                    >
                       {position.dayChangePct >= 0 ? (
                         <TrendingUp className="h-4 w-4 text-success" />
                       ) : (
                         <TrendingDown className="h-4 w-4 text-destructive" />
                       )}
-                      <span className={position.dayChangePct >= 0 ? "text-success text-xs font-semibold" : "text-destructive text-xs font-semibold"}>
+                      <span className={position.dayChangePct >= 0 ? "text-success text-xs font-semibold underline" : "text-destructive text-xs font-semibold underline"}>
                         {formatPercent(position.dayChangePct)}
                       </span>
-                    </>
+                    </a>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
