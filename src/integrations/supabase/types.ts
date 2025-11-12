@@ -283,7 +283,6 @@ export type Database = {
       }
       user_settings: {
         Row: {
-          api_key: string | null
           created_at: string | null
           id: string
           market_data_provider: string | null
@@ -296,7 +295,6 @@ export type Database = {
           warning_threshold: number | null
         }
         Insert: {
-          api_key?: string | null
           created_at?: string | null
           id?: string
           market_data_provider?: string | null
@@ -309,7 +307,6 @@ export type Database = {
           warning_threshold?: number | null
         }
         Update: {
-          api_key?: string | null
           created_at?: string | null
           id?: string
           market_data_provider?: string | null
