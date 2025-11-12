@@ -178,12 +178,12 @@ const Dashboard = () => {
         <div className="flex flex-col gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Cash-Secured Put Tracker</h1>
-            <p className="text-sm sm:text-base text-muted-foreground mt-1">
+            <p className="text-sm sm:text-base text-foreground/70 mt-1">
               Monitor your positions with real-time risk metrics and assignment probabilities
             </p>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs sm:text-sm text-muted-foreground">
+              <TrendingUp className="h-4 w-4 text-foreground/70" />
+              <span className="text-xs sm:text-sm text-foreground/70">
                 Using <Badge variant="outline" className="ml-1 text-xs">{getModelDisplayName(settings.probability_model)}</Badge> probability model
               </span>
             </div>
