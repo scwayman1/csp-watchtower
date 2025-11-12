@@ -2,8 +2,11 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Info, TrendingUp, TrendingDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Info, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
 import { TrendSparkline } from "./TrendSparkline";
+import { PremiumAnalysisDialog } from "./PremiumAnalysisDialog";
+import { useState } from "react";
 
 export interface Position {
   id: string;
@@ -30,11 +33,19 @@ interface PositionsTableProps {
 }
 
 export function PositionsTable({ positions }: PositionsTableProps) {
+  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
   const formatPercent = (value: number) => 
     `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+
+  const handleAnalyze = (position: Position) => {
+    setSelectedPosition(position);
+    setAnalysisOpen(true);
+  };
 
   const getBadgeVariant = (band: string): "success" | "warning" | "destructive" | "default" => {
     if (band === "success") return "success";
@@ -57,25 +68,27 @@ export function PositionsTable({ positions }: PositionsTableProps) {
   };
 
   return (
-    <div className="rounded-2xl border bg-card overflow-hidden">
-      <div className="overflow-x-auto">
-        <Table className="min-w-[1000px]">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Symbol</TableHead>
-            <TableHead>Daily Trend</TableHead>
-            <TableHead>Strike</TableHead>
-            <TableHead>Underlying</TableHead>
-            <TableHead>% Above</TableHead>
-            <TableHead>Prem/ct</TableHead>
-            <TableHead>Total Prem</TableHead>
-            <TableHead>Contract Value</TableHead>
-            <TableHead>Unrealized P/L</TableHead>
-            <TableHead>Exp</TableHead>
-            <TableHead>DTE</TableHead>
-            <TableHead>Prob Assign</TableHead>
-          </TableRow>
-        </TableHeader>
+    <>
+      <div className="rounded-2xl border bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table className="min-w-[1000px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Symbol</TableHead>
+              <TableHead>Daily Trend</TableHead>
+              <TableHead>Strike</TableHead>
+              <TableHead>Underlying</TableHead>
+              <TableHead>% Above</TableHead>
+              <TableHead>Prem/ct</TableHead>
+              <TableHead>Total Prem</TableHead>
+              <TableHead>Contract Value</TableHead>
+              <TableHead>Unrealized P/L</TableHead>
+              <TableHead>Exp</TableHead>
+              <TableHead>DTE</TableHead>
+              <TableHead>Prob Assign</TableHead>
+              <TableHead>AI Analysis</TableHead>
+            </TableRow>
+          </TableHeader>
         <TableBody>
           {positions.map((position) => (
             <TableRow key={position.id} className="hover:bg-muted/50">
@@ -147,11 +160,31 @@ export function PositionsTable({ positions }: PositionsTableProps) {
                   </Tooltip>
                 </TooltipProvider>
               </TableCell>
+              <TableCell>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAnalyze(position)}
+                  className="gap-1.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Analyze
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+        </div>
       </div>
-    </div>
+
+      {selectedPosition && (
+        <PremiumAnalysisDialog
+          position={selectedPosition}
+          open={analysisOpen}
+          onOpenChange={setAnalysisOpen}
+        />
+      )}
+    </>
   );
 }
