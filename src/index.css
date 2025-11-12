@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 189 63% 94%;
+    --background: 0 0% 100%;
     --foreground: 204 92% 10%;
 
     --card: 0 0% 100%;
@@ -20,37 +20,37 @@ All colors MUST be HSL.
     --primary: 185 100% 38%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 189 63% 94%;
+    --secondary: 189 20% 96%;
     --secondary-foreground: 204 92% 10%;
 
-    --muted: 189 63% 94%;
+    --muted: 189 20% 96%;
     --muted-foreground: 201 30% 45%;
 
     --accent: 338 88% 66%;
     --accent-foreground: 0 0% 100%;
 
     --success: 160 100% 45%;
-    --success-foreground: 204 92% 10%;
+    --success-foreground: 0 0% 100%;
 
     --warning: 30 100% 64%;
-    --warning-foreground: 204 92% 10%;
+    --warning-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 201 19% 81%;
-    --input: 201 19% 81%;
+    --border: 220 15% 90%;
+    --input: 220 15% 90%;
     --ring: 185 100% 38%;
 
     --radius: 1rem;
 
-    --sidebar-background: 0 0% 100%;
+    --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 204 92% 10%;
     --sidebar-primary: 185 100% 38%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 189 63% 94%;
+    --sidebar-accent: 189 20% 96%;
     --sidebar-accent-foreground: 204 92% 10%;
-    --sidebar-border: 201 19% 81%;
+    --sidebar-border: 220 15% 90%;
     --sidebar-ring: 185 100% 38%;
   }
 
@@ -77,10 +77,10 @@ All colors MUST be HSL.
     --accent-foreground: 0 0% 100%;
 
     --success: 160 100% 45%;
-    --success-foreground: 204 92% 10%;
+    --success-foreground: 0 0% 100%;
 
     --warning: 30 100% 64%;
-    --warning-foreground: 204 92% 10%;
+    --warning-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -107,53 +107,5 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
-  }
-}
-
-@layer utilities {
-  /* Water ripple animation */
-  @keyframes ripple {
-    0% {
-      transform: scale(0);
-      opacity: 0.6;
-    }
-    100% {
-      transform: scale(2);
-      opacity: 0;
-    }
-  }
-
-  .ripple-effect {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .ripple-effect::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: radial-gradient(circle, hsl(var(--primary) / 0.3) 0%, transparent 70%);
-    transform: scale(0);
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .ripple-effect:hover::after {
-    animation: ripple 0.8s ease-out;
-  }
-
-  /* Droplet bounce animation */
-  @keyframes droplet-bounce {
-    0%, 100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-10px);
-    }
-  }
-
-  .droplet-bounce {
-    animation: droplet-bounce 2s ease-in-out infinite;
   }
 }
