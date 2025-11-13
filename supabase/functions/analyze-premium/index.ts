@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -153,6 +154,61 @@ Keep the response educational and conversational, helping traders understand bot
         qualityRating = 'good';
       } else if (analysisLower.includes('premium quality rating:**excellent') || analysisLower.includes('rating: **excellent')) {
         qualityRating = 'excellent';
+      }
+    }
+
+    // Store the AI recommendation in the database
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader) {
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
+      );
+
+      try {
+        // Extract recommended action from analysis
+        const actionMatch = analysis.match(/\*\*Action Recommendation[:\s]*\*\*[:\s]*([^\n]+)/i);
+        const recommendedAction = actionMatch ? actionMatch[1].trim() : null;
+
+        // Extract predicted outcome
+        const outcomeMatch = analysis.match(/\*\*Predicted Outcome[:\s]*\*\*[:\s]*([^\n]+)/i);
+        const predictedOutcome = outcomeMatch ? outcomeMatch[1].trim() : null;
+
+        // Get user ID
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        
+        if (user) {
+          // Store recommendation
+          const { error: insertError } = await supabaseClient
+            .from('ai_recommendations')
+            .insert({
+              position_id: position.id,
+              user_id: user.id,
+              quality_rating: qualityRating,
+              recommended_action: recommendedAction,
+              predicted_outcome: predictedOutcome,
+              confidence_level: qualityRating === 'excellent' ? 0.9 : qualityRating === 'good' ? 0.7 : qualityRating === 'fair' ? 0.5 : 0.3,
+              analysis_summary: analysis.substring(0, 500),
+              metrics: {
+                cashSecured,
+                returnOnCapital,
+                annualizedROC,
+                strikePrice: position.strikePrice,
+                underlyingPrice: position.underlyingPrice,
+                daysToExp: position.daysToExp
+              }
+            });
+
+          if (insertError) {
+            console.error("Error storing AI recommendation:", insertError);
+          } else {
+            console.log("AI recommendation stored successfully");
+          }
+        }
+      } catch (dbError) {
+        console.error("Error storing recommendation:", dbError);
+        // Don't fail the main request if storage fails
       }
     }
 

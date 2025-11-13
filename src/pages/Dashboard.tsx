@@ -7,6 +7,7 @@ import { AssignedPositionsTable } from "@/components/dashboard/AssignedPositions
 import { TimePeriodFilter, TimePeriod } from "@/components/dashboard/TimePeriodFilter";
 import { PerformanceMetrics } from "@/components/dashboard/PerformanceMetrics";
 import { ExpirationCalendar } from "@/components/dashboard/ExpirationCalendar";
+import { AIPerformanceTracker } from "@/components/dashboard/AIPerformanceTracker";
 import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
@@ -296,6 +297,9 @@ const Dashboard = () => {
 
         {/* Performance Analytics */}
         <PerformanceMetrics positions={filteredPositions} />
+
+        {/* AI Performance Tracking */}
+        <AIPerformanceTracker />
 
         {/* Expiration Calendar */}
         <ExpirationCalendar positions={filteredPositions} />

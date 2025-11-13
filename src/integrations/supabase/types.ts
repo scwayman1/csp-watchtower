@@ -14,6 +14,107 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_recommendation_outcomes: {
+        Row: {
+          actual_outcome: string
+          actual_pnl: number | null
+          closed_at: string
+          created_at: string
+          id: string
+          position_id: string
+          prediction_accuracy: number | null
+          recommendation_id: string
+          was_assigned: boolean | null
+        }
+        Insert: {
+          actual_outcome: string
+          actual_pnl?: number | null
+          closed_at: string
+          created_at?: string
+          id?: string
+          position_id: string
+          prediction_accuracy?: number | null
+          recommendation_id: string
+          was_assigned?: boolean | null
+        }
+        Update: {
+          actual_outcome?: string
+          actual_pnl?: number | null
+          closed_at?: string
+          created_at?: string
+          id?: string
+          position_id?: string
+          prediction_accuracy?: number | null
+          recommendation_id?: string
+          was_assigned?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_recommendation_outcomes_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_recommendation_outcomes_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_recommendations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_recommendations: {
+        Row: {
+          analysis_summary: string | null
+          confidence_level: number | null
+          created_at: string
+          id: string
+          metrics: Json | null
+          position_id: string
+          predicted_outcome: string | null
+          quality_rating: string
+          recommended_action: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_summary?: string | null
+          confidence_level?: number | null
+          created_at?: string
+          id?: string
+          metrics?: Json | null
+          position_id: string
+          predicted_outcome?: string | null
+          quality_rating: string
+          recommended_action?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_summary?: string | null
+          confidence_level?: number | null
+          created_at?: string
+          id?: string
+          metrics?: Json | null
+          position_id?: string
+          predicted_outcome?: string | null
+          quality_rating?: string
+          recommended_action?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_recommendations_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assigned_positions: {
         Row: {
           assignment_date: string
