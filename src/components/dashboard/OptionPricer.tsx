@@ -95,10 +95,23 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
     });
   };
 
-  const calculateROC = (strike: number, premium: number) => {
-    const cashSecured = strike * 100 * parseInt(contracts || "1");
-    const totalPremium = premium * 100 * parseInt(contracts || "1");
-    return ((totalPremium / cashSecured) * 100).toFixed(2);
+  const calculateMetrics = (strike: number, premium: number) => {
+    const numContracts = parseInt(contracts || "1");
+    const cashSecured = strike * 100 * numContracts;
+    const totalPremium = premium * 100 * numContracts;
+    const roc = ((totalPremium / cashSecured) * 100).toFixed(2);
+    const breakEven = (strike - premium).toFixed(2);
+    const maxProfit = totalPremium.toFixed(2);
+    const maxLoss = (cashSecured - totalPremium).toFixed(2);
+    
+    return {
+      roc,
+      breakEven,
+      totalPremium,
+      cashSecured,
+      maxProfit,
+      maxLoss,
+    };
   };
 
   const getDaysToExpiration = (expDate: string) => {
@@ -186,14 +199,15 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="text-center">Strike</TableHead>
-                        <TableHead className="text-center">Last</TableHead>
-                        <TableHead className="text-center">Bid</TableHead>
-                        <TableHead className="text-center">Ask</TableHead>
-                        <TableHead className="text-center">Mid</TableHead>
-                        <TableHead className="text-center">Volume</TableHead>
-                        <TableHead className="text-center">OI</TableHead>
-                        <TableHead className="text-center">IV</TableHead>
+                        <TableHead className="text-center">% From Current</TableHead>
+                        <TableHead className="text-center">Bid/Ask/Mid</TableHead>
+                        <TableHead className="text-center">Break-Even</TableHead>
+                        <TableHead className="text-center">Total Premium</TableHead>
+                        <TableHead className="text-center">Capital Req.</TableHead>
+                        <TableHead className="text-center">Max Profit</TableHead>
                         <TableHead className="text-center">ROC</TableHead>
+                        <TableHead className="text-center">Vol/OI</TableHead>
+                        <TableHead className="text-center">IV</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                         <TableHead className="text-right">Action</TableHead>
                       </TableRow>
@@ -201,9 +215,9 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
                     <TableBody>
                       {(optionData.optionsByExpiration[exp] || []).map((option, idx) => {
                         const mid = (option.bid + option.ask) / 2;
-                        const roc = calculateROC(option.strike, mid);
-                        const pctFromCurrent = ((optionData.underlyingPrice - option.strike) / optionData.underlyingPrice * 100);
-                        const isATM = pctFromCurrent < 5;
+                        const metrics = calculateMetrics(option.strike, mid);
+                        const pctFromCurrent = ((option.strike - optionData.underlyingPrice) / optionData.underlyingPrice * 100);
+                        const isATM = Math.abs(pctFromCurrent) < 5;
                         const isITM = option.inTheMoney;
                         
                         return (
@@ -212,28 +226,40 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
                               ${option.strike.toFixed(2)}
                             </TableCell>
                             <TableCell className="text-center">
-                              ${option.lastPrice.toFixed(2)}
+                              <span className={pctFromCurrent > 0 ? "text-success" : "text-destructive"}>
+                                {pctFromCurrent > 0 ? "+" : ""}{pctFromCurrent.toFixed(1)}%
+                              </span>
                             </TableCell>
-                            <TableCell className="text-center text-success">
-                              ${option.bid.toFixed(2)}
-                            </TableCell>
-                            <TableCell className="text-center text-destructive">
-                              ${option.ask.toFixed(2)}
+                            <TableCell className="text-center">
+                              <div className="flex flex-col gap-0.5 text-xs">
+                                <span className="text-success">${option.bid.toFixed(2)}</span>
+                                <span className="text-destructive">${option.ask.toFixed(2)}</span>
+                                <span className="font-medium text-foreground">${mid.toFixed(2)}</span>
+                              </div>
                             </TableCell>
                             <TableCell className="text-center font-medium">
-                              ${mid.toFixed(2)}
+                              ${metrics.breakEven}
+                            </TableCell>
+                            <TableCell className="text-center font-medium text-success">
+                              ${metrics.totalPremium}
                             </TableCell>
                             <TableCell className="text-center">
-                              {option.volume.toLocaleString()}
+                              ${metrics.cashSecured.toLocaleString()}
                             </TableCell>
-                            <TableCell className="text-center">
-                              {option.openInterest.toLocaleString()}
+                            <TableCell className="text-center text-success">
+                              ${metrics.maxProfit}
+                            </TableCell>
+                            <TableCell className="text-center font-medium text-success">
+                              {metrics.roc}%
+                            </TableCell>
+                            <TableCell className="text-center text-xs">
+                              <div className="flex flex-col gap-0.5">
+                                <span>{option.volume.toLocaleString()}</span>
+                                <span className="text-muted-foreground">{option.openInterest.toLocaleString()}</span>
+                              </div>
                             </TableCell>
                             <TableCell className="text-center">
                               {(option.impliedVolatility * 100).toFixed(1)}%
-                            </TableCell>
-                            <TableCell className="text-center font-medium text-success">
-                              {roc}%
                             </TableCell>
                             <TableCell className="text-center">
                               {isITM ? (
