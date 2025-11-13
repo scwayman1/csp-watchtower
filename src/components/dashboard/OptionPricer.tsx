@@ -25,7 +25,7 @@ interface OptionChainData {
   symbol: string;
   underlyingPrice: number;
   expirations: string[];
-  puts: OptionData[];
+  optionsByExpiration: Record<string, OptionData[]>;
 }
 
 interface OptionPricerProps {
@@ -65,7 +65,7 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
 
       toast({
         title: "Option data loaded",
-        description: `Found ${data.puts?.length || 0} put contracts for ${data.symbol}`,
+        description: `Found options for ${data.expirations?.length || 0} expiration dates`,
       });
     } catch (error) {
       console.error('Error fetching option chain:', error);
@@ -199,78 +199,81 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {optionData.puts
-                        .filter(put => put.strike <= optionData.underlyingPrice * 1.1)
-                        .sort((a, b) => b.strike - a.strike)
-                        .slice(0, 25)
-                        .map((option, idx) => {
-                          const mid = (option.bid + option.ask) / 2;
-                          const roc = calculateROC(option.strike, mid);
-                          const pctFromCurrent = ((optionData.underlyingPrice - option.strike) / optionData.underlyingPrice * 100);
-                          const isATM = pctFromCurrent < 5;
-                          const isITM = option.inTheMoney;
-                          
-                          return (
-                            <TableRow key={idx} className="hover:bg-muted/30">
-                              <TableCell className="font-bold text-center">
-                                ${option.strike.toFixed(2)}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                ${option.lastPrice.toFixed(2)}
-                              </TableCell>
-                              <TableCell className="text-center text-success">
-                                ${option.bid.toFixed(2)}
-                              </TableCell>
-                              <TableCell className="text-center text-destructive">
-                                ${option.ask.toFixed(2)}
-                              </TableCell>
-                              <TableCell className="text-center font-medium">
-                                ${mid.toFixed(2)}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {option.volume.toLocaleString()}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {option.openInterest.toLocaleString()}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {(option.impliedVolatility * 100).toFixed(1)}%
-                              </TableCell>
-                              <TableCell className="text-center font-medium text-success">
-                                {roc}%
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {isITM ? (
-                                  <Badge variant="destructive" className="gap-1">
-                                    <TrendingDown className="h-3 w-3" />
-                                    ITM
-                                  </Badge>
-                                ) : isATM ? (
-                                  <Badge variant="outline" className="border-warning text-warning gap-1">
-                                    <TrendingUp className="h-3 w-3" />
-                                    ATM
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="outline" className="border-success text-success gap-1">
-                                    <TrendingUp className="h-3 w-3" />
-                                    OTM
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => handleAddToSimulator(option)}
-                                  className="gap-1"
-                                >
-                                  <Plus className="h-3 w-3" />
-                                  Add
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
+                      {(optionData.optionsByExpiration[exp] || []).map((option, idx) => {
+                        const mid = (option.bid + option.ask) / 2;
+                        const roc = calculateROC(option.strike, mid);
+                        const pctFromCurrent = ((optionData.underlyingPrice - option.strike) / optionData.underlyingPrice * 100);
+                        const isATM = pctFromCurrent < 5;
+                        const isITM = option.inTheMoney;
+                        
+                        return (
+                          <TableRow key={idx} className="hover:bg-muted/30">
+                            <TableCell className="font-bold text-center">
+                              ${option.strike.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              ${option.lastPrice.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-center text-success">
+                              ${option.bid.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-center text-destructive">
+                              ${option.ask.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-center font-medium">
+                              ${mid.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {option.volume.toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {option.openInterest.toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {(option.impliedVolatility * 100).toFixed(1)}%
+                            </TableCell>
+                            <TableCell className="text-center font-medium text-success">
+                              {roc}%
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {isITM ? (
+                                <Badge variant="destructive" className="gap-1">
+                                  <TrendingDown className="h-3 w-3" />
+                                  ITM
+                                </Badge>
+                              ) : isATM ? (
+                                <Badge variant="outline" className="border-warning text-warning gap-1">
+                                  <TrendingUp className="h-3 w-3" />
+                                  ATM
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="border-success text-success gap-1">
+                                  <TrendingUp className="h-3 w-3" />
+                                  OTM
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => handleAddToSimulator(option)}
+                                className="gap-1"
+                              >
+                                <Plus className="h-3 w-3" />
+                                Add
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {(!optionData.optionsByExpiration[exp] || optionData.optionsByExpiration[exp].length === 0) && (
+                        <TableRow>
+                          <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                            No options available for this expiration
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
