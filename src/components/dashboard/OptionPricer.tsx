@@ -136,24 +136,24 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
           <Select 
             value={selectedExpiration} 
             onValueChange={setSelectedExpiration}
-            disabled={!optionData?.expirations?.length}
           >
             <SelectTrigger id="expiration">
-              <SelectValue placeholder="Select expiration" />
+              <SelectValue placeholder={!optionData ? "Click 'Get Prices' first" : "Select expiration"} />
             </SelectTrigger>
             <SelectContent>
-              {optionData?.expirations.map((exp) => (
-                <SelectItem key={exp} value={exp}>
-                  {exp} ({getDaysToExpiration(exp)} days)
+              {!optionData ? (
+                <SelectItem value="none" disabled>
+                  No expirations available - fetch prices first
                 </SelectItem>
-              ))}
+              ) : (
+                optionData.expirations.map((exp) => (
+                  <SelectItem key={exp} value={exp}>
+                    {exp} ({getDaysToExpiration(exp)} days)
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
-          {!optionData && (
-            <p className="text-xs text-muted-foreground">
-              Click "Get Prices" to load expiration dates
-            </p>
-          )}
         </div>
         <div className="flex items-end">
           <Button onClick={fetchOptionChain} disabled={loading} className="w-full">
