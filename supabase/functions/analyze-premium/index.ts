@@ -49,20 +49,37 @@ CALCULATED METRICS:
 - Risk Status: ${position.statusBand}
 ${position.dayChangePct !== undefined ? `- Daily Change: ${position.dayChangePct.toFixed(2)}%` : ''}
 
-Please provide:
-1. **Premium Quality Rating**: Rate this premium as "Excellent", "Good", "Fair", or "Poor" based on the Return on Capital
-2. **Risk-Adjusted Analysis**: Evaluate if the premium adequately compensates for the assignment risk
-3. **Educational Explanation**: Explain the key factors affecting this premium:
-   - Time decay (theta) impact with ${position.daysToExp} days remaining
-   - Implied volatility considerations
-   - Moneyness effect (${position.pctAboveStrike.toFixed(1)}% above strike)
-   - Risk/reward balance
-4. **Alternative Suggestions**: Suggest 2-3 alternative strikes or expirations that might offer better value
-   - Consider strikes further OTM for more safety
-   - Consider different expirations for better time decay efficiency
-5. **Action Recommendation**: Should the trader hold, roll, or close this position? Why?
+Please provide a comprehensive analysis following this EXACT structure:
 
-Keep the response conversational and educational, helping the trader understand the "why" behind options pricing.`;
+1. **Premium Quality Rating: [Excellent/Good/Fair/Poor]** - Start with this rating in this exact format. Base it on:
+   - Return on Capital for the trade duration (not just annualized)
+   - Industry benchmarks (aim for 1-3% monthly ROC as "Good", >3% as "Excellent", <1% as "Fair/Poor")
+   - Risk-adjusted returns considering probability of assignment
+
+2. **Risk-Adjusted Analysis**: 
+   - Evaluate if the premium adequately compensates for assignment risk
+   - Consider the risk/reward ratio (premium received vs. potential loss)
+   - Factor in current market volatility and stock-specific risks
+   - Assess the ${position.probAssignment.toFixed(1)}% assignment probability
+
+3. **Economic Fundamentals Affecting This Premium**:
+   - **Time Decay (Theta)**: Explain theta impact with ${position.daysToExp} days remaining and its effect on time value
+   - **Implied Volatility**: Discuss IV considerations and how market expectations affect pricing
+   - **Moneyness**: Analyze the ${position.pctAboveStrike.toFixed(1)}% distance above strike and its impact on extrinsic value
+   - **Interest Rates & Dividends**: Brief mention if relevant to option pricing
+   - **Black-Scholes Factors**: Touch on how the Greeks (Delta, Gamma, Vega, Theta, Rho) are working together
+
+4. **Alternative Strategies** (2-3 specific suggestions):
+   - Consider strikes further OTM for more safety margin
+   - Consider different expirations for optimal time decay efficiency
+   - Mention specific strikes/dates if possible based on typical market behavior
+
+5. **Action Recommendation**: Should the trader hold, roll, or close this position? Provide specific reasoning based on:
+   - Current unrealized P/L ($${position.unrealizedPnL.toFixed(2)})
+   - Days remaining vs. remaining time value
+   - Market outlook for ${position.symbol}
+
+Keep the response educational and conversational, helping traders understand both the mathematics and market psychology behind options pricing. Use the Black-Scholes framework and option Greeks to provide depth.`;
 
     console.log('Sending request to Lovable AI...');
 
@@ -114,12 +131,30 @@ Keep the response conversational and educational, helping the trader understand 
 
     console.log('AI analysis completed successfully');
 
-    // Determine quality rating from the analysis
+    // Extract quality rating from the structured analysis
     let qualityRating: 'excellent' | 'good' | 'fair' | 'poor' = 'fair';
     const analysisLower = analysis.toLowerCase();
-    if (analysisLower.includes('excellent')) qualityRating = 'excellent';
-    else if (analysisLower.includes('good')) qualityRating = 'good';
-    else if (analysisLower.includes('poor')) qualityRating = 'poor';
+    
+    // Look for the rating in the first section (Premium Quality Rating)
+    const ratingMatch = analysisLower.match(/premium quality rating[:\s]+\*?\*?(\w+)\*?\*?/);
+    if (ratingMatch) {
+      const rating = ratingMatch[1].toLowerCase();
+      if (rating === 'excellent') qualityRating = 'excellent';
+      else if (rating === 'good') qualityRating = 'good';
+      else if (rating === 'fair') qualityRating = 'fair';
+      else if (rating === 'poor') qualityRating = 'poor';
+    } else {
+      // Fallback: search in order of specificity
+      if (analysisLower.includes('premium quality rating:**poor') || analysisLower.includes('rating: **poor')) {
+        qualityRating = 'poor';
+      } else if (analysisLower.includes('premium quality rating:**fair') || analysisLower.includes('rating: **fair')) {
+        qualityRating = 'fair';
+      } else if (analysisLower.includes('premium quality rating:**good') || analysisLower.includes('rating: **good')) {
+        qualityRating = 'good';
+      } else if (analysisLower.includes('premium quality rating:**excellent') || analysisLower.includes('rating: **excellent')) {
+        qualityRating = 'excellent';
+      }
+    }
 
     return new Response(
       JSON.stringify({
