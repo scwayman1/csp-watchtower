@@ -37,14 +37,14 @@ export const useLearningPositions = (userId?: string) => {
       if (!userId) return [];
       
       const { data, error } = await supabase
-        .from('learning_positions')
+        .from('learning_positions' as any)
         .select('*')
         .eq('user_id', userId)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as LearningPosition[];
+      return (data || []) as unknown as LearningPosition[];
     },
     enabled: !!userId,
   });
@@ -52,7 +52,7 @@ export const useLearningPositions = (userId?: string) => {
   const addPosition = useMutation({
     mutationFn: async (position: NewLearningPosition) => {
       const { data, error } = await supabase
-        .from('learning_positions')
+        .from('learning_positions' as any)
         .insert([{ ...position, user_id: userId }])
         .select()
         .single();
@@ -79,7 +79,7 @@ export const useLearningPositions = (userId?: string) => {
   const closePosition = useMutation({
     mutationFn: async (positionId: string) => {
       const { error } = await supabase
-        .from('learning_positions')
+        .from('learning_positions' as any)
         .update({ is_active: false, closed_at: new Date().toISOString() })
         .eq('id', positionId);
 
@@ -104,7 +104,7 @@ export const useLearningPositions = (userId?: string) => {
   const deletePosition = useMutation({
     mutationFn: async (positionId: string) => {
       const { error } = await supabase
-        .from('learning_positions')
+        .from('learning_positions' as any)
         .delete()
         .eq('id', positionId);
 
