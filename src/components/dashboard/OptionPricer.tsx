@@ -136,12 +136,12 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
           <Select 
             value={selectedExpiration} 
             onValueChange={setSelectedExpiration}
-            disabled={!optionData || !optionData.expirations || optionData.expirations.length === 0}
+            disabled={!optionData?.expirations?.length}
           >
-            <SelectTrigger id="expiration" className="disabled:cursor-not-allowed disabled:opacity-60">
-              <SelectValue placeholder={optionData ? "Select expiration" : "Fetch prices first"} />
+            <SelectTrigger id="expiration">
+              <SelectValue placeholder="Select expiration" />
             </SelectTrigger>
-            <SelectContent className="z-[200]" position="popper" sideOffset={4}>
+            <SelectContent>
               {optionData?.expirations.map((exp) => (
                 <SelectItem key={exp} value={exp}>
                   {exp} ({getDaysToExpiration(exp)} days)
@@ -151,7 +151,7 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
           </Select>
           {!optionData && (
             <p className="text-xs text-muted-foreground">
-              Enter a symbol and click "Get Prices" to view available expirations
+              Click "Get Prices" to load expiration dates
             </p>
           )}
         </div>
