@@ -2,12 +2,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, TrendingUp, TrendingDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface OptionData {
   strike: number;
@@ -108,20 +109,35 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
     return diffDays;
   };
 
+  const formatExpiration = (expDate: string) => {
+    const date = new Date(expDate);
+    const month = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+    const day = date.getDate();
+    return `${month} ${day}`;
+  };
+
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="space-y-2">
+      {/* Search Bar */}
+      <div className="flex gap-4 items-end">
+        <div className="flex-1 space-y-2">
           <Label htmlFor="symbol">Stock Symbol</Label>
-          <Input
-            id="symbol"
-            placeholder="AAPL"
-            value={symbol}
-            onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-            onKeyDown={(e) => e.key === 'Enter' && fetchOptionChain()}
-          />
+          <div className="flex gap-2">
+            <Input
+              id="symbol"
+              placeholder="Enter symbol (e.g., AAPL)"
+              value={symbol}
+              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === 'Enter' && fetchOptionChain()}
+              className="flex-1"
+            />
+            <Button onClick={fetchOptionChain} disabled={loading}>
+              <Search className="mr-2 h-4 w-4" />
+              {loading ? "Loading..." : "Get Quotes"}
+            </Button>
+          </div>
         </div>
-        <div className="space-y-2">
+        <div className="w-32 space-y-2">
           <Label htmlFor="contracts">Contracts</Label>
           <Input
             id="contracts"
@@ -131,108 +147,143 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
             onChange={(e) => setContracts(e.target.value)}
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="expiration">Expiration</Label>
-          <Select 
-            value={selectedExpiration} 
-            onValueChange={setSelectedExpiration}
-          >
-            <SelectTrigger id="expiration">
-              <SelectValue placeholder={!optionData ? "Click 'Get Prices' first" : "Select expiration"} />
-            </SelectTrigger>
-            <SelectContent>
-              {!optionData ? (
-                <SelectItem value="none" disabled>
-                  No expirations available - fetch prices first
-                </SelectItem>
-              ) : (
-                optionData.expirations.map((exp) => (
-                  <SelectItem key={exp} value={exp}>
-                    {exp} ({getDaysToExpiration(exp)} days)
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-end">
-          <Button onClick={fetchOptionChain} disabled={loading} className="w-full">
-            <Search className="mr-2 h-4 w-4" />
-            {loading ? "Loading..." : "Get Prices"}
-          </Button>
-        </div>
       </div>
 
       {optionData && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
+        <div className="space-y-4">
+          {/* Stock Info */}
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
             <div>
-              <h3 className="text-lg font-semibold">{optionData.symbol} Put Options</h3>
-              <p className="text-sm text-muted-foreground">
-                Current Price: ${optionData.underlyingPrice.toFixed(2)}
-              </p>
+              <h3 className="text-2xl font-bold">{optionData.symbol}</h3>
+              <p className="text-sm text-muted-foreground">Cash-Secured Put Options</p>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold">${optionData.underlyingPrice.toFixed(2)}</div>
+              <p className="text-sm text-muted-foreground">Current Price</p>
             </div>
           </div>
 
-          <div className="border rounded-lg overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Strike</TableHead>
-                  <TableHead>Premium</TableHead>
-                  <TableHead>ROC</TableHead>
-                  <TableHead>IV</TableHead>
-                  <TableHead>Volume</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {optionData.puts
-                  .filter(put => put.strike <= optionData.underlyingPrice * 1.1)
-                  .sort((a, b) => b.strike - a.strike)
-                  .slice(0, 20)
-                  .map((option, idx) => {
-                    const premium = (option.bid + option.ask) / 2;
-                    const roc = calculateROC(option.strike, premium);
-                    const pctFromCurrent = ((optionData.underlyingPrice - option.strike) / optionData.underlyingPrice * 100);
-                    
-                    return (
-                      <TableRow key={idx}>
-                        <TableCell className="font-medium">${option.strike}</TableCell>
-                        <TableCell>${premium.toFixed(2)}</TableCell>
-                        <TableCell>{roc}%</TableCell>
-                        <TableCell>{(option.impliedVolatility * 100).toFixed(1)}%</TableCell>
-                        <TableCell>{option.volume}</TableCell>
-                        <TableCell>
-                          {option.inTheMoney ? (
-                            <Badge variant="destructive">ITM</Badge>
-                          ) : pctFromCurrent < 5 ? (
-                            <Badge variant="outline" className="border-warning text-warning">
-                              ATM
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="border-success text-success">
-                              OTM
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAddToSimulator(option)}
-                          >
-                            <Plus className="mr-1 h-3 w-3" />
-                            Add
-                          </Button>
-                        </TableCell>
+          {/* Expiration Tabs */}
+          <Tabs value={selectedExpiration} onValueChange={setSelectedExpiration}>
+            <ScrollArea className="w-full whitespace-nowrap">
+              <TabsList className="inline-flex w-auto">
+                {optionData.expirations.map((exp) => (
+                  <TabsTrigger key={exp} value={exp} className="px-4">
+                    {formatExpiration(exp)}
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      ({getDaysToExpiration(exp)}d)
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+
+            {optionData.expirations.map((exp) => (
+              <TabsContent key={exp} value={exp} className="mt-4">
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="text-center">Strike</TableHead>
+                        <TableHead className="text-center">Last</TableHead>
+                        <TableHead className="text-center">Bid</TableHead>
+                        <TableHead className="text-center">Ask</TableHead>
+                        <TableHead className="text-center">Mid</TableHead>
+                        <TableHead className="text-center">Volume</TableHead>
+                        <TableHead className="text-center">OI</TableHead>
+                        <TableHead className="text-center">IV</TableHead>
+                        <TableHead className="text-center">ROC</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                       </TableRow>
-                    );
-                  })}
-              </TableBody>
-            </Table>
-          </div>
+                    </TableHeader>
+                    <TableBody>
+                      {optionData.puts
+                        .filter(put => put.strike <= optionData.underlyingPrice * 1.1)
+                        .sort((a, b) => b.strike - a.strike)
+                        .slice(0, 25)
+                        .map((option, idx) => {
+                          const mid = (option.bid + option.ask) / 2;
+                          const roc = calculateROC(option.strike, mid);
+                          const pctFromCurrent = ((optionData.underlyingPrice - option.strike) / optionData.underlyingPrice * 100);
+                          const isATM = pctFromCurrent < 5;
+                          const isITM = option.inTheMoney;
+                          
+                          return (
+                            <TableRow key={idx} className="hover:bg-muted/30">
+                              <TableCell className="font-bold text-center">
+                                ${option.strike.toFixed(2)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                ${option.lastPrice.toFixed(2)}
+                              </TableCell>
+                              <TableCell className="text-center text-success">
+                                ${option.bid.toFixed(2)}
+                              </TableCell>
+                              <TableCell className="text-center text-destructive">
+                                ${option.ask.toFixed(2)}
+                              </TableCell>
+                              <TableCell className="text-center font-medium">
+                                ${mid.toFixed(2)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {option.volume.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {option.openInterest.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {(option.impliedVolatility * 100).toFixed(1)}%
+                              </TableCell>
+                              <TableCell className="text-center font-medium text-success">
+                                {roc}%
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {isITM ? (
+                                  <Badge variant="destructive" className="gap-1">
+                                    <TrendingDown className="h-3 w-3" />
+                                    ITM
+                                  </Badge>
+                                ) : isATM ? (
+                                  <Badge variant="outline" className="border-warning text-warning gap-1">
+                                    <TrendingUp className="h-3 w-3" />
+                                    ATM
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="border-success text-success gap-1">
+                                    <TrendingUp className="h-3 w-3" />
+                                    OTM
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => handleAddToSimulator(option)}
+                                  className="gap-1"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  Add
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </div>
+      )}
+
+      {!optionData && (
+        <div className="text-center py-12 text-muted-foreground">
+          <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>Enter a stock symbol and click "Get Quotes" to view option prices</p>
         </div>
       )}
     </div>
