@@ -18,7 +18,7 @@ export const LearningCenter = () => {
   };
 
   return (
-    <Card className="mt-6">
+    <Card className="mt-6 overflow-visible">
       <CardHeader>
         <div className="flex items-center gap-2">
           <GraduationCap className="h-5 w-5 text-primary" />
@@ -28,7 +28,7 @@ export const LearningCenter = () => {
           Practice pricing cash-secured puts and simulate trades to learn without risk
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="overflow-visible">
         <Tabs defaultValue="pricer" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="pricer">Option Pricer</TabsTrigger>
@@ -36,7 +36,7 @@ export const LearningCenter = () => {
               My Simulator ({positions.length})
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="pricer" className="mt-4">
+          <TabsContent value="pricer" className="mt-4 relative">
             <OptionPricer onAddToSimulator={handleAddPosition} />
           </TabsContent>
           <TabsContent value="simulator" className="mt-4">
