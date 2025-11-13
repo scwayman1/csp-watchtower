@@ -8,6 +8,7 @@ import { TimePeriodFilter, TimePeriod } from "@/components/dashboard/TimePeriodF
 import { PerformanceMetrics } from "@/components/dashboard/PerformanceMetrics";
 import { ExpirationCalendar } from "@/components/dashboard/ExpirationCalendar";
 import { AIPerformanceTracker } from "@/components/dashboard/AIPerformanceTracker";
+import { LearningCenter } from "@/components/dashboard/LearningCenter";
 import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
@@ -322,6 +323,9 @@ const Dashboard = () => {
         <div>
           <AssignedPositionsTable positions={filteredAssignedPositions} onRefetch={refetchAssigned} />
         </div>
+
+        {/* Learning Center */}
+        <LearningCenter />
       </div>
     </div>
   );
