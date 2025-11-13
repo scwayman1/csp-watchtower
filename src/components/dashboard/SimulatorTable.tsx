@@ -21,7 +21,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete }: SimulatorTableP
       // Find real market data if available
       const marketData = realPositions.find(rp => rp.symbol === pos.symbol);
       const underlyingPrice = marketData?.underlyingPrice || 0;
-      const currentMarkPrice = marketData?.markPrice || pos.premium_per_contract;
+      const currentMarkPrice = marketData?.premiumPerContract || pos.premium_per_contract;
 
       // Calculate metrics
       const cashSecured = pos.strike_price * 100 * pos.contracts;
