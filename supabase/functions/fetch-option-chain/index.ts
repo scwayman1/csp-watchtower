@@ -1,6 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,47 +21,95 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Fetching option chain for ${symbol}`);
-
-    // Fetch option chain data from Yahoo Finance
-    const yahooUrl = `https://query2.finance.yahoo.com/v7/finance/options/${symbol}`;
-    const response = await fetch(yahooUrl);
-    
-    if (!response.ok) {
-      throw new Error(`Yahoo Finance API error: ${response.status}`);
+    const polygonApiKey = Deno.env.get('POLYGON_API_KEY');
+    if (!polygonApiKey) {
+      throw new Error('POLYGON_API_KEY not configured');
     }
 
-    const data = await response.json();
-    const optionChain = data.optionChain?.result?.[0];
+    console.log(`Fetching option chain for ${symbol} from Polygon.io`);
+
+    // Get current stock price from Polygon
+    const tickerUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol}/prev?adjusted=true&apiKey=${polygonApiKey}`;
+    const tickerResponse = await fetch(tickerUrl);
     
-    if (!optionChain) {
+    if (!tickerResponse.ok) {
+      throw new Error(`Polygon API error fetching price: ${tickerResponse.status}`);
+    }
+
+    const tickerData = await tickerResponse.json();
+    const underlyingPrice = tickerData.results?.[0]?.c || 0;
+
+    // Get options contracts from Polygon
+    const today = new Date();
+    const oneMonthFromNow = new Date(today);
+    oneMonthFromNow.setMonth(today.getMonth() + 1);
+    
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+    
+    const optionsUrl = `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${symbol}&contract_type=put&expiration_date.gte=${formatDate(today)}&expiration_date.lte=${formatDate(oneMonthFromNow)}&limit=1000&apiKey=${polygonApiKey}`;
+    const optionsResponse = await fetch(optionsUrl);
+    
+    if (!optionsResponse.ok) {
+      throw new Error(`Polygon API error fetching options: ${optionsResponse.status}`);
+    }
+
+    const optionsData = await optionsResponse.json();
+    
+    if (!optionsData.results || optionsData.results.length === 0) {
       return new Response(
         JSON.stringify({ error: 'No option data available for this symbol' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get current stock price
-    const underlyingPrice = optionChain.quote?.regularMarketPrice || 0;
+    // Get unique expiration dates
+    const expirationSet = new Set<string>();
+    optionsData.results.forEach((contract: any) => {
+      if (contract.expiration_date) {
+        expirationSet.add(contract.expiration_date);
+      }
+    });
+    const expirations = Array.from(expirationSet).sort();
 
-    // Process expirations
-    const expirations = optionChain.expirationDates?.map((timestamp: number) => {
-      const date = new Date(timestamp * 1000);
-      return date.toISOString().split('T')[0];
-    }) || [];
+    // Get snapshot data for the first expiration to get current prices
+    const firstExpiration = expirations[0];
+    const contractsForFirstExp = optionsData.results.filter((c: any) => c.expiration_date === firstExpiration);
+    
+    // Fetch quotes for each contract (in batches to avoid rate limits)
+    const puts = [];
+    for (const contract of contractsForFirstExp.slice(0, 20)) {
+      try {
+        const quoteUrl = `https://api.polygon.io/v3/snapshot/options/${contract.ticker}?apiKey=${polygonApiKey}`;
+        const quoteResponse = await fetch(quoteUrl);
+        
+        if (quoteResponse.ok) {
+          const quoteData = await quoteResponse.json();
+          const lastQuote = quoteData.results?.last_quote;
+          const lastTrade = quoteData.results?.last_trade;
+          
+          if (lastQuote) {
+            const mid = (lastQuote.bid + lastQuote.ask) / 2;
+            puts.push({
+              strike: contract.strike_price,
+              lastPrice: lastTrade?.price || mid,
+              bid: lastQuote.bid,
+              ask: lastQuote.ask,
+              volume: quoteData.results?.day?.volume || 0,
+              openInterest: quoteData.results?.open_interest || 0,
+              impliedVolatility: quoteData.results?.implied_volatility || 0,
+              inTheMoney: contract.strike_price > underlyingPrice,
+            });
+          }
+        }
+        // Small delay to respect rate limits
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } catch (err) {
+        console.error(`Error fetching quote for ${contract.ticker}:`, err);
+      }
+    }
 
-    // Process put options
-    const puts = optionChain.options?.[0]?.puts?.map((put: any) => ({
-      strike: put.strike,
-      lastPrice: put.lastPrice,
-      bid: put.bid,
-      ask: put.ask,
-      volume: put.volume,
-      openInterest: put.openInterest,
-      impliedVolatility: put.impliedVolatility,
-      delta: put.delta,
-      inTheMoney: put.inTheMoney,
-    })) || [];
+    // Sort puts by strike price descending
+    puts.sort((a, b) => b.strike - a.strike);
 
     return new Response(
       JSON.stringify({
