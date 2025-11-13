@@ -69,54 +69,62 @@ serve(async (req) => {
         expirationSet.add(contract.expiration_date);
       }
     });
-    const expirations = Array.from(expirationSet).sort();
+    const expirations = Array.from(expirationSet).sort().slice(0, 5); // Limit to first 5 expirations
 
-    // Get snapshot data for the first expiration to get current prices
-    const firstExpiration = expirations[0];
-    const contractsForFirstExp = optionsData.results.filter((c: any) => c.expiration_date === firstExpiration);
+    // Organize options by expiration date
+    const optionsByExpiration: Record<string, any[]> = {};
     
-    // Fetch quotes for each contract (in batches to avoid rate limits)
-    const puts = [];
-    for (const contract of contractsForFirstExp.slice(0, 20)) {
-      try {
-        const quoteUrl = `https://api.polygon.io/v3/snapshot/options/${contract.ticker}?apiKey=${polygonApiKey}`;
-        const quoteResponse = await fetch(quoteUrl);
-        
-        if (quoteResponse.ok) {
-          const quoteData = await quoteResponse.json();
-          const lastQuote = quoteData.results?.last_quote;
-          const lastTrade = quoteData.results?.last_trade;
+    for (const expiration of expirations) {
+      const contractsForExp = optionsData.results.filter((c: any) => 
+        c.expiration_date === expiration && 
+        c.strike_price <= underlyingPrice * 1.1 &&
+        c.strike_price >= underlyingPrice * 0.8
+      );
+      
+      const puts = [];
+      // Fetch quotes for up to 20 contracts per expiration
+      for (const contract of contractsForExp.slice(0, 20)) {
+        try {
+          const quoteUrl = `https://api.polygon.io/v3/snapshot/options/${contract.ticker}?apiKey=${polygonApiKey}`;
+          const quoteResponse = await fetch(quoteUrl);
           
-          if (lastQuote) {
-            const mid = (lastQuote.bid + lastQuote.ask) / 2;
-            puts.push({
-              strike: contract.strike_price,
-              lastPrice: lastTrade?.price || mid,
-              bid: lastQuote.bid,
-              ask: lastQuote.ask,
-              volume: quoteData.results?.day?.volume || 0,
-              openInterest: quoteData.results?.open_interest || 0,
-              impliedVolatility: quoteData.results?.implied_volatility || 0,
-              inTheMoney: contract.strike_price > underlyingPrice,
-            });
+          if (quoteResponse.ok) {
+            const quoteData = await quoteResponse.json();
+            const lastQuote = quoteData.results?.last_quote;
+            const lastTrade = quoteData.results?.last_trade;
+            
+            if (lastQuote && (lastQuote.bid > 0 || lastQuote.ask > 0)) {
+              const mid = (lastQuote.bid + lastQuote.ask) / 2;
+              puts.push({
+                strike: contract.strike_price,
+                lastPrice: lastTrade?.price || mid,
+                bid: lastQuote.bid,
+                ask: lastQuote.ask,
+                volume: quoteData.results?.day?.volume || 0,
+                openInterest: quoteData.results?.open_interest || 0,
+                impliedVolatility: quoteData.results?.implied_volatility || 0,
+                inTheMoney: contract.strike_price > underlyingPrice,
+              });
+            }
           }
+          // Small delay to respect rate limits
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (err) {
+          console.error(`Error fetching quote for ${contract.ticker}:`, err);
         }
-        // Small delay to respect rate limits
-        await new Promise(resolve => setTimeout(resolve, 50));
-      } catch (err) {
-        console.error(`Error fetching quote for ${contract.ticker}:`, err);
       }
+      
+      // Sort by strike price descending
+      puts.sort((a, b) => b.strike - a.strike);
+      optionsByExpiration[expiration] = puts;
     }
-
-    // Sort puts by strike price descending
-    puts.sort((a, b) => b.strike - a.strike);
 
     return new Response(
       JSON.stringify({
         symbol,
         underlyingPrice,
         expirations,
-        puts,
+        optionsByExpiration,
         lastUpdate: new Date().toISOString(),
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
