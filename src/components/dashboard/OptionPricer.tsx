@@ -133,11 +133,15 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
         </div>
         <div className="space-y-2">
           <Label htmlFor="expiration">Expiration</Label>
-          <Select value={selectedExpiration} onValueChange={setSelectedExpiration}>
+          <Select 
+            value={selectedExpiration} 
+            onValueChange={setSelectedExpiration}
+            disabled={!optionData || !optionData.expirations || optionData.expirations.length === 0}
+          >
             <SelectTrigger id="expiration">
               <SelectValue placeholder="Select expiration" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[200]" position="popper" sideOffset={4}>
               {optionData?.expirations.map((exp) => (
                 <SelectItem key={exp} value={exp}>
                   {exp} ({getDaysToExpiration(exp)} days)
