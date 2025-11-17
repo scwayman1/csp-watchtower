@@ -63,9 +63,17 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
         setSelectedExpiration(data.expirations[0]);
       }
 
+      // Check if we have any options with pricing data
+      const hasAnyPricing = data.expirations?.some((exp: string) => 
+        data.optionsByExpiration[exp]?.some((opt: OptionData) => opt.bid > 0 || opt.ask > 0)
+      );
+
       toast({
         title: "Option data loaded",
-        description: `Found options for ${data.expirations?.length || 0} expiration dates`,
+        description: hasAnyPricing 
+          ? `Found options for ${data.expirations?.length || 0} expiration dates`
+          : `Found ${data.expirations?.length || 0} expiration dates (live pricing unavailable - upgrade Polygon plan for quotes)`,
+        variant: hasAnyPricing ? "default" : "destructive",
       });
     } catch (error) {
       console.error('Error fetching option chain:', error);
