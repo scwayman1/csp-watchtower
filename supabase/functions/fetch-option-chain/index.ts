@@ -9,6 +9,20 @@ const corsHeaders = {
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 300000; // 5 minutes
 
+// Yahoo Finance request headers
+const yahooHeaders = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': '*/*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Referer': 'https://finance.yahoo.com/',
+  'Origin': 'https://finance.yahoo.com',
+  'Connection': 'keep-alive',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-site',
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -36,18 +50,17 @@ serve(async (req) => {
     }
 
     // Step 1: Get underlying price from Yahoo Finance
-    const quoteUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+    const quoteUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
     console.log(`Fetching stock quote for ${symbol}`);
     
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      'Accept': 'application/json',
-      'Accept-Language': 'en-US,en;q=0.9',
-    };
-    
-    const quoteResponse = await fetch(quoteUrl, { headers });
+    const quoteResponse = await fetch(quoteUrl, { 
+      headers: yahooHeaders,
+      method: 'GET',
+    });
     
     if (!quoteResponse.ok) {
+      const errorText = await quoteResponse.text();
+      console.error(`Quote fetch failed: ${quoteResponse.status} - ${errorText}`);
       throw new Error(`Failed to fetch stock quote: ${quoteResponse.status}`);
     }
     
@@ -61,12 +74,17 @@ serve(async (req) => {
     console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
     // Step 2: Get options expirations
-    const optionsUrl = `https://query1.finance.yahoo.com/v7/finance/options/${symbol}`;
+    const optionsUrl = `https://query2.finance.yahoo.com/v7/finance/options/${symbol}`;
     console.log(`Fetching options expirations for ${symbol}`);
     
-    const optionsResponse = await fetch(optionsUrl, { headers });
+    const optionsResponse = await fetch(optionsUrl, { 
+      headers: yahooHeaders,
+      method: 'GET',
+    });
     
     if (!optionsResponse.ok) {
+      const errorText = await optionsResponse.text();
+      console.error(`Options fetch failed: ${optionsResponse.status} - ${errorText}`);
       throw new Error(`Failed to fetch options data: ${optionsResponse.status}`);
     }
     
@@ -86,11 +104,17 @@ serve(async (req) => {
     
     // Fetch options for each expiration
     for (const expTimestamp of selectedExpirations) {
-      const expUrl = `https://query1.finance.yahoo.com/v7/finance/options/${symbol}?date=${expTimestamp}`;
+      const expUrl = `https://query2.finance.yahoo.com/v7/finance/options/${symbol}?date=${expTimestamp}`;
       
       try {
-        const expResponse = await fetch(expUrl, { headers });
-        if (!expResponse.ok) continue;
+        const expResponse = await fetch(expUrl, { 
+          headers: yahooHeaders,
+          method: 'GET',
+        });
+        if (!expResponse.ok) {
+          console.error(`Failed to fetch expiration ${expTimestamp}: ${expResponse.status}`);
+          continue;
+        }
         
         const expData = await expResponse.json();
         const puts = expData.optionChain?.result?.[0]?.options?.[0]?.puts || [];
