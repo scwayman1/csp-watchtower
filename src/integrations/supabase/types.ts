@@ -224,6 +224,54 @@ export type Database = {
           },
         ]
       }
+      learning_positions: {
+        Row: {
+          closed_at: string | null
+          contracts: number
+          created_at: string
+          expiration: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          opened_at: string
+          premium_per_contract: number
+          strike_price: number
+          symbol: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          contracts?: number
+          created_at?: string
+          expiration: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          opened_at?: string
+          premium_per_contract: number
+          strike_price: number
+          symbol: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          contracts?: number
+          created_at?: string
+          expiration?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          opened_at?: string
+          premium_per_contract?: number
+          strike_price?: number
+          symbol?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       market_data: {
         Row: {
           day_change_pct: number | null
