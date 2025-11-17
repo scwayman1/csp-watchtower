@@ -118,25 +118,32 @@ serve(async (req) => {
         
         console.log(`Finnhub response for ${expDate}:`, JSON.stringify(optionsData).substring(0, 500));
         
+        // Finnhub structure: data[0].options.PUT[] contains the put options
         if (!optionsData.data || optionsData.data.length === 0) {
-          console.log(`No options data for ${expDate} - data:`, optionsData.data);
+          console.log(`No options data for ${expDate}`);
+          continue;
+        }
+
+        const expirationData = optionsData.data.find((d: any) => d.expirationDate === expDate);
+        if (!expirationData || !expirationData.options || !expirationData.options.PUT) {
+          console.log(`No PUT options found for ${expDate}`);
           continue;
         }
         
-        // Filter for PUT options only
-        const putOptions = optionsData.data
-          .filter((opt: any) => opt.type === 'put')
+        // Map Finnhub PUT options to our format
+        const putOptions = expirationData.options.PUT
           .map((opt: any) => ({
-            strike: opt.strike,
+            strike: opt.strike || 0,
             bid: opt.bid || 0,
             ask: opt.ask || 0,
-            mid: opt.bid && opt.ask ? (opt.bid + opt.ask) / 2 : opt.last || 0,
+            mid: opt.bid && opt.ask ? (opt.bid + opt.ask) / 2 : opt.lastTradePrice || 0,
             volume: opt.volume || 0,
             openInterest: opt.openInterest || 0,
-            impliedVolatility: opt.impliedVolatility || 0,
-            delta: 0, // Finnhub doesn't provide greeks in basic plan
-            inTheMoney: opt.strike > underlyingPrice
+            impliedVolatility: opt.impliedVolatility || expirationData.impliedVolatility || 0,
+            delta: opt.delta || 0,
+            inTheMoney: opt.inTheMoney === "TRUE" || opt.strike > underlyingPrice
           }))
+          .filter((opt: any) => opt.strike > 0) // Filter out invalid strikes
           .sort((a: any, b: any) => b.strike - a.strike); // Sort by strike descending
         
         if (putOptions.length > 0) {
