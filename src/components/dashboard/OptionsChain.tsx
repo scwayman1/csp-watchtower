@@ -39,14 +39,16 @@ export const OptionsChain = ({
 }: OptionsChainProps) => {
   
   const calculateMetrics = (option: OptionRow) => {
-    const credit = option.mid;
-    const breakeven = option.strike - credit;
+    // Safely handle undefined values with defaults
+    const credit = option.mid ?? 0;
+    const strike = option.strike ?? 0;
+    const breakeven = strike - credit;
     const totalPremium = credit * 100 * contracts;
-    const capitalReq = option.strike * 100 * contracts;
+    const capitalReq = strike * 100 * contracts;
     const maxProfit = totalPremium;
     const roc = capitalReq > 0 ? (maxProfit / capitalReq) * 100 : 0;
-    const pctFromSpot = ((option.strike - underlyingPrice) / underlyingPrice) * 100;
-    const probAssign = Math.abs(option.delta || 0);
+    const pctFromSpot = underlyingPrice > 0 ? ((strike - underlyingPrice) / underlyingPrice) * 100 : 0;
+    const probAssign = Math.abs(option.delta ?? 0);
     
     let status = 'Safe';
     let statusVariant: 'default' | 'secondary' | 'destructive' = 'default';
@@ -199,7 +201,7 @@ export const OptionsChain = ({
                   }
                 >
                   <TableCell className="text-right font-medium">
-                    ${option.strike.toFixed(2)}
+                    ${(option.strike ?? 0).toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right">
                     <span className={
@@ -209,37 +211,37 @@ export const OptionsChain = ({
                         ? "text-warning"
                         : "text-destructive"
                     }>
-                      {option.pctFromSpot >= 0 ? '+' : ''}{option.pctFromSpot.toFixed(1)}%
+                      {option.pctFromSpot >= 0 ? '+' : ''}{(option.pctFromSpot ?? 0).toFixed(1)}%
                     </span>
                   </TableCell>
                   <TableCell className="text-right text-sm">
                     <span className={isStale ? "text-muted-foreground" : ""}>
-                      ${option.bid.toFixed(2)} / ${option.ask.toFixed(2)} / ${option.mid.toFixed(2)}
+                      ${(option.bid ?? 0).toFixed(2)} / ${(option.ask ?? 0).toFixed(2)} / ${(option.mid ?? 0).toFixed(2)}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
-                    ${option.breakeven.toFixed(2)}
+                    ${(option.breakeven ?? 0).toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    ${option.totalPremium.toFixed(2)}
+                    ${(option.totalPremium ?? 0).toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right">
-                    ${option.capitalReq.toFixed(2)}
+                    ${(option.capitalReq ?? 0).toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right text-success">
-                    ${option.maxProfit.toFixed(2)}
+                    ${(option.maxProfit ?? 0).toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    {option.roc.toFixed(2)}%
+                    {(option.roc ?? 0).toFixed(2)}%
                   </TableCell>
                   <TableCell className="text-right text-sm text-muted-foreground">
-                    {option.volume}/{option.openInterest}
+                    {option.volume ?? 0}/{option.openInterest ?? 0}
                   </TableCell>
                   <TableCell className="text-right">
-                    {(option.impliedVolatility * 100).toFixed(1)}%
+                    {((option.impliedVolatility ?? 0) * 100).toFixed(1)}%
                   </TableCell>
                   <TableCell className="text-right">
-                    {option.delta?.toFixed(2) || 'N/A'}
+                    {option.delta !== undefined && option.delta !== null ? option.delta.toFixed(2) : 'N/A'}
                   </TableCell>
                   <TableCell>
                     <Badge variant={option.statusVariant}>
