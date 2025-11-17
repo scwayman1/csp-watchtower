@@ -53,10 +53,11 @@ export const OptionsChain = ({
     let status = 'Safe';
     let statusVariant: 'default' | 'secondary' | 'destructive' = 'default';
     
-    if (pctFromSpot >= 10) {
+    // For cash-secured puts: negative pctFromSpot = OTM = Safe, positive = ITM = Risky
+    if (pctFromSpot <= -10) {
       status = 'Safe';
       statusVariant = 'default';
-    } else if (pctFromSpot >= 5) {
+    } else if (pctFromSpot <= -5) {
       status = 'Moderate';
       statusVariant = 'secondary';
     } else {
