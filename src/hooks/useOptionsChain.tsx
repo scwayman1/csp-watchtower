@@ -19,7 +19,7 @@ interface OptionData {
 interface OptionChainData {
   underlyingPrice: number;
   expirations: string[];
-  optionsByExpiration: Record<string, OptionData[]>;
+  options: Record<string, OptionData[]>;
   timestamp: number;
 }
 
@@ -58,10 +58,10 @@ export const useOptionsChain = (symbol: string | null) => {
   });
 
   const checkDataQuality = (chainData: OptionChainData | null) => {
-    if (!chainData) return { isValid: true, reason: null };
+    if (!chainData || !chainData.options) return { isValid: true, reason: null };
 
     // Check if any options have unrealistic spreads
-    const hasWideSpreads = Object.values(chainData.optionsByExpiration).some(options =>
+    const hasWideSpreads = Object.values(chainData.options).some(options =>
       options.some(opt => {
         const spread = opt.ask - opt.bid;
         const midPrice = (opt.bid + opt.ask) / 2;

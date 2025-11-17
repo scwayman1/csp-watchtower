@@ -41,8 +41,8 @@ export const LearningCenter = () => {
 
   // Auto-select first expiration when data loads
   const currentExpiration = selectedExpiration || chainData?.expirations?.[0] || null;
-  const currentOptions = currentExpiration && chainData?.optionsByExpiration?.[currentExpiration] 
-    ? chainData.optionsByExpiration[currentExpiration] 
+  const currentOptions = currentExpiration && chainData?.options?.[currentExpiration] 
+    ? chainData.options[currentExpiration] 
     : [];
 
   const getDaysToExpiration = (exp: string) => {
