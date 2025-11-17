@@ -9,19 +9,7 @@ const corsHeaders = {
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 300000; // 5 minutes
 
-// Yahoo Finance request headers
-const yahooHeaders = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Accept': '*/*',
-  'Accept-Language': 'en-US,en;q=0.9',
-  'Accept-Encoding': 'gzip, deflate, br',
-  'Referer': 'https://finance.yahoo.com/',
-  'Origin': 'https://finance.yahoo.com',
-  'Connection': 'keep-alive',
-  'Sec-Fetch-Dest': 'empty',
-  'Sec-Fetch-Mode': 'cors',
-  'Sec-Fetch-Site': 'same-site',
-};
+const POLYGON_API_KEY = Deno.env.get('POLYGON_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -35,7 +23,11 @@ serve(async (req) => {
       throw new Error('Symbol is required');
     }
 
-    console.log(`Fetching option chain for ${symbol} from Yahoo Finance`);
+    if (!POLYGON_API_KEY) {
+      throw new Error('POLYGON_API_KEY not configured');
+    }
+
+    console.log(`Fetching option chain for ${symbol} from Polygon.io`);
 
     // Check cache first
     const cacheKey = `chain_${symbol}`;
@@ -49,14 +41,11 @@ serve(async (req) => {
       );
     }
 
-    // Step 1: Get underlying price from Yahoo Finance
-    const quoteUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+    // Step 1: Get underlying price
+    const quoteUrl = `https://api.polygon.io/v2/last/trade/${symbol}?apiKey=${POLYGON_API_KEY}`;
     console.log(`Fetching stock quote for ${symbol}`);
     
-    const quoteResponse = await fetch(quoteUrl, { 
-      headers: yahooHeaders,
-      method: 'GET',
-    });
+    const quoteResponse = await fetch(quoteUrl);
     
     if (!quoteResponse.ok) {
       const errorText = await quoteResponse.text();
@@ -66,77 +55,95 @@ serve(async (req) => {
     
     const quoteData = await quoteResponse.json();
     
-    if (!quoteData.chart?.result?.[0]?.meta?.regularMarketPrice) {
+    if (!quoteData.results?.p) {
       throw new Error(`No quote data found for ${symbol}`);
     }
     
-    const underlyingPrice = quoteData.chart.result[0].meta.regularMarketPrice;
+    const underlyingPrice = quoteData.results.p;
     console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
-    // Step 2: Get options expirations
-    const optionsUrl = `https://query2.finance.yahoo.com/v7/finance/options/${symbol}`;
-    console.log(`Fetching options expirations for ${symbol}`);
+    // Step 2: Get options contracts
+    const today = new Date();
+    const maxDate = new Date(today.getTime() + 120 * 24 * 60 * 60 * 1000); // 120 days out
+    const contractsUrl = `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${symbol}&contract_type=put&expiration_date.lte=${maxDate.toISOString().split('T')[0]}&limit=1000&apiKey=${POLYGON_API_KEY}`;
     
-    const optionsResponse = await fetch(optionsUrl, { 
-      headers: yahooHeaders,
-      method: 'GET',
-    });
+    console.log(`Fetching options contracts for ${symbol}`);
     
-    if (!optionsResponse.ok) {
-      const errorText = await optionsResponse.text();
-      console.error(`Options fetch failed: ${optionsResponse.status} - ${errorText}`);
-      throw new Error(`Failed to fetch options data: ${optionsResponse.status}`);
+    const contractsResponse = await fetch(contractsUrl);
+    
+    if (!contractsResponse.ok) {
+      const errorText = await contractsResponse.text();
+      console.error(`Contracts fetch failed: ${contractsResponse.status} - ${errorText}`);
+      throw new Error(`Failed to fetch options contracts: ${contractsResponse.status}`);
     }
     
-    const optionsData = await optionsResponse.json();
+    const contractsData = await contractsResponse.json();
     
-    if (!optionsData.optionChain?.result?.[0]) {
-      throw new Error(`No options data found for ${symbol}`);
+    if (!contractsData.results || contractsData.results.length === 0) {
+      throw new Error(`No options contracts found for ${symbol}`);
     }
 
-    const expirationTimestamps = optionsData.optionChain.result[0].expirationDates || [];
+    // Group by expiration date
+    const contractsByExpiration: Record<string, any[]> = {};
+    
+    for (const contract of contractsData.results) {
+      const expDate = contract.expiration_date;
+      if (!contractsByExpiration[expDate]) {
+        contractsByExpiration[expDate] = [];
+      }
+      contractsByExpiration[expDate].push(contract);
+    }
     
     // Get up to 4 nearest expirations
-    const selectedExpirations = expirationTimestamps.slice(0, 4);
-    console.log(`Processing ${selectedExpirations.length} expiration dates`);
+    const expirationDates = Object.keys(contractsByExpiration).sort().slice(0, 4);
+    console.log(`Processing ${expirationDates.length} expiration dates`);
     
     const optionsByExpiration: Record<string, any[]> = {};
     
-    // Fetch options for each expiration
-    for (const expTimestamp of selectedExpirations) {
-      const expUrl = `https://query2.finance.yahoo.com/v7/finance/options/${symbol}?date=${expTimestamp}`;
+    // Fetch quotes for each expiration
+    for (const expDate of expirationDates) {
+      const contracts = contractsByExpiration[expDate];
+      const formattedOptions: any[] = [];
       
-      try {
-        const expResponse = await fetch(expUrl, { 
-          headers: yahooHeaders,
-          method: 'GET',
-        });
-        if (!expResponse.ok) {
-          console.error(`Failed to fetch expiration ${expTimestamp}: ${expResponse.status}`);
-          continue;
+      // Batch fetch quotes for this expiration (limit to avoid rate limits)
+      const contractsToFetch = contracts.slice(0, 50);
+      
+      for (const contract of contractsToFetch) {
+        try {
+          const quoteUrl = `https://api.polygon.io/v3/quotes/${contract.ticker}?limit=1&apiKey=${POLYGON_API_KEY}`;
+          const quoteRes = await fetch(quoteUrl);
+          
+          if (quoteRes.ok) {
+            const quoteJson = await quoteRes.json();
+            const quote = quoteJson.results?.[0];
+            
+            if (quote) {
+              formattedOptions.push({
+                strike: contract.strike_price,
+                bid: quote.bid_price || 0,
+                ask: quote.ask_price || 0,
+                mid: quote.bid_price && quote.ask_price ? (quote.bid_price + quote.ask_price) / 2 : 0,
+                volume: 0, // Volume requires separate API call
+                openInterest: 0, // OI requires separate API call
+                impliedVolatility: 0, // IV requires separate API call or calculation
+                delta: 0, // Greeks require separate API call
+                inTheMoney: contract.strike_price > underlyingPrice
+              });
+            }
+          }
+          
+          // Rate limiting: small delay between requests
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (error) {
+          console.error(`Error fetching quote for ${contract.ticker}:`, error);
         }
-        
-        const expData = await expResponse.json();
-        const puts = expData.optionChain?.result?.[0]?.options?.[0]?.puts || [];
-        
-        if (puts.length === 0) continue;
-        
-        const formattedOptions = puts.map((put: any) => ({
-          strike: put.strike || 0,
-          bid: put.bid || 0,
-          ask: put.ask || 0,
-          mid: ((put.bid || 0) + (put.ask || 0)) / 2,
-          volume: put.volume || 0,
-          openInterest: put.openInterest || 0,
-          impliedVolatility: put.impliedVolatility || 0,
-          delta: 0, // Yahoo Finance doesn't provide Greeks in free API
-          inTheMoney: put.inTheMoney || false
-        }));
-        
-        optionsByExpiration[expTimestamp.toString()] = formattedOptions;
-        console.log(`Added ${formattedOptions.length} put options for expiration ${expTimestamp}`);
-      } catch (error) {
-        console.error(`Error fetching options for expiration ${expTimestamp}:`, error);
+      }
+      
+      if (formattedOptions.length > 0) {
+        // Convert date to timestamp for consistency with frontend
+        const timestamp = new Date(expDate).getTime() / 1000;
+        optionsByExpiration[timestamp.toString()] = formattedOptions;
+        console.log(`Added ${formattedOptions.length} put options for expiration ${expDate}`);
       }
     }
 
