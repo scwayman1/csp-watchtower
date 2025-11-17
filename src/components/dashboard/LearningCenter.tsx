@@ -119,7 +119,7 @@ export const LearningCenter = () => {
                     size="sm" 
                     onClick={handleRefresh} 
                     disabled={isLoading}
-                    title="Refresh quotes (manual only to avoid API rate limits)"
+                    title="Refresh quotes manually (cached for 5 minutes)"
                   >
                     <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                   </Button>
@@ -131,7 +131,7 @@ export const LearningCenter = () => {
                     </Badge>
                     {isStale && (
                       <Badge variant="secondary">
-                        Cached Data
+                        Data from cache
                       </Badge>
                     )}
                   </>
