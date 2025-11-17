@@ -104,14 +104,31 @@ export const LearningCenter = () => {
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   />
                 </div>
-                <div className="w-24">
+                <div className="flex-none">
                   <label className="text-sm font-medium mb-2 block">Contracts</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={contracts}
-                    onChange={(e) => setContracts(Math.max(1, parseInt(e.target.value) || 1))}
-                  />
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={contracts}
+                      onChange={(e) => setContracts(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-20"
+                    />
+                    <div className="flex gap-1">
+                      {[1, 5, 10].map(qty => (
+                        <Button
+                          key={qty}
+                          size="sm"
+                          variant={contracts === qty ? "default" : "outline"}
+                          onClick={() => setContracts(qty)}
+                          className="h-8 px-2 text-xs"
+                        >
+                          {qty}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <Button onClick={handleSearch} disabled={isLoading}>
                   {isLoading ? (
