@@ -116,8 +116,10 @@ serve(async (req) => {
         
         const optionsData = await optionsResponse.json();
         
+        console.log(`Finnhub response for ${expDate}:`, JSON.stringify(optionsData).substring(0, 500));
+        
         if (!optionsData.data || optionsData.data.length === 0) {
-          console.log(`No options data for ${expDate}`);
+          console.log(`No options data for ${expDate} - data:`, optionsData.data);
           continue;
         }
         
