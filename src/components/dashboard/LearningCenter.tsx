@@ -35,7 +35,12 @@ export const LearningCenter = () => {
   };
 
   const handleAddPosition = (position: any) => {
-    addPosition(position);
+    // Convert Unix timestamp to ISO date string for database
+    const expirationDate = new Date(parseInt(position.expiration) * 1000).toISOString().split('T')[0];
+    addPosition({
+      ...position,
+      expiration: expirationDate
+    });
     setRefreshKey(prev => prev + 1);
   };
 
