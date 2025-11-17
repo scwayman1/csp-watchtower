@@ -119,6 +119,7 @@ export const LearningCenter = () => {
                     size="sm" 
                     onClick={handleRefresh} 
                     disabled={isLoading}
+                    title="Refresh quotes (manual only to avoid API rate limits)"
                   >
                     <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                   </Button>
@@ -129,8 +130,8 @@ export const LearningCenter = () => {
                       ${chainData.underlyingPrice.toFixed(2)}
                     </Badge>
                     {isStale && (
-                      <Badge variant="destructive">
-                        Stale {staleReason && `- ${staleReason}`}
+                      <Badge variant="secondary">
+                        Cached Data
                       </Badge>
                     )}
                   </>
