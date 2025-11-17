@@ -6,6 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Simple in-memory cache for underlying prices (expires after 60 seconds)
+const priceCache = new Map<string, { price: number; timestamp: number }>();
+const CACHE_DURATION = 60000; // 60 seconds
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -28,16 +32,56 @@ serve(async (req) => {
 
     console.log(`Fetching option chain for ${symbol} from Polygon.io`);
 
-    // Get current stock price from Polygon
-    const tickerUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol}/prev?adjusted=true&apiKey=${polygonApiKey}`;
-    const tickerResponse = await fetch(tickerUrl);
+    // Check cache first
+    const cached = priceCache.get(symbol);
+    let underlyingPrice = 0;
     
-    if (!tickerResponse.ok) {
-      throw new Error(`Polygon API error fetching price: ${tickerResponse.status}`);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      console.log(`Using cached price for ${symbol}: $${cached.price}`);
+      underlyingPrice = cached.price;
+    } else {
+      // Get current stock price from Polygon with retry logic
+      const tickerUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol}/prev?adjusted=true&apiKey=${polygonApiKey}`;
+      
+      try {
+        const tickerResponse = await fetch(tickerUrl);
+        
+        if (tickerResponse.status === 429) {
+          console.log('Rate limit hit fetching price - using cached or previous data');
+          // If we hit rate limit, use cached price if available, otherwise return error with context
+          if (cached) {
+            console.log(`Using stale cached price for ${symbol}: $${cached.price}`);
+            underlyingPrice = cached.price;
+          } else {
+            return new Response(
+              JSON.stringify({ 
+                error: 'Rate limit exceeded. Please wait a moment and try again.',
+                code: 'RATE_LIMIT'
+              }),
+              { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } else if (!tickerResponse.ok) {
+          throw new Error(`Polygon API error fetching price: ${tickerResponse.status}`);
+        } else {
+          const tickerData = await tickerResponse.json();
+          underlyingPrice = tickerData.results?.[0]?.c || 0;
+          
+          // Cache the price
+          priceCache.set(symbol, { price: underlyingPrice, timestamp: Date.now() });
+          console.log(`Cached new price for ${symbol}: $${underlyingPrice}`);
+        }
+      } catch (error) {
+        console.error('Error fetching underlying price:', error);
+        // Use cached if available, otherwise throw
+        if (cached) {
+          console.log(`Using stale cached price due to error for ${symbol}: $${cached.price}`);
+          underlyingPrice = cached.price;
+        } else {
+          throw error;
+        }
+      }
     }
-
-    const tickerData = await tickerResponse.json();
-    const underlyingPrice = tickerData.results?.[0]?.c || 0;
 
     // Get options contracts from Polygon
     const today = new Date();
