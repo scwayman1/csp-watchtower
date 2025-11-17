@@ -21,12 +21,7 @@ serve(async (req) => {
       throw new Error('Symbol is required');
     }
 
-    console.log(`Fetching option chain for ${symbol} from Market Data`);
-    
-    const MARKET_DATA_TOKEN = Deno.env.get('MARKET_DATA_TOKEN');
-    if (!MARKET_DATA_TOKEN) {
-      throw new Error('MARKET_DATA_TOKEN not configured');
-    }
+    console.log(`Fetching option chain for ${symbol} from Yahoo Finance`);
 
     // Check cache first
     const cacheKey = `chain_${symbol}`;
@@ -40,93 +35,86 @@ serve(async (req) => {
       );
     }
 
-    // Step 1: Get underlying price
-    const quoteUrl = `https://api.marketdata.app/v1/stocks/quotes/${symbol}/?token=${MARKET_DATA_TOKEN}`;
+    // Step 1: Get underlying price from Yahoo Finance
+    const quoteUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
     console.log(`Fetching stock quote for ${symbol}`);
     
     const quoteResponse = await fetch(quoteUrl);
     
     if (!quoteResponse.ok) {
-      const errorText = await quoteResponse.text();
-      throw new Error(`Failed to fetch stock quote: ${quoteResponse.status} - ${errorText}`);
+      throw new Error(`Failed to fetch stock quote: ${quoteResponse.status}`);
     }
     
     const quoteData = await quoteResponse.json();
     
-    if (quoteData.s !== 'ok' || !quoteData.last || quoteData.last.length === 0) {
+    if (!quoteData.chart?.result?.[0]?.meta?.regularMarketPrice) {
       throw new Error(`No quote data found for ${symbol}`);
     }
     
-    const underlyingPrice = quoteData.last[0];
+    const underlyingPrice = quoteData.chart.result[0].meta.regularMarketPrice;
     console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
-    // Step 2: Get options chain - get next 4 expirations
-    const chainUrl = `https://api.marketdata.app/v1/options/chain/${symbol}/?token=${MARKET_DATA_TOKEN}`;
-    console.log(`Fetching options chain for ${symbol}`);
+    // Step 2: Get options expirations
+    const optionsUrl = `https://query1.finance.yahoo.com/v7/finance/options/${symbol}`;
+    console.log(`Fetching options expirations for ${symbol}`);
     
-    const chainResponse = await fetch(chainUrl);
+    const optionsResponse = await fetch(optionsUrl);
     
-    if (!chainResponse.ok) {
-      const errorText = await chainResponse.text();
-      throw new Error(`Failed to fetch options chain: ${chainResponse.status} - ${errorText}`);
+    if (!optionsResponse.ok) {
+      throw new Error(`Failed to fetch options data: ${optionsResponse.status}`);
     }
     
-    const chainData = await chainResponse.json();
+    const optionsData = await optionsResponse.json();
     
-    if (chainData.s !== 'ok' || !chainData.optionSymbol || chainData.optionSymbol.length === 0) {
+    if (!optionsData.optionChain?.result?.[0]) {
       throw new Error(`No options data found for ${symbol}`);
     }
 
-    console.log(`Found ${chainData.optionSymbol.length} option contracts`);
-
-    // Group by expiration and filter for puts
+    const expirationTimestamps = optionsData.optionChain.result[0].expirationDates || [];
+    
+    // Get up to 4 nearest expirations
+    const selectedExpirations = expirationTimestamps.slice(0, 4);
+    console.log(`Processing ${selectedExpirations.length} expiration dates`);
+    
     const optionsByExpiration: Record<string, any[]> = {};
     
-    for (let i = 0; i < chainData.optionSymbol.length; i++) {
-      const optionType = chainData.side?.[i];
+    // Fetch options for each expiration
+    for (const expTimestamp of selectedExpirations) {
+      const expUrl = `https://query1.finance.yahoo.com/v7/finance/options/${symbol}?date=${expTimestamp}`;
       
-      // Only include put options
-      if (optionType !== 'put') {
-        continue;
+      try {
+        const expResponse = await fetch(expUrl);
+        if (!expResponse.ok) continue;
+        
+        const expData = await expResponse.json();
+        const puts = expData.optionChain?.result?.[0]?.options?.[0]?.puts || [];
+        
+        if (puts.length === 0) continue;
+        
+        const formattedOptions = puts.map((put: any) => ({
+          strike: put.strike || 0,
+          bid: put.bid || 0,
+          ask: put.ask || 0,
+          mid: ((put.bid || 0) + (put.ask || 0)) / 2,
+          volume: put.volume || 0,
+          openInterest: put.openInterest || 0,
+          impliedVolatility: put.impliedVolatility || 0,
+          delta: 0, // Yahoo Finance doesn't provide Greeks in free API
+          inTheMoney: put.inTheMoney || false
+        }));
+        
+        optionsByExpiration[expTimestamp.toString()] = formattedOptions;
+        console.log(`Added ${formattedOptions.length} put options for expiration ${expTimestamp}`);
+      } catch (error) {
+        console.error(`Error fetching options for expiration ${expTimestamp}:`, error);
       }
-      
-      const expiration = chainData.expiration?.[i];
-      if (!expiration) continue;
-      
-      if (!optionsByExpiration[expiration]) {
-        optionsByExpiration[expiration] = [];
-      }
-      
-      optionsByExpiration[expiration].push({
-        strike: chainData.strike?.[i] || 0,
-        bid: chainData.bid?.[i] || 0,
-        ask: chainData.ask?.[i] || 0,
-        mid: chainData.mid?.[i] || 0,
-        volume: chainData.volume?.[i] || 0,
-        openInterest: chainData.openInterest?.[i] || 0,
-        impliedVolatility: chainData.iv?.[i] || 0,
-        delta: chainData.delta?.[i] || 0,
-        inTheMoney: chainData.inTheMoney?.[i] || false
-      });
-    }
-
-    // Get up to 4 nearest expirations
-    const expirations = Object.keys(optionsByExpiration).sort().slice(0, 4);
-    console.log(`Processing ${expirations.length} expiration dates:`, expirations);
-    
-    const optionsData: Record<string, any[]> = {};
-    
-    for (const expiration of expirations) {
-      const options = optionsByExpiration[expiration];
-      console.log(`Added ${options.length} put options for ${expiration}`);
-      optionsData[expiration] = options;
     }
 
     const result = {
       symbol,
       underlyingPrice,
-      expirations: Object.keys(optionsData),
-      options: optionsData,
+      expirations: Object.keys(optionsByExpiration),
+      options: optionsByExpiration,
       timestamp: Date.now()
     };
 
