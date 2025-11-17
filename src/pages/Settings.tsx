@@ -3,8 +3,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings as SettingsIcon } from "lucide-react";
 import { ShareManagement } from "@/components/settings/ShareManagement";
+import { AuditTrail } from "@/components/settings/AuditTrail";
+import { Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -231,6 +232,9 @@ const Settings = () => {
             {saving ? "Saving..." : "Save Settings"}
           </Button>
         </div>
+
+        {/* Audit Trail */}
+        <AuditTrail />
       </div>
     </div>
   );
