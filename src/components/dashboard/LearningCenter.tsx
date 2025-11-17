@@ -47,7 +47,9 @@ export const LearningCenter = () => {
 
   const getDaysToExpiration = (exp: string) => {
     try {
-      return differenceInDays(parseISO(exp), new Date());
+      // Convert Unix timestamp (seconds) to Date
+      const date = new Date(parseInt(exp) * 1000);
+      return differenceInDays(date, new Date());
     } catch {
       return 0;
     }
@@ -55,7 +57,8 @@ export const LearningCenter = () => {
 
   const formatExpirationLabel = (exp: string) => {
     try {
-      const date = parseISO(exp);
+      // Convert Unix timestamp (seconds) to Date
+      const date = new Date(parseInt(exp) * 1000);
       const dte = getDaysToExpiration(exp);
       return `${format(date, 'MMM dd')} (${dte}d)`;
     } catch {
