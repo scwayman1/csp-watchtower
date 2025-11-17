@@ -16,17 +16,18 @@ import { format, differenceInDays, parseISO } from "date-fns";
 export const LearningCenter = () => {
   const { user } = useAuth();
   const { positions, addPosition, closePosition, deletePosition } = useLearningPositions(user?.id);
-  const [symbol, setSymbol] = useState("ACVA");
+  const [inputSymbol, setInputSymbol] = useState("ACVA");
+  const [searchSymbol, setSearchSymbol] = useState("ACVA");
   const [contracts, setContracts] = useState(1);
   const [selectedExpiration, setSelectedExpiration] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data: chainData, isLoading, refetch, isStale, staleReason } = useOptionsChain(symbol);
+  const { data: chainData, isLoading, refetch, isStale, staleReason } = useOptionsChain(searchSymbol);
 
   const handleSearch = () => {
-    if (symbol.trim()) {
-      // Debounce rapid searches to avoid rate limits
-      refetch();
+    if (inputSymbol.trim()) {
+      setSearchSymbol(inputSymbol.trim());
+      setSelectedExpiration(null); // Reset expiration selection when searching new symbol
     }
   };
 
@@ -99,8 +100,8 @@ export const LearningCenter = () => {
                   <label className="text-sm font-medium mb-2 block">Stock Symbol</label>
                   <Input
                     placeholder="e.g., AAPL"
-                    value={symbol}
-                    onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                    value={inputSymbol}
+                    onChange={(e) => setInputSymbol(e.target.value.toUpperCase())}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   />
                 </div>
@@ -152,7 +153,7 @@ export const LearningCenter = () => {
                 {chainData && (
                   <>
                     <Badge variant="outline">
-                      ${chainData.underlyingPrice.toFixed(2)}
+                      {searchSymbol}: ${chainData.underlyingPrice.toFixed(2)}
                     </Badge>
                     {isStale && (
                       <Badge variant="secondary">
@@ -189,7 +190,7 @@ export const LearningCenter = () => {
                       contracts={contracts}
                       expiration={currentExpiration}
                       onAddToSimulator={handleAddPosition}
-                      symbol={symbol}
+                      symbol={searchSymbol}
                       isStale={isStale}
                     />
                   ) : (
