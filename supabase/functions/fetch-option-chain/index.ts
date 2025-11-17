@@ -47,13 +47,16 @@ serve(async (req) => {
     const formatDate = (date: Date) => date.toISOString().split('T')[0];
     
     const optionsUrl = `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${symbol}&contract_type=put&expiration_date.gte=${formatDate(today)}&expiration_date.lte=${formatDate(oneMonthFromNow)}&limit=1000&apiKey=${polygonApiKey}`;
+    console.log('Fetching options contracts:', optionsUrl);
     const optionsResponse = await fetch(optionsUrl);
     
     if (!optionsResponse.ok) {
+      console.error('Polygon API error:', optionsResponse.status, await optionsResponse.text());
       throw new Error(`Polygon API error fetching options: ${optionsResponse.status}`);
     }
 
     const optionsData = await optionsResponse.json();
+    console.log(`Found ${optionsData.results?.length || 0} total option contracts`);
     
     if (!optionsData.results || optionsData.results.length === 0) {
       return new Response(
@@ -69,7 +72,8 @@ serve(async (req) => {
         expirationSet.add(contract.expiration_date);
       }
     });
-    const expirations = Array.from(expirationSet).sort().slice(0, 5); // Limit to first 5 expirations
+    const expirations = Array.from(expirationSet).sort().slice(0, 5);
+    console.log(`Processing ${expirations.length} expiration dates:`, expirations);
 
     // Organize options by expiration date
     const optionsByExpiration: Record<string, any[]> = {};
@@ -81,9 +85,11 @@ serve(async (req) => {
         c.strike_price >= underlyingPrice * 0.8
       );
       
+      console.log(`Found ${contractsForExp.length} contracts for ${expiration}`);
+      
       const puts = [];
-      // Fetch quotes for up to 20 contracts per expiration
-      for (const contract of contractsForExp.slice(0, 20)) {
+      // Fetch quotes for up to 15 contracts per expiration to reduce API calls
+      for (const contract of contractsForExp.slice(0, 15)) {
         try {
           const quoteUrl = `https://api.polygon.io/v3/snapshot/options/${contract.ticker}?apiKey=${polygonApiKey}`;
           const quoteResponse = await fetch(quoteUrl);
@@ -93,26 +99,34 @@ serve(async (req) => {
             const lastQuote = quoteData.results?.last_quote;
             const lastTrade = quoteData.results?.last_trade;
             
-            if (lastQuote && (lastQuote.bid > 0 || lastQuote.ask > 0)) {
-              const mid = (lastQuote.bid + lastQuote.ask) / 2;
+            // Include options even if bid/ask are zero, use last trade or contract details as fallback
+            if (lastQuote || lastTrade) {
+              const bid = lastQuote?.bid || 0;
+              const ask = lastQuote?.ask || lastTrade?.price || 0.01;
+              const mid = (bid + ask) / 2;
+              
               puts.push({
                 strike: contract.strike_price,
                 lastPrice: lastTrade?.price || mid,
-                bid: lastQuote.bid,
-                ask: lastQuote.ask,
+                bid: bid,
+                ask: ask,
                 volume: quoteData.results?.day?.volume || 0,
                 openInterest: quoteData.results?.open_interest || 0,
                 impliedVolatility: quoteData.results?.implied_volatility || 0,
                 inTheMoney: contract.strike_price > underlyingPrice,
               });
             }
+          } else {
+            console.error(`Failed to fetch quote for ${contract.ticker}:`, quoteResponse.status);
           }
-          // Small delay to respect rate limits
-          await new Promise(resolve => setTimeout(resolve, 50));
+          // Increased delay to respect rate limits
+          await new Promise(resolve => setTimeout(resolve, 100));
         } catch (err) {
           console.error(`Error fetching quote for ${contract.ticker}:`, err);
         }
       }
+      
+      console.log(`Added ${puts.length} options with valid quotes for ${expiration}`);
       
       // Sort by strike price descending
       puts.sort((a, b) => b.strike - a.strike);
