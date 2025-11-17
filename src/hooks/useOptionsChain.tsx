@@ -41,7 +41,7 @@ export const useOptionsChain = (symbol: string | null) => {
         if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
           toast({
             title: "Rate limit reached",
-            description: "Too many requests. Please wait a moment before refreshing.",
+            description: "Showing cached data. Please wait before refreshing.",
             variant: "destructive",
           });
         }
@@ -51,13 +51,15 @@ export const useOptionsChain = (symbol: string | null) => {
       // Check staleness
       const timestamp = data?.timestamp || Date.now();
       const age = (Date.now() - timestamp) / 1000;
-      setIsStale(age > 15);
+      setIsStale(age > 30);
 
       return data as OptionChainData;
     },
     enabled: !!symbol,
-    staleTime: 30000, // Consider data stale after 30 seconds (increased)
-    refetchInterval: 60000, // Auto-refresh every 60 seconds (reduced frequency)
+    staleTime: 120000, // Consider data stale after 2 minutes
+    gcTime: 300000, // Keep in cache for 5 minutes
+    refetchInterval: false, // Disable auto-refresh - user must manually refresh
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
     retry: (failureCount, error: any) => {
       // Don't retry on rate limit errors
       if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
@@ -65,6 +67,8 @@ export const useOptionsChain = (symbol: string | null) => {
       }
       return failureCount < 2;
     },
+    // Keep showing old data on error
+    placeholderData: (previousData) => previousData,
   });
 
   const checkDataQuality = (chainData: OptionChainData | null) => {
