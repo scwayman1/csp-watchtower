@@ -39,7 +39,13 @@ serve(async (req) => {
     const quoteUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
     console.log(`Fetching stock quote for ${symbol}`);
     
-    const quoteResponse = await fetch(quoteUrl);
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Accept': 'application/json',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
+    
+    const quoteResponse = await fetch(quoteUrl, { headers });
     
     if (!quoteResponse.ok) {
       throw new Error(`Failed to fetch stock quote: ${quoteResponse.status}`);
@@ -58,7 +64,7 @@ serve(async (req) => {
     const optionsUrl = `https://query1.finance.yahoo.com/v7/finance/options/${symbol}`;
     console.log(`Fetching options expirations for ${symbol}`);
     
-    const optionsResponse = await fetch(optionsUrl);
+    const optionsResponse = await fetch(optionsUrl, { headers });
     
     if (!optionsResponse.ok) {
       throw new Error(`Failed to fetch options data: ${optionsResponse.status}`);
@@ -83,7 +89,7 @@ serve(async (req) => {
       const expUrl = `https://query1.finance.yahoo.com/v7/finance/options/${symbol}?date=${expTimestamp}`;
       
       try {
-        const expResponse = await fetch(expUrl);
+        const expResponse = await fetch(expUrl, { headers });
         if (!expResponse.ok) continue;
         
         const expData = await expResponse.json();
