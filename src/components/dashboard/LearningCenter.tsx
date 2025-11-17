@@ -25,8 +25,13 @@ export const LearningCenter = () => {
 
   const handleSearch = () => {
     if (symbol.trim()) {
+      // Debounce rapid searches to avoid rate limits
       refetch();
     }
+  };
+
+  const handleRefresh = () => {
+    refetch();
   };
 
   const handleAddPosition = (position: any) => {
@@ -108,6 +113,16 @@ export const LearningCenter = () => {
                   )}
                   Get Quotes
                 </Button>
+                {chainData && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleRefresh} 
+                    disabled={isLoading}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  </Button>
+                )}
                 {chainData && (
                   <>
                     <Badge variant="outline">

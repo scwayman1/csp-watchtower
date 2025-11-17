@@ -36,7 +36,17 @@ export const useOptionsChain = (symbol: string | null) => {
         body: { symbol: symbol.toUpperCase() }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Handle rate limit errors gracefully
+        if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
+          toast({
+            title: "Rate limit reached",
+            description: "Too many requests. Please wait a moment before refreshing.",
+            variant: "destructive",
+          });
+        }
+        throw error;
+      }
 
       // Check staleness
       const timestamp = data?.timestamp || Date.now();
@@ -46,8 +56,15 @@ export const useOptionsChain = (symbol: string | null) => {
       return data as OptionChainData;
     },
     enabled: !!symbol,
-    staleTime: 10000, // Consider data stale after 10 seconds
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    staleTime: 30000, // Consider data stale after 30 seconds (increased)
+    refetchInterval: 60000, // Auto-refresh every 60 seconds (reduced frequency)
+    retry: (failureCount, error: any) => {
+      // Don't retry on rate limit errors
+      if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   const checkDataQuality = (chainData: OptionChainData | null) => {
