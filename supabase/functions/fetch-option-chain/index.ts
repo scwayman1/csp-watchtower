@@ -6,9 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple in-memory cache for underlying prices (expires after 5 minutes)
-const priceCache = new Map<string, { price: number; timestamp: number }>();
-const CACHE_DURATION = 300000; // 5 minutes (300 seconds)
+// Simple in-memory cache (expires after 5 minutes)
+const cache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 300000; // 5 minutes
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

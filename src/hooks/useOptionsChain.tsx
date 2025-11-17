@@ -38,13 +38,7 @@ export const useOptionsChain = (symbol: string | null) => {
 
       if (error) {
         // Handle rate limit errors gracefully
-        if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
-          toast({
-            title: "Rate limit reached",
-            description: "Showing cached data. Please wait before refreshing.",
-            variant: "destructive",
-          });
-        }
+        // Removed rate limit toast since Market Data API has better limits
         throw error;
       }
 
@@ -56,19 +50,11 @@ export const useOptionsChain = (symbol: string | null) => {
       return data as OptionChainData;
     },
     enabled: !!symbol,
-    staleTime: 120000, // Consider data stale after 2 minutes
-    gcTime: 300000, // Keep in cache for 5 minutes
+    staleTime: 300000, // Consider data stale after 5 minutes (matches cache)
+    gcTime: 600000, // Keep in cache for 10 minutes
     refetchInterval: false, // Disable auto-refresh - user must manually refresh
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
-    retry: (failureCount, error: any) => {
-      // Don't retry on rate limit errors
-      if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
-        return false;
-      }
-      return failureCount < 2;
-    },
-    // Keep showing old data on error
-    placeholderData: (previousData) => previousData,
+    retry: 2,
   });
 
   const checkDataQuality = (chainData: OptionChainData | null) => {
