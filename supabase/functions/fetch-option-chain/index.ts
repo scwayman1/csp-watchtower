@@ -9,7 +9,40 @@ const corsHeaders = {
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 300000; // 5 minutes
 
-const POLYGON_API_KEY = Deno.env.get('POLYGON_API_KEY');
+const FINNHUB_API_KEY = Deno.env.get('FINNHUB_API_KEY');
+
+// Helper to get next expiration dates (3rd Friday of month)
+function getNextExpirations(count: number): string[] {
+  const dates: string[] = [];
+  const today = new Date();
+  let currentMonth = today.getMonth();
+  let currentYear = today.getFullYear();
+  
+  while (dates.length < count) {
+    // Find 3rd Friday of the month
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const firstFriday = firstDay.getDay() <= 5 
+      ? 1 + (5 - firstDay.getDay()) 
+      : 1 + (12 - firstDay.getDay());
+    const thirdFriday = firstFriday + 14;
+    
+    const expirationDate = new Date(currentYear, currentMonth, thirdFriday);
+    
+    // Only add if it's in the future
+    if (expirationDate > today) {
+      dates.push(expirationDate.toISOString().split('T')[0]);
+    }
+    
+    // Move to next month
+    currentMonth++;
+    if (currentMonth > 11) {
+      currentMonth = 0;
+      currentYear++;
+    }
+  }
+  
+  return dates;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -23,11 +56,11 @@ serve(async (req) => {
       throw new Error('Symbol is required');
     }
 
-    if (!POLYGON_API_KEY) {
-      throw new Error('POLYGON_API_KEY not configured');
+    if (!FINNHUB_API_KEY) {
+      throw new Error('FINNHUB_API_KEY not configured');
     }
 
-    console.log(`Fetching option chain for ${symbol} from Polygon.io`);
+    console.log(`Fetching option chain for ${symbol} from Finnhub.io`);
 
     // Check cache first
     const cacheKey = `chain_${symbol}`;
@@ -42,7 +75,7 @@ serve(async (req) => {
     }
 
     // Step 1: Get underlying price
-    const quoteUrl = `https://api.polygon.io/v2/last/trade/${symbol}?apiKey=${POLYGON_API_KEY}`;
+    const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
     console.log(`Fetching stock quote for ${symbol}`);
     
     const quoteResponse = await fetch(quoteUrl);
@@ -55,96 +88,67 @@ serve(async (req) => {
     
     const quoteData = await quoteResponse.json();
     
-    if (!quoteData.results?.p) {
+    if (!quoteData.c) {
       throw new Error(`No quote data found for ${symbol}`);
     }
     
-    const underlyingPrice = quoteData.results.p;
+    const underlyingPrice = quoteData.c; // Current price
     console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
-    // Step 2: Get options contracts
-    const today = new Date();
-    const maxDate = new Date(today.getTime() + 120 * 24 * 60 * 60 * 1000); // 120 days out
-    const contractsUrl = `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${symbol}&contract_type=put&expiration_date.lte=${maxDate.toISOString().split('T')[0]}&limit=1000&apiKey=${POLYGON_API_KEY}`;
-    
-    console.log(`Fetching options contracts for ${symbol}`);
-    
-    const contractsResponse = await fetch(contractsUrl);
-    
-    if (!contractsResponse.ok) {
-      const errorText = await contractsResponse.text();
-      console.error(`Contracts fetch failed: ${contractsResponse.status} - ${errorText}`);
-      throw new Error(`Failed to fetch options contracts: ${contractsResponse.status}`);
-    }
-    
-    const contractsData = await contractsResponse.json();
-    
-    if (!contractsData.results || contractsData.results.length === 0) {
-      throw new Error(`No options contracts found for ${symbol}`);
-    }
-
-    // Group by expiration date
-    const contractsByExpiration: Record<string, any[]> = {};
-    
-    for (const contract of contractsData.results) {
-      const expDate = contract.expiration_date;
-      if (!contractsByExpiration[expDate]) {
-        contractsByExpiration[expDate] = [];
-      }
-      contractsByExpiration[expDate].push(contract);
-    }
-    
-    // Get up to 4 nearest expirations
-    const expirationDates = Object.keys(contractsByExpiration).sort().slice(0, 4);
-    console.log(`Processing ${expirationDates.length} expiration dates`);
+    // Step 2: Get next 4 expiration dates
+    const expirationDates = getNextExpirations(4);
+    console.log(`Processing ${expirationDates.length} expiration dates:`, expirationDates);
     
     const optionsByExpiration: Record<string, any[]> = {};
     
-    // Fetch quotes for each expiration
+    // Fetch options for each expiration
     for (const expDate of expirationDates) {
-      const contracts = contractsByExpiration[expDate];
-      const formattedOptions: any[] = [];
-      
-      // Batch fetch quotes for this expiration (limit to avoid rate limits)
-      const contractsToFetch = contracts.slice(0, 50);
-      
-      for (const contract of contractsToFetch) {
-        try {
-          const quoteUrl = `https://api.polygon.io/v3/quotes/${contract.ticker}?limit=1&apiKey=${POLYGON_API_KEY}`;
-          const quoteRes = await fetch(quoteUrl);
-          
-          if (quoteRes.ok) {
-            const quoteJson = await quoteRes.json();
-            const quote = quoteJson.results?.[0];
-            
-            if (quote) {
-              formattedOptions.push({
-                strike: contract.strike_price,
-                bid: quote.bid_price || 0,
-                ask: quote.ask_price || 0,
-                mid: quote.bid_price && quote.ask_price ? (quote.bid_price + quote.ask_price) / 2 : 0,
-                volume: 0, // Volume requires separate API call
-                openInterest: 0, // OI requires separate API call
-                impliedVolatility: 0, // IV requires separate API call or calculation
-                delta: 0, // Greeks require separate API call
-                inTheMoney: contract.strike_price > underlyingPrice
-              });
-            }
-          }
-          
-          // Rate limiting: small delay between requests
-          await new Promise(resolve => setTimeout(resolve, 50));
-        } catch (error) {
-          console.error(`Error fetching quote for ${contract.ticker}:`, error);
+      try {
+        const optionsUrl = `https://finnhub.io/api/v1/stock/option-chain?symbol=${symbol}&date=${expDate}&token=${FINNHUB_API_KEY}`;
+        console.log(`Fetching options for expiration ${expDate}`);
+        
+        const optionsResponse = await fetch(optionsUrl);
+        
+        if (!optionsResponse.ok) {
+          console.error(`Options fetch failed for ${expDate}: ${optionsResponse.status}`);
+          continue;
         }
+        
+        const optionsData = await optionsResponse.json();
+        
+        if (!optionsData.data || optionsData.data.length === 0) {
+          console.log(`No options data for ${expDate}`);
+          continue;
+        }
+        
+        // Filter for PUT options only
+        const putOptions = optionsData.data
+          .filter((opt: any) => opt.type === 'put')
+          .map((opt: any) => ({
+            strike: opt.strike,
+            bid: opt.bid || 0,
+            ask: opt.ask || 0,
+            mid: opt.bid && opt.ask ? (opt.bid + opt.ask) / 2 : opt.last || 0,
+            volume: opt.volume || 0,
+            openInterest: opt.openInterest || 0,
+            impliedVolatility: opt.impliedVolatility || 0,
+            delta: 0, // Finnhub doesn't provide greeks in basic plan
+            inTheMoney: opt.strike > underlyingPrice
+          }))
+          .sort((a: any, b: any) => b.strike - a.strike); // Sort by strike descending
+        
+        if (putOptions.length > 0) {
+          // Convert date to timestamp for consistency with frontend
+          const timestamp = new Date(expDate).getTime() / 1000;
+          optionsByExpiration[timestamp.toString()] = putOptions;
+          console.log(`Added ${putOptions.length} put options for expiration ${expDate}`);
+        }
+      } catch (error) {
+        console.error(`Error fetching options for ${expDate}:`, error);
       }
       
-      if (formattedOptions.length > 0) {
-        // Convert date to timestamp for consistency with frontend
-        const timestamp = new Date(expDate).getTime() / 1000;
-        optionsByExpiration[timestamp.toString()] = formattedOptions;
-        console.log(`Added ${formattedOptions.length} put options for expiration ${expDate}`);
-      }
+      // Rate limiting: small delay between requests
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     const result = {
