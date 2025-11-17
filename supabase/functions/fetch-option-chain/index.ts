@@ -77,6 +77,7 @@ serve(async (req) => {
 
     // Organize options by expiration date
     const optionsByExpiration: Record<string, any[]> = {};
+    let hasQuoteData = false;
     
     for (const expiration of expirations) {
       const contractsForExp = optionsData.results.filter((c: any) => 
@@ -88,8 +89,19 @@ serve(async (req) => {
       console.log(`Found ${contractsForExp.length} contracts for ${expiration}`);
       
       const puts = [];
-      // Fetch quotes for up to 15 contracts per expiration to reduce API calls
+      // Try to fetch quotes, but include contracts even if quotes fail
       for (const contract of contractsForExp.slice(0, 15)) {
+        let optionData = {
+          strike: contract.strike_price,
+          lastPrice: 0,
+          bid: 0,
+          ask: 0,
+          volume: 0,
+          openInterest: 0,
+          impliedVolatility: 0,
+          inTheMoney: contract.strike_price > underlyingPrice,
+        };
+
         try {
           const quoteUrl = `https://api.polygon.io/v3/snapshot/options/${contract.ticker}?apiKey=${polygonApiKey}`;
           const quoteResponse = await fetch(quoteUrl);
@@ -99,34 +111,34 @@ serve(async (req) => {
             const lastQuote = quoteData.results?.last_quote;
             const lastTrade = quoteData.results?.last_trade;
             
-            // Include options even if bid/ask are zero, use last trade or contract details as fallback
             if (lastQuote || lastTrade) {
-              const bid = lastQuote?.bid || 0;
-              const ask = lastQuote?.ask || lastTrade?.price || 0.01;
-              const mid = (bid + ask) / 2;
-              
-              puts.push({
+              hasQuoteData = true;
+              optionData = {
                 strike: contract.strike_price,
-                lastPrice: lastTrade?.price || mid,
-                bid: bid,
-                ask: ask,
+                lastPrice: lastTrade?.price || (lastQuote ? (lastQuote.bid + lastQuote.ask) / 2 : 0),
+                bid: lastQuote?.bid || 0,
+                ask: lastQuote?.ask || 0,
                 volume: quoteData.results?.day?.volume || 0,
                 openInterest: quoteData.results?.open_interest || 0,
                 impliedVolatility: quoteData.results?.implied_volatility || 0,
                 inTheMoney: contract.strike_price > underlyingPrice,
-              });
+              };
             }
+          } else if (quoteResponse.status === 403) {
+            console.log(`Quote access not authorized for ${contract.ticker} - showing contract without live pricing`);
           } else {
             console.error(`Failed to fetch quote for ${contract.ticker}:`, quoteResponse.status);
           }
-          // Increased delay to respect rate limits
           await new Promise(resolve => setTimeout(resolve, 100));
         } catch (err) {
           console.error(`Error fetching quote for ${contract.ticker}:`, err);
         }
+        
+        // Always add the option, even without quote data
+        puts.push(optionData);
       }
       
-      console.log(`Added ${puts.length} options with valid quotes for ${expiration}`);
+      console.log(`Added ${puts.length} options for ${expiration} (${hasQuoteData ? 'with' : 'without'} live quotes)`);
       
       // Sort by strike price descending
       puts.sort((a, b) => b.strike - a.strike);
