@@ -84,6 +84,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete }: SimulatorTableP
           <TableHeader>
             <TableRow>
               <TableHead>Symbol</TableHead>
+              <TableHead>Current Price</TableHead>
               <TableHead>Strike</TableHead>
               <TableHead>Expiration</TableHead>
               <TableHead>Contracts</TableHead>
@@ -98,6 +99,13 @@ export const SimulatorTable = ({ positions, onClose, onDelete }: SimulatorTableP
             {enhancedPositions.map((pos) => (
               <TableRow key={pos.id}>
                 <TableCell className="font-medium">{pos.symbol}</TableCell>
+                <TableCell>
+                  {pos.underlyingPrice > 0 ? (
+                    <span className="font-medium">${pos.underlyingPrice.toFixed(2)}</span>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">-</span>
+                  )}
+                </TableCell>
                 <TableCell>${pos.strike_price}</TableCell>
                 <TableCell>
                   {pos.expiration}
