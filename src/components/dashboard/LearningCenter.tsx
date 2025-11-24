@@ -214,6 +214,7 @@ export const LearningCenter = () => {
               positions={positions} 
               onClose={closePosition}
               onDelete={deletePosition}
+              userId={user?.id}
               key={refreshKey}
             />
           </TabsContent>
