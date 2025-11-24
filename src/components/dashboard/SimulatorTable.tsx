@@ -1,27 +1,46 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, CheckCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { X, CheckCircle, TrendingUp, DollarSign } from "lucide-react";
 import { LearningPosition } from "@/hooks/useLearningPositions";
-import { usePositions } from "@/hooks/usePositions";
+import { useLearningAssignedPositions } from "@/hooks/useLearningAssignedPositions";
+import { useLearningMarketData } from "@/hooks/useLearningMarketData";
+import { useSimulatorSettings } from "@/hooks/useSimulatorSettings";
+import { SellCoveredCallDialog } from "./SellCoveredCallDialog";
 
 interface SimulatorTableProps {
   positions: LearningPosition[];
   onClose: (id: string) => void;
   onDelete: (id: string) => void;
+  userId?: string;
 }
 
-export const SimulatorTable = ({ positions, onClose, onDelete }: SimulatorTableProps) => {
-  const { positions: realPositions } = usePositions();
+export const SimulatorTable = ({ positions, onClose, onDelete, userId }: SimulatorTableProps) => {
+  const { assignedPositions, assignPosition, sellCoveredCall } = useLearningAssignedPositions(userId);
+  const { settings, updateSettings } = useSimulatorSettings(userId);
+  const [capital, setCapital] = useState(settings?.starting_capital?.toString() || "100000");
+  const [selectedAssignedPosition, setSelectedAssignedPosition] = useState<string | null>(null);
+  
+  // Get all unique symbols
+  const allSymbols = useMemo(() => {
+    const symbols = new Set<string>();
+    positions.forEach(p => symbols.add(p.symbol));
+    assignedPositions.forEach(ap => symbols.add(ap.symbol));
+    return Array.from(symbols);
+  }, [positions, assignedPositions]);
+
+  const { data: marketData = {} } = useLearningMarketData(allSymbols);
 
   // Calculate metrics for each position
   const enhancedPositions = useMemo(() => {
     return positions.map(pos => {
-      // Find real market data if available
-      const marketData = realPositions.find(rp => rp.symbol === pos.symbol);
-      const underlyingPrice = marketData?.underlyingPrice || 0;
-      const currentMarkPrice = marketData?.premiumPerContract || pos.premium_per_contract;
+      const priceData = marketData[pos.symbol];
+      const underlyingPrice = priceData?.price || 0;
+      const currentMarkPrice = pos.premium_per_contract; // Using original premium as placeholder
 
       // Calculate metrics
       const cashSecured = pos.strike_price * 100 * pos.contracts;
@@ -45,125 +64,302 @@ export const SimulatorTable = ({ positions, onClose, onDelete }: SimulatorTableP
         currentValue,
       };
     });
-  }, [positions, realPositions]);
+  }, [positions, marketData]);
+
+  // Enhanced assigned positions with market data
+  const enhancedAssignedPositions = useMemo(() => {
+    return assignedPositions.map(ap => {
+      const priceData = marketData[ap.symbol];
+      const currentPrice = priceData?.price || 0;
+      const marketValue = currentPrice * ap.shares;
+      const unrealizedPnL = marketValue - ap.cost_basis + ap.original_put_premium;
+      
+      // Calculate covered call premiums
+      const coveredCallPremiums = (ap.covered_calls || [])
+        .filter(cc => cc.is_active)
+        .reduce((sum, cc) => sum + (cc.premium_per_contract * 100 * cc.contracts), 0);
+
+      return {
+        ...ap,
+        currentPrice,
+        marketValue,
+        unrealizedPnL,
+        coveredCallPremiums,
+      };
+    });
+  }, [assignedPositions, marketData]);
 
   const totalCashSecured = enhancedPositions.reduce((sum, p) => sum + p.cashSecured, 0);
-  const totalPremium = enhancedPositions.reduce((sum, p) => sum + p.totalPremium, 0);
+  const totalPutPremiums = enhancedPositions.reduce((sum, p) => sum + p.totalPremium, 0);
   const totalUnrealizedPnL = enhancedPositions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
+  
+  const totalAssignedValue = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.marketValue, 0);
+  const totalCallPremiums = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.coveredCallPremiums, 0);
+  const totalAssignedPnL = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.unrealizedPnL, 0);
 
-  if (positions.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        <p>No practice positions yet.</p>
-        <p className="text-sm mt-2">Use the Option Pricer to add positions to your simulator.</p>
-      </div>
-    );
-  }
+  const availableCapital = (parseFloat(capital) || 0) - totalCashSecured - totalAssignedValue;
+  const totalPremiums = totalPutPremiums + totalCallPremiums;
+  const totalPortfolioValue = availableCapital + totalCashSecured + totalAssignedValue + totalUnrealizedPnL + totalAssignedPnL;
+
+  const handleAssign = (position: any) => {
+    assignPosition({
+      symbol: position.symbol,
+      shares: position.contracts * 100,
+      assignment_price: position.strike_price,
+      original_put_premium: position.totalPremium,
+      original_learning_position_id: position.id,
+    });
+    onClose(position.id);
+  };
+
+  const handleCapitalUpdate = () => {
+    const amount = parseFloat(capital);
+    if (!isNaN(amount) && amount > 0) {
+      updateSettings(amount);
+    }
+  };
+
+  const selectedPosition = enhancedAssignedPositions.find(ap => ap.id === selectedAssignedPosition);
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <p className="text-sm text-muted-foreground">Total Cash Secured</p>
-          <p className="text-2xl font-bold">${totalCashSecured.toLocaleString('en-US', { minimumFractionDigits: 0 })}</p>
-        </div>
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <p className="text-sm text-muted-foreground">Total Premium</p>
-          <p className="text-2xl font-bold">${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-        </div>
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <p className="text-sm text-muted-foreground">Unrealized P/L</p>
-          <p className={`text-2xl font-bold ${totalUnrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}`}>
-            ${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-          </p>
-        </div>
+    <div className="space-y-6">
+      {/* Capital Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Simulator Capital
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <Label htmlFor="capital">Starting Capital</Label>
+              <Input
+                id="capital"
+                type="number"
+                step="1000"
+                value={capital}
+                onChange={(e) => setCapital(e.target.value)}
+                placeholder="100000"
+              />
+            </div>
+            <Button onClick={handleCapitalUpdate}>Update</Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Portfolio Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">Total Capital</p>
+            <p className="text-2xl font-bold">${parseFloat(capital).toLocaleString('en-US', { minimumFractionDigits: 0 })}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">Portfolio Value</p>
+            <p className="text-2xl font-bold">${totalPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">Total Premiums</p>
+            <p className="text-2xl font-bold text-success">${totalPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">Available Cash</p>
+            <p className={`text-2xl font-bold ${availableCapital >= 0 ? 'text-success' : 'text-destructive'}`}>
+              ${availableCapital.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="border rounded-lg overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Symbol</TableHead>
-              <TableHead>Current Price</TableHead>
-              <TableHead>Strike</TableHead>
-              <TableHead>Expiration</TableHead>
-              <TableHead>Contracts</TableHead>
-              <TableHead>Premium</TableHead>
-              <TableHead>ROC</TableHead>
-              <TableHead>% Above</TableHead>
-              <TableHead>Unrealized P/L</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {enhancedPositions.map((pos) => (
-              <TableRow key={pos.id}>
-                <TableCell className="font-medium">{pos.symbol}</TableCell>
-                <TableCell>
-                  {pos.underlyingPrice > 0 ? (
-                    <span className="font-medium">${pos.underlyingPrice.toFixed(2)}</span>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">-</span>
-                  )}
-                </TableCell>
-                <TableCell>${pos.strike_price}</TableCell>
-                <TableCell>
-                  {pos.expiration}
-                  <span className="text-xs text-muted-foreground ml-2">
-                    ({pos.daysToExp}d)
-                  </span>
-                </TableCell>
-                <TableCell>{pos.contracts}</TableCell>
-                <TableCell>${pos.premium_per_contract.toFixed(2)}</TableCell>
-                <TableCell>{pos.roc.toFixed(2)}%</TableCell>
-                <TableCell>
-                  {pos.underlyingPrice > 0 ? (
-                    <Badge 
-                      variant={
-                        pos.pctAboveStrike >= 10 ? "outline" :
-                        pos.pctAboveStrike >= 5 ? "secondary" :
-                        "destructive"
-                      }
-                      className={
-                        pos.pctAboveStrike >= 10 ? "border-success text-success" :
-                        pos.pctAboveStrike >= 5 ? "border-warning text-warning" :
-                        ""
-                      }
-                    >
-                      {pos.pctAboveStrike.toFixed(1)}%
-                    </Badge>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">-</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <span className={pos.unrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}>
-                    ${pos.unrealizedPnL.toFixed(2)}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onClose(pos.id)}
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onDelete(pos.id)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      {/* Active Put Positions */}
+      {positions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Active Put Positions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-lg overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Symbol</TableHead>
+                    <TableHead>Current Price</TableHead>
+                    <TableHead>Strike</TableHead>
+                    <TableHead>Expiration</TableHead>
+                    <TableHead>Contracts</TableHead>
+                    <TableHead>Premium</TableHead>
+                    <TableHead>% Above</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {enhancedPositions.map((pos) => (
+                    <TableRow key={pos.id}>
+                      <TableCell className="font-medium">{pos.symbol}</TableCell>
+                      <TableCell>
+                        {pos.underlyingPrice > 0 ? (
+                          <span className="font-medium">${pos.underlyingPrice.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>${pos.strike_price}</TableCell>
+                      <TableCell>
+                        {pos.expiration}
+                        <span className="text-xs text-muted-foreground ml-2">
+                          ({pos.daysToExp}d)
+                        </span>
+                      </TableCell>
+                      <TableCell>{pos.contracts}</TableCell>
+                      <TableCell>${pos.premium_per_contract.toFixed(2)}</TableCell>
+                      <TableCell>
+                        {pos.underlyingPrice > 0 ? (
+                          <Badge 
+                            variant={
+                              pos.pctAboveStrike >= 10 ? "outline" :
+                              pos.pctAboveStrike >= 5 ? "secondary" :
+                              "destructive"
+                            }
+                            className={
+                              pos.pctAboveStrike >= 10 ? "border-success text-success" :
+                              pos.pctAboveStrike >= 5 ? "border-warning text-warning" :
+                              ""
+                            }
+                          >
+                            {pos.pctAboveStrike.toFixed(1)}%
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleAssign(pos)}
+                            title="Assign position (simulate assignment)"
+                          >
+                            Assign
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onClose(pos.id)}
+                            title="Close position"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onDelete(pos.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Assigned Positions */}
+      {enhancedAssignedPositions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Assigned Positions (Wheel Strategy)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-lg overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Symbol</TableHead>
+                    <TableHead>Shares</TableHead>
+                    <TableHead>Current Price</TableHead>
+                    <TableHead>Cost Basis</TableHead>
+                    <TableHead>Market Value</TableHead>
+                    <TableHead>Put Premium</TableHead>
+                    <TableHead>Call Premiums</TableHead>
+                    <TableHead>Unrealized P/L</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {enhancedAssignedPositions.map((ap) => (
+                    <TableRow key={ap.id}>
+                      <TableCell className="font-medium">{ap.symbol}</TableCell>
+                      <TableCell>{ap.shares}</TableCell>
+                      <TableCell>
+                        {ap.currentPrice > 0 ? (
+                          <span className="font-medium">${ap.currentPrice.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>${(ap.cost_basis / ap.shares).toFixed(2)}</TableCell>
+                      <TableCell>${ap.marketValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-success">
+                        ${ap.original_put_premium.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-success">
+                        ${ap.coveredCallPremiums.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        <span className={ap.unrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}>
+                          ${ap.unrealizedPnL.toFixed(2)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          onClick={() => setSelectedAssignedPosition(ap.id)}
+                        >
+                          Sell Call
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {positions.length === 0 && assignedPositions.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <p>No practice positions yet.</p>
+          <p className="text-sm mt-2">Use the Options Chain to add positions to your simulator.</p>
+        </div>
+      )}
+
+      {selectedPosition && (
+        <SellCoveredCallDialog
+          open={!!selectedAssignedPosition}
+          onOpenChange={(open) => !open && setSelectedAssignedPosition(null)}
+          assignedPositionId={selectedPosition.id}
+          symbol={selectedPosition.symbol}
+          maxContracts={Math.floor(selectedPosition.shares / 100)}
+          onSell={sellCoveredCall}
+        />
+      )}
     </div>
   );
 };

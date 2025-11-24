@@ -224,6 +224,107 @@ export type Database = {
           },
         ]
       }
+      learning_assigned_positions: {
+        Row: {
+          assignment_date: string
+          assignment_price: number
+          closed_at: string | null
+          cost_basis: number
+          created_at: string
+          id: string
+          is_active: boolean
+          original_learning_position_id: string | null
+          original_put_premium: number
+          shares: number
+          sold_price: number | null
+          symbol: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assignment_date: string
+          assignment_price: number
+          closed_at?: string | null
+          cost_basis: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          original_learning_position_id?: string | null
+          original_put_premium?: number
+          shares: number
+          sold_price?: number | null
+          symbol: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assignment_date?: string
+          assignment_price?: number
+          closed_at?: string | null
+          cost_basis?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          original_learning_position_id?: string | null
+          original_put_premium?: number
+          shares?: number
+          sold_price?: number | null
+          symbol?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      learning_covered_calls: {
+        Row: {
+          closed_at: string | null
+          contracts: number
+          created_at: string
+          expiration: string
+          id: string
+          is_active: boolean
+          learning_assigned_position_id: string
+          opened_at: string
+          premium_per_contract: number
+          strike_price: number
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          contracts?: number
+          created_at?: string
+          expiration: string
+          id?: string
+          is_active?: boolean
+          learning_assigned_position_id: string
+          opened_at?: string
+          premium_per_contract: number
+          strike_price: number
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          contracts?: number
+          created_at?: string
+          expiration?: string
+          id?: string
+          is_active?: boolean
+          learning_assigned_position_id?: string
+          opened_at?: string
+          premium_per_contract?: number
+          strike_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_covered_calls_learning_assigned_position_id_fkey"
+            columns: ["learning_assigned_position_id"]
+            isOneToOne: false
+            referencedRelation: "learning_assigned_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_positions: {
         Row: {
           closed_at: string | null
@@ -426,6 +527,30 @@ export type Database = {
           symbol?: string
           underlying_name?: string | null
           updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      simulator_settings: {
+        Row: {
+          created_at: string
+          id: string
+          starting_capital: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          starting_capital?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          starting_capital?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
