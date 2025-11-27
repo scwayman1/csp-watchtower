@@ -81,10 +81,14 @@ serve(async (req) => {
   }
 
   try {
-    const { symbol } = await req.json();
+    const { symbol, optionType = 'PUT' } = await req.json();
 
     if (!symbol) {
       throw new Error('Symbol is required');
+    }
+    
+    if (optionType !== 'PUT' && optionType !== 'CALL') {
+      throw new Error('optionType must be either PUT or CALL');
     }
 
     if (!FINNHUB_API_KEY) {
@@ -94,7 +98,7 @@ serve(async (req) => {
     console.log(`Fetching option chain for ${symbol} from Finnhub.io`);
 
     // Check cache first
-    const cacheKey = `chain_${symbol}`;
+    const cacheKey = `chain_${symbol}_${optionType}`;
     const cachedData = cache.get(cacheKey);
     
     if (cachedData && (Date.now() - cachedData.timestamp < CACHE_DURATION)) {
@@ -160,13 +164,13 @@ serve(async (req) => {
         }
 
         const expirationData = optionsData.data.find((d: any) => d.expirationDate === expDate);
-        if (!expirationData || !expirationData.options || !expirationData.options.PUT) {
-          console.log(`No PUT options found for ${expDate}`);
+        if (!expirationData || !expirationData.options || !expirationData.options[optionType]) {
+          console.log(`No ${optionType} options found for ${expDate}`);
           return null;
         }
         
-        // Map Finnhub PUT options to our format
-        const putOptions = expirationData.options.PUT
+        // Map Finnhub options to our format
+        const options = expirationData.options[optionType]
           .map((opt: any) => ({
             strike: opt.strike || 0,
             bid: opt.bid || 0,
@@ -176,16 +180,18 @@ serve(async (req) => {
             openInterest: opt.openInterest || 0,
             impliedVolatility: opt.impliedVolatility || expirationData.impliedVolatility || 0,
             delta: opt.delta || 0,
-            inTheMoney: opt.inTheMoney === "TRUE" || opt.strike > underlyingPrice
+            inTheMoney: optionType === 'PUT' 
+              ? (opt.inTheMoney === "TRUE" || opt.strike > underlyingPrice)
+              : (opt.inTheMoney === "TRUE" || opt.strike < underlyingPrice)
           }))
           .filter((opt: any) => opt.strike > 0) // Filter out invalid strikes
           .sort((a: any, b: any) => b.strike - a.strike); // Sort by strike descending
         
-        if (putOptions.length > 0) {
+        if (options.length > 0) {
           // Convert date to timestamp for consistency with frontend
           const timestamp = new Date(expDate).getTime() / 1000;
-          console.log(`Added ${putOptions.length} put options for expiration ${expDate}`);
-          return { timestamp: timestamp.toString(), options: putOptions };
+          console.log(`Added ${options.length} ${optionType} options for expiration ${expDate}`);
+          return { timestamp: timestamp.toString(), options };
         }
         
         return null;

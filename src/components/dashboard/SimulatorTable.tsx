@@ -500,6 +500,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
           assignedPositionId={selectedPosition.id}
           symbol={selectedPosition.symbol}
           maxContracts={Math.floor(selectedPosition.shares / 100)}
+          currentPrice={selectedPosition.currentPrice || 0}
           onSell={handleSellCoveredCall}
         />
       )}

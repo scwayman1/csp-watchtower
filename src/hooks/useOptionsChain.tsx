@@ -23,17 +23,17 @@ interface OptionChainData {
   timestamp: number;
 }
 
-export const useOptionsChain = (symbol: string | null) => {
+export const useOptionsChain = (symbol: string | null, optionType: 'PUT' | 'CALL' = 'PUT') => {
   const { toast } = useToast();
   const [isStale, setIsStale] = useState(false);
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['options-chain', symbol],
+    queryKey: ['options-chain', symbol, optionType],
     queryFn: async () => {
       if (!symbol) return null;
 
       const { data, error } = await supabase.functions.invoke('fetch-option-chain', {
-        body: { symbol: symbol.toUpperCase() }
+        body: { symbol: symbol.toUpperCase(), optionType }
       });
 
       if (error) {
