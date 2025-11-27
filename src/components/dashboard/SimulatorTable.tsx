@@ -108,9 +108,9 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
   const totalCallPremiums = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.coveredCallPremiums, 0);
   const totalAssignedPnL = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.unrealizedPnL, 0);
 
-  const availableCapital = (parseFloat(capital) || 0) - totalCashSecured - totalAssignedValue;
   const totalPremiums = totalPutPremiums + totalCallPremiums;
-  const totalPortfolioValue = availableCapital + totalCashSecured + totalAssignedValue + totalUnrealizedPnL + totalAssignedPnL;
+  const availableCapital = (parseFloat(capital) || 0) - totalCashSecured - totalAssignedValue + totalPremiums;
+  const totalPortfolioValue = parseFloat(capital) + totalPremiums;
 
   const handleAssign = async (position: any) => {
     assignPosition({
