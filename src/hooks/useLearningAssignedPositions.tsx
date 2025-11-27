@@ -126,9 +126,10 @@ export const useLearningAssignedPositions = (userId?: string) => {
       });
     },
     onError: (error) => {
+      console.error('Covered call error:', error);
       toast({
         title: "Failed to sell covered call",
-        description: error instanceof Error ? error.message : "Unknown error",
+        description: error instanceof Error ? error.message : JSON.stringify(error),
         variant: "destructive",
       });
     },
