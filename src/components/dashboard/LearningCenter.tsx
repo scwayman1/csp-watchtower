@@ -15,8 +15,6 @@ import { useTickerSearch } from "@/hooks/useTickerSearch";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Ticker symbol validation schema
 const tickerSchema = z.string()
@@ -152,48 +150,44 @@ export const LearningCenter = () => {
               <div className="flex flex-wrap gap-4 items-end">
                 <div className="flex-1 min-w-[200px]">
                   <label className="text-sm font-medium mb-2 block">Stock Symbol or Company Name</label>
-                  <div className="space-y-1">
-                    <Popover open={isSearchOpen && searchQuery.length >= 2} onOpenChange={setIsSearchOpen}>
-                      <PopoverTrigger asChild>
-                        <Input
-                          placeholder="e.g., AAPL, Apple, Microsoft"
-                          value={inputSymbol}
-                          onChange={(e) => handleInputChange(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                          onFocus={() => setIsSearchOpen(true)}
-                          className={validationError ? "border-destructive" : ""}
-                          maxLength={50}
-                        />
-                      </PopoverTrigger>
-                      <PopoverContent className="p-0 w-[300px]" align="start">
-                        <Command>
-                          <CommandList>
-                            {isSearching && (
-                              <CommandEmpty>Searching...</CommandEmpty>
-                            )}
-                            {!isSearching && searchResults && searchResults.length === 0 && (
-                              <CommandEmpty>No stocks found.</CommandEmpty>
-                            )}
-                            {!isSearching && searchResults && searchResults.length > 0 && (
-                              <CommandGroup heading="Stocks">
-                                {searchResults.map((result) => (
-                                  <CommandItem
-                                    key={result.symbol}
-                                    value={result.symbol}
-                                    onSelect={() => handleSelectTicker(result.symbol, result.description)}
-                                  >
-                                    <div className="flex flex-col">
-                                      <span className="font-semibold">{result.symbol}</span>
-                                      <span className="text-xs text-muted-foreground">{result.description}</span>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            )}
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
+                  <div className="space-y-1 relative">
+                    <Input
+                      placeholder="e.g., AAPL, Apple, Microsoft"
+                      value={inputSymbol}
+                      onChange={(e) => handleInputChange(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      onFocus={() => setIsSearchOpen(true)}
+                      onBlur={() => setTimeout(() => setIsSearchOpen(false), 200)}
+                      className={validationError ? "border-destructive" : ""}
+                      maxLength={50}
+                    />
+                    {isSearchOpen && searchQuery.length >= 2 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-md z-50 max-h-[300px] overflow-auto">
+                        {isSearching && (
+                          <div className="p-4 text-sm text-muted-foreground">Searching...</div>
+                        )}
+                        {!isSearching && searchResults && searchResults.length === 0 && (
+                          <div className="p-4 text-sm text-muted-foreground">No stocks found.</div>
+                        )}
+                        {!isSearching && searchResults && searchResults.length > 0 && (
+                          <div className="p-2">
+                            <div className="text-xs font-semibold text-muted-foreground px-2 py-1">Stocks</div>
+                            {searchResults.map((result) => (
+                              <button
+                                key={result.symbol}
+                                onClick={() => handleSelectTicker(result.symbol, result.description)}
+                                className="w-full text-left px-2 py-2 hover:bg-accent rounded-sm transition-colors"
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-sm">{result.symbol}</span>
+                                  <span className="text-xs text-muted-foreground">{result.description}</span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {validationError && (
                       <div className="flex items-center gap-1 text-xs text-destructive">
                         <AlertCircle className="h-3 w-3" />
