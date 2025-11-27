@@ -37,8 +37,21 @@ export const useOptionsChain = (symbol: string | null, optionType: 'PUT' | 'CALL
       });
 
       if (error) {
-        // Handle rate limit errors gracefully
-        // Removed rate limit toast since Market Data API has better limits
+        // Check if it's an invalid ticker error
+        const errorMessage = error.message || JSON.stringify(error);
+        if (errorMessage.includes('No quote data found')) {
+          toast({
+            title: "Invalid Ticker Symbol",
+            description: `"${symbol}" is not a valid ticker symbol. Please check the symbol and try again.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Error Loading Options",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        }
         throw error;
       }
 
