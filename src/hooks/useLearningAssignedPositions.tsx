@@ -107,7 +107,11 @@ export const useLearningAssignedPositions = (userId?: string) => {
     }) => {
       const { data: result, error } = await supabase
         .from('learning_covered_calls' as any)
-        .insert([data])
+        .insert([{
+          ...data,
+          opened_at: new Date().toISOString(),
+          is_active: true
+        }])
         .select()
         .single();
 
