@@ -3,6 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
+import { useOptionsChain } from "@/hooks/useOptionsChain";
+import { OptionsChain } from "./OptionsChain";
 
 interface SellCoveredCallDialogProps {
   open: boolean;
@@ -10,6 +14,7 @@ interface SellCoveredCallDialogProps {
   assignedPositionId: string;
   symbol: string;
   maxContracts: number;
+  currentPrice: number;
   onSell: (data: {
     learning_assigned_position_id: string;
     strike_price: number;
@@ -25,90 +30,108 @@ export const SellCoveredCallDialog = ({
   assignedPositionId,
   symbol,
   maxContracts,
+  currentPrice,
   onSell,
 }: SellCoveredCallDialogProps) => {
-  const [strikePrice, setStrikePrice] = useState("");
-  const [expiration, setExpiration] = useState("");
-  const [premium, setPremium] = useState("");
-  const [contracts, setContracts] = useState("1");
+  const [contracts, setContracts] = useState(Math.min(1, maxContracts));
+  const [selectedExpiration, setSelectedExpiration] = useState<string>("");
+  
+  const { data: optionChainData, isLoading } = useOptionsChain(symbol, 'CALL');
 
-  const handleSell = () => {
-    if (!strikePrice || !expiration || !premium || !contracts) return;
-
+  const handleAddToSimulator = (optionData: {
+    strike: number;
+    premium: number;
+    expiration: string;
+  }) => {
     onSell({
       learning_assigned_position_id: assignedPositionId,
-      strike_price: parseFloat(strikePrice),
-      expiration,
-      premium_per_contract: parseFloat(premium),
-      contracts: parseInt(contracts),
+      strike_price: optionData.strike,
+      expiration: optionData.expiration,
+      premium_per_contract: optionData.premium,
+      contracts: contracts,
     });
-
-    // Reset form
-    setStrikePrice("");
-    setExpiration("");
-    setPremium("");
-    setContracts("1");
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Sell Covered Call - {symbol}</DialogTitle>
           <DialogDescription>
-            Enter the details for the covered call you want to sell
+            Select a call option to sell against your shares (max {maxContracts} contracts)
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="strike">Strike Price</Label>
-            <Input
-              id="strike"
-              type="number"
-              step="0.01"
-              placeholder="e.g., 150.00"
-              value={strikePrice}
-              onChange={(e) => setStrikePrice(e.target.value)}
-            />
+
+        <div className="space-y-6">
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="contracts">Number of Contracts</Label>
+              <Input
+                id="contracts"
+                type="number"
+                value={contracts}
+                onChange={(e) => setContracts(Math.min(maxContracts, Math.max(1, parseInt(e.target.value) || 1)))}
+                min={1}
+                max={maxContracts}
+              />
+              <p className="text-sm text-muted-foreground">
+                Max: {maxContracts} contracts
+              </p>
+            </div>
+
+            {optionChainData && optionChainData.expirations.length > 0 && (
+              <div className="grid gap-2">
+                <Label htmlFor="expiration">Expiration Date</Label>
+                <Select value={selectedExpiration} onValueChange={setSelectedExpiration}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select expiration date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {optionChainData.expirations.map((exp) => {
+                      const date = new Date(parseInt(exp) * 1000);
+                      return (
+                        <SelectItem key={exp} value={exp}>
+                          {date.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
-          <div>
-            <Label htmlFor="expiration">Expiration Date</Label>
-            <Input
-              id="expiration"
-              type="date"
-              value={expiration}
-              onChange={(e) => setExpiration(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="premium">Premium Per Contract</Label>
-            <Input
-              id="premium"
-              type="number"
-              step="0.01"
-              placeholder="e.g., 2.50"
-              value={premium}
-              onChange={(e) => setPremium(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="contracts">Contracts (max {maxContracts})</Label>
-            <Input
-              id="contracts"
-              type="number"
-              min="1"
-              max={maxContracts}
-              value={contracts}
-              onChange={(e) => setContracts(e.target.value)}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSell}>Sell Call</Button>
-          </div>
+
+          {isLoading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Loading call options...</span>
+            </div>
+          )}
+
+          {!isLoading && optionChainData && selectedExpiration && (
+            <div className="border rounded-lg p-4">
+              <h3 className="text-lg font-semibold mb-4">Available Call Options</h3>
+              <OptionsChain
+                underlyingPrice={optionChainData.underlyingPrice}
+                options={optionChainData.options[selectedExpiration] || []}
+                contracts={contracts}
+                expiration={new Date(parseInt(selectedExpiration) * 1000).toISOString().split('T')[0]}
+                onAddToSimulator={handleAddToSimulator}
+                symbol={symbol}
+              />
+            </div>
+          )}
+
+          {!isLoading && optionChainData && !selectedExpiration && (
+            <div className="text-center py-8 text-muted-foreground">
+              Select an expiration date to view available call options
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
