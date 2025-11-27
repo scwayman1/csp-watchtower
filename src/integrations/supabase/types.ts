@@ -531,6 +531,45 @@ export type Database = {
         }
         Relationships: []
       }
+      simulator_portfolio_history: {
+        Row: {
+          assigned_shares_value: number
+          cash_balance: number
+          created_at: string
+          event_description: string | null
+          event_type: string
+          id: string
+          portfolio_value: number
+          positions_value: number
+          total_premiums_collected: number
+          user_id: string
+        }
+        Insert: {
+          assigned_shares_value: number
+          cash_balance: number
+          created_at?: string
+          event_description?: string | null
+          event_type: string
+          id?: string
+          portfolio_value: number
+          positions_value: number
+          total_premiums_collected?: number
+          user_id: string
+        }
+        Update: {
+          assigned_shares_value?: number
+          cash_balance?: number
+          created_at?: string
+          event_description?: string | null
+          event_type?: string
+          id?: string
+          portfolio_value?: number
+          positions_value?: number
+          total_premiums_collected?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       simulator_settings: {
         Row: {
           created_at: string

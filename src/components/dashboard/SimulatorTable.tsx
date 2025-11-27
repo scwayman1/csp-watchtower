@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,9 @@ import { LearningPosition } from "@/hooks/useLearningPositions";
 import { useLearningAssignedPositions } from "@/hooks/useLearningAssignedPositions";
 import { useLearningMarketData } from "@/hooks/useLearningMarketData";
 import { useSimulatorSettings } from "@/hooks/useSimulatorSettings";
+import { useSimulatorPortfolioHistory } from "@/hooks/useSimulatorPortfolioHistory";
 import { SellCoveredCallDialog } from "./SellCoveredCallDialog";
+import { SimulatorPerformanceChart } from "./SimulatorPerformanceChart";
 
 interface SimulatorTableProps {
   positions: LearningPosition[];
@@ -22,8 +24,16 @@ interface SimulatorTableProps {
 export const SimulatorTable = ({ positions, onClose, onDelete, userId }: SimulatorTableProps) => {
   const { assignedPositions, assignPosition, sellCoveredCall } = useLearningAssignedPositions(userId);
   const { settings, updateSettings } = useSimulatorSettings(userId);
+  const { history, recordSnapshot } = useSimulatorPortfolioHistory(userId);
   const [capital, setCapital] = useState(settings?.starting_capital?.toString() || "100000");
   const [selectedAssignedPosition, setSelectedAssignedPosition] = useState<string | null>(null);
+
+  // Update capital when settings load
+  useEffect(() => {
+    if (settings?.starting_capital) {
+      setCapital(settings.starting_capital.toString());
+    }
+  }, [settings?.starting_capital]);
   
   // Get all unique symbols
   const allSymbols = useMemo(() => {
@@ -101,7 +111,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
   const totalPremiums = totalPutPremiums + totalCallPremiums;
   const totalPortfolioValue = availableCapital + totalCashSecured + totalAssignedValue + totalUnrealizedPnL + totalAssignedPnL;
 
-  const handleAssign = (position: any) => {
+  const handleAssign = async (position: any) => {
     assignPosition({
       symbol: position.symbol,
       shares: position.contracts * 100,
@@ -110,6 +120,50 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
       original_learning_position_id: position.id,
     });
     onClose(position.id);
+    
+    // Record snapshot for assignment
+    const newAssignedValue = position.strike_price * position.contracts * 100;
+    await recordSnapshot({
+      portfolio_value: totalPortfolioValue,
+      cash_balance: availableCapital - newAssignedValue,
+      positions_value: totalCashSecured - position.cashSecured,
+      assigned_shares_value: totalAssignedValue + newAssignedValue,
+      total_premiums_collected: totalPremiums,
+      event_type: 'position_assigned',
+      event_description: `Assigned ${position.contracts * 100} shares of ${position.symbol} at $${position.strike_price}`,
+    });
+  };
+
+  const handleClose = async (position: any) => {
+    onClose(position.id);
+    
+    // Record snapshot for position close
+    await recordSnapshot({
+      portfolio_value: totalPortfolioValue + position.totalPremium,
+      cash_balance: availableCapital + position.cashSecured,
+      positions_value: totalCashSecured - position.cashSecured,
+      assigned_shares_value: totalAssignedValue,
+      total_premiums_collected: totalPremiums,
+      event_type: 'position_closed',
+      event_description: `Closed ${position.symbol} $${position.strike_price}P - Premium: $${position.totalPremium.toFixed(2)}`,
+    });
+  };
+
+  const handleSellCoveredCall = async (data: any) => {
+    sellCoveredCall(data);
+    
+    const premium = data.premium_per_contract * 100 * data.contracts;
+    // Record snapshot for covered call
+    await recordSnapshot({
+      portfolio_value: totalPortfolioValue + premium,
+      cash_balance: availableCapital + premium,
+      positions_value: totalCashSecured,
+      assigned_shares_value: totalAssignedValue,
+      total_premiums_collected: totalPremiums + premium,
+      event_type: 'covered_call_sold',
+      event_description: `Sold covered call on ${selectedPosition?.symbol} - Premium: $${premium.toFixed(2)}`,
+    });
+    setSelectedAssignedPosition(null);
   };
 
   const handleCapitalUpdate = () => {
@@ -121,8 +175,36 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
 
   const selectedPosition = enhancedAssignedPositions.find(ap => ap.id === selectedAssignedPosition);
 
+  // Record initial snapshot when first position is opened (check if no history exists)
+  const handleRecordInitialSnapshot = async () => {
+    if (history.length === 0 && (positions.length > 0 || assignedPositions.length > 0)) {
+      await recordSnapshot({
+        portfolio_value: totalPortfolioValue,
+        cash_balance: availableCapital,
+        positions_value: totalCashSecured,
+        assigned_shares_value: totalAssignedValue,
+        total_premiums_collected: totalPremiums,
+        event_type: 'position_opened',
+        event_description: 'Initial position opened',
+      });
+    }
+  };
+
+  // Track position changes to record snapshots
+  useEffect(() => {
+    if (userId && (positions.length > 0 || assignedPositions.length > 0)) {
+      handleRecordInitialSnapshot();
+    }
+  }, [positions.length, assignedPositions.length, userId]);
+
   return (
     <div className="space-y-6">
+      {/* Performance Chart */}
+      <SimulatorPerformanceChart 
+        history={history} 
+        startingCapital={parseFloat(capital) || 100000} 
+      />
+
       {/* Capital Settings */}
       <Card>
         <CardHeader>
@@ -250,10 +332,10 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
                           >
                             Assign
                           </Button>
-                          <Button
+                        <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => onClose(pos.id)}
+                            onClick={() => handleClose(pos)}
                             title="Close position"
                           >
                             <CheckCircle className="h-4 w-4" />
@@ -357,7 +439,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
           assignedPositionId={selectedPosition.id}
           symbol={selectedPosition.symbol}
           maxContracts={Math.floor(selectedPosition.shares / 100)}
-          onSell={sellCoveredCall}
+          onSell={handleSellCoveredCall}
         />
       )}
     </div>
