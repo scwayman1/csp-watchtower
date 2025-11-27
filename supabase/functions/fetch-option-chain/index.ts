@@ -131,17 +131,18 @@ serve(async (req) => {
     const underlyingPrice = quoteData.c; // Current price
     console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
-    // Step 2: Get weekly + monthly expiration dates (reduced to 3 total to avoid timeout)
-    const expirationDates = getNextExpirations(2, 1); // 2 weekly + 1 monthly
-    console.log(`Processing ${expirationDates.length} expiration dates:`, expirationDates);
+    // Step 2: Fetch options from Finnhub (it will return available expirations)
+    const expirationDates = getNextExpirations(2, 1); // 2 weekly + 1 monthly as hints
+    console.log(`Fetching options for ${symbol} (dates are hints to Finnhub)`);
     
     const optionsByExpiration: Record<string, any[]> = {};
+    const seenExpirations = new Set<string>();
     
-    // Fetch options for all expirations in parallel with timeout
-    const fetchPromises = expirationDates.map(async (expDate) => {
+    // Fetch options - Finnhub returns actual expirations available
+    const fetchPromises = expirationDates.map(async (hintDate) => {
       try {
-        const optionsUrl = `https://finnhub.io/api/v1/stock/option-chain?symbol=${symbol}&date=${expDate}&token=${FINNHUB_API_KEY}`;
-        console.log(`Fetching options for expiration ${expDate}`);
+        const optionsUrl = `https://finnhub.io/api/v1/stock/option-chain?symbol=${symbol}&date=${hintDate}&token=${FINNHUB_API_KEY}`;
+        console.log(`Fetching options for ${symbol} (hint date: ${hintDate})`);
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
@@ -150,64 +151,76 @@ serve(async (req) => {
         clearTimeout(timeoutId);
         
         if (!optionsResponse.ok) {
-          console.error(`Options fetch failed for ${expDate}: ${optionsResponse.status}`);
-          return null;
+          console.error(`Options fetch failed: ${optionsResponse.status}`);
+          return [];
         }
         
         const optionsData = await optionsResponse.json();
         
-        console.log(`Finnhub response for ${expDate}:`, JSON.stringify(optionsData).substring(0, 500));
-        
-        // Finnhub structure: data[0].options.PUT[] contains the put options
+        // Finnhub returns all available expirations in data array
         if (!optionsData.data || optionsData.data.length === 0) {
-          console.log(`No options data for ${expDate}`);
-          return null;
+          console.log(`No options data returned`);
+          return [];
         }
 
-        const expirationData = optionsData.data.find((d: any) => d.expirationDate === expDate);
-        if (!expirationData || !expirationData.options || !expirationData.options[optionType]) {
-          console.log(`No ${optionType} options found for ${expDate}`);
-          return null;
+        const results: any[] = [];
+        
+        // Process each expiration Finnhub provides
+        for (const expirationData of optionsData.data) {
+          const actualExpDate = expirationData.expirationDate;
+          
+          // Skip if we've already processed this expiration
+          if (seenExpirations.has(actualExpDate)) {
+            continue;
+          }
+          seenExpirations.add(actualExpDate);
+          
+          if (!expirationData.options || !expirationData.options[optionType]) {
+            continue;
+          }
+          
+          console.log(`Processing ${optionType} options for expiration ${actualExpDate}`);
+          
+          // Map Finnhub options to our format
+          const options = expirationData.options[optionType]
+            .map((opt: any) => ({
+              strike: opt.strike || 0,
+              bid: opt.bid || 0,
+              ask: opt.ask || 0,
+              mid: opt.bid && opt.ask ? (opt.bid + opt.ask) / 2 : opt.lastTradePrice || 0,
+              volume: opt.volume || 0,
+              openInterest: opt.openInterest || 0,
+              impliedVolatility: opt.impliedVolatility || expirationData.impliedVolatility || 0,
+              delta: opt.delta || 0,
+              inTheMoney: optionType === 'PUT' 
+                ? (opt.inTheMoney === "TRUE" || opt.strike > underlyingPrice)
+                : (opt.inTheMoney === "TRUE" || opt.strike < underlyingPrice),
+              lastPrice: opt.lastTradePrice || 0
+            }))
+            .filter((opt: any) => opt.strike > 0) // Filter out invalid strikes
+            .sort((a: any, b: any) => b.strike - a.strike); // Sort by strike descending
+          
+          if (options.length > 0) {
+            // Use actual expiration date from Finnhub
+            const timestamp = new Date(actualExpDate).getTime() / 1000;
+            console.log(`Found ${options.length} ${optionType} options for ${actualExpDate}`);
+            results.push({ timestamp: timestamp.toString(), options });
+          }
         }
         
-        // Map Finnhub options to our format
-        const options = expirationData.options[optionType]
-          .map((opt: any) => ({
-            strike: opt.strike || 0,
-            bid: opt.bid || 0,
-            ask: opt.ask || 0,
-            mid: opt.bid && opt.ask ? (opt.bid + opt.ask) / 2 : opt.lastTradePrice || 0,
-            volume: opt.volume || 0,
-            openInterest: opt.openInterest || 0,
-            impliedVolatility: opt.impliedVolatility || expirationData.impliedVolatility || 0,
-            delta: opt.delta || 0,
-            inTheMoney: optionType === 'PUT' 
-              ? (opt.inTheMoney === "TRUE" || opt.strike > underlyingPrice)
-              : (opt.inTheMoney === "TRUE" || opt.strike < underlyingPrice)
-          }))
-          .filter((opt: any) => opt.strike > 0) // Filter out invalid strikes
-          .sort((a: any, b: any) => b.strike - a.strike); // Sort by strike descending
-        
-        if (options.length > 0) {
-          // Convert date to timestamp for consistency with frontend
-          const timestamp = new Date(expDate).getTime() / 1000;
-          console.log(`Added ${options.length} ${optionType} options for expiration ${expDate}`);
-          return { timestamp: timestamp.toString(), options };
-        }
-        
-        return null;
+        return results;
       } catch (error) {
-        console.error(`Error fetching options for ${expDate}:`, error);
-        return null;
+        console.error(`Error fetching options:`, error);
+        return [];
       }
     });
     
     // Wait for all requests to complete
-    const results = await Promise.all(fetchPromises);
+    const allResults = await Promise.all(fetchPromises);
     
-    // Build the options object from successful results
-    results.forEach(result => {
-      if (result) {
+    // Flatten and build the options object
+    allResults.flat().forEach(result => {
+      if (result && result.options) {
         optionsByExpiration[result.timestamp] = result.options;
       }
     });
