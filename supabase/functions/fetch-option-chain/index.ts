@@ -124,7 +124,8 @@ serve(async (req) => {
     const quoteData = await quoteResponse.json();
     
     if (!quoteData.c) {
-      throw new Error(`No quote data found for ${symbol}`);
+      console.error(`No quote data found for ${symbol}. This may be an invalid ticker symbol.`);
+      throw new Error(`Invalid ticker symbol: "${symbol}". Please verify the ticker and try again. (e.g., "DAL" for Delta Air Lines)`);
     }
     
     const underlyingPrice = quoteData.c; // Current price
