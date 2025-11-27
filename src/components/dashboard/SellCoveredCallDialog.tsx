@@ -39,20 +39,19 @@ export const SellCoveredCallDialog = ({
   const { data: optionChainData, isLoading } = useOptionsChain(symbol, 'CALL');
 
   const handleAddToSimulator = (optionData: {
-    strike: number;
-    premium: number;
+    strike_price: number;
+    premium_per_contract: number;
     expiration: string;
   }) => {
     onSell({
       learning_assigned_position_id: assignedPositionId,
-      strike_price: optionData.strike,
+      strike_price: optionData.strike_price,
       expiration: optionData.expiration,
-      premium_per_contract: optionData.premium,
-      contracts: contracts,
+      premium_per_contract: optionData.premium_per_contract,
+      contracts,
     });
     onOpenChange(false);
   };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
