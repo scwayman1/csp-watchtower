@@ -11,14 +11,41 @@ const CACHE_DURATION = 300000; // 5 minutes
 
 const FINNHUB_API_KEY = Deno.env.get('FINNHUB_API_KEY');
 
-// Helper to get next expiration dates (3rd Friday of month)
-function getNextExpirations(count: number): string[] {
+// Helper to get next expiration dates (weekly + monthly)
+function getNextExpirations(weeklyCount: number = 4, monthlyCount: number = 2): string[] {
   const dates: string[] = [];
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // First, add weekly expirations (next N Fridays)
+  const currentDate = new Date(today);
+  let weeklyAdded = 0;
+  
+  while (weeklyAdded < weeklyCount) {
+    // Find the next Friday
+    const daysUntilFriday = (5 - currentDate.getDay() + 7) % 7;
+    const nextFriday = new Date(currentDate);
+    nextFriday.setDate(currentDate.getDate() + (daysUntilFriday === 0 ? 7 : daysUntilFriday));
+    
+    // Only add if it's in the future (after today)
+    if (nextFriday > today) {
+      const dateStr = nextFriday.toISOString().split('T')[0];
+      if (!dates.includes(dateStr)) {
+        dates.push(dateStr);
+        weeklyAdded++;
+      }
+    }
+    
+    // Move to next week
+    currentDate.setDate(nextFriday.getDate() + 1);
+  }
+  
+  // Then add monthly expirations (3rd Friday of upcoming months)
   let currentMonth = today.getMonth();
   let currentYear = today.getFullYear();
+  let monthlyAdded = 0;
   
-  while (dates.length < count) {
+  while (monthlyAdded < monthlyCount) {
     // Find 3rd Friday of the month
     const firstDay = new Date(currentYear, currentMonth, 1);
     const firstFriday = firstDay.getDay() <= 5 
@@ -27,10 +54,12 @@ function getNextExpirations(count: number): string[] {
     const thirdFriday = firstFriday + 14;
     
     const expirationDate = new Date(currentYear, currentMonth, thirdFriday);
+    const dateStr = expirationDate.toISOString().split('T')[0];
     
-    // Only add if it's in the future
-    if (expirationDate > today) {
-      dates.push(expirationDate.toISOString().split('T')[0]);
+    // Only add if it's in the future and not already in the list
+    if (expirationDate > today && !dates.includes(dateStr)) {
+      dates.push(dateStr);
+      monthlyAdded++;
     }
     
     // Move to next month
@@ -41,7 +70,8 @@ function getNextExpirations(count: number): string[] {
     }
   }
   
-  return dates;
+  // Sort dates chronologically
+  return dates.sort();
 }
 
 serve(async (req) => {
@@ -95,8 +125,8 @@ serve(async (req) => {
     const underlyingPrice = quoteData.c; // Current price
     console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
-    // Step 2: Get next 4 expiration dates
-    const expirationDates = getNextExpirations(4);
+    // Step 2: Get weekly + monthly expiration dates
+    const expirationDates = getNextExpirations(4, 2); // 4 weekly + 2 monthly
     console.log(`Processing ${expirationDates.length} expiration dates:`, expirationDates);
     
     const optionsByExpiration: Record<string, any[]> = {};
