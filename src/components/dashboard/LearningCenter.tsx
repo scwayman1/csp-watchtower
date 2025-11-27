@@ -7,27 +7,64 @@ import { Badge } from "@/components/ui/badge";
 import { OptionsChain } from "./OptionsChain";
 import { EducationPanel } from "./EducationPanel";
 import { SimulatorTable } from "./SimulatorTable";
-import { GraduationCap, Search, RefreshCw } from "lucide-react";
+import { GraduationCap, Search, RefreshCw, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLearningPositions } from "@/hooks/useLearningPositions";
 import { useOptionsChain } from "@/hooks/useOptionsChain";
 import { format, differenceInDays, parseISO } from "date-fns";
+import { z } from "zod";
+import { useToast } from "@/hooks/use-toast";
+
+// Ticker symbol validation schema
+const tickerSchema = z.string()
+  .trim()
+  .min(1, "Ticker symbol is required")
+  .max(5, "Ticker symbol must be 5 characters or less")
+  .regex(/^[A-Z]+$/, "Ticker must contain only uppercase letters (e.g., AAPL, MSFT)");
 
 export const LearningCenter = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const { positions, addPosition, closePosition, deletePosition } = useLearningPositions(user?.id);
   const [inputSymbol, setInputSymbol] = useState("ACVA");
   const [searchSymbol, setSearchSymbol] = useState("ACVA");
   const [contracts, setContracts] = useState(1);
   const [selectedExpiration, setSelectedExpiration] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const { data: chainData, isLoading, refetch, isStale, staleReason } = useOptionsChain(searchSymbol);
 
   const handleSearch = () => {
-    if (inputSymbol.trim()) {
-      setSearchSymbol(inputSymbol.trim());
-      setSelectedExpiration(null); // Reset expiration selection when searching new symbol
+    const trimmedSymbol = inputSymbol.trim().toUpperCase();
+    
+    // Validate ticker symbol
+    const validation = tickerSchema.safeParse(trimmedSymbol);
+    
+    if (!validation.success) {
+      const errorMessage = validation.error.errors[0]?.message || "Invalid ticker symbol";
+      setValidationError(errorMessage);
+      toast({
+        title: "Invalid Ticker Symbol",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Clear any previous errors and search
+    setValidationError(null);
+    setSearchSymbol(trimmedSymbol);
+    setSelectedExpiration(null); // Reset expiration selection when searching new symbol
+  };
+
+  const handleInputChange = (value: string) => {
+    const upperValue = value.toUpperCase();
+    setInputSymbol(upperValue);
+    
+    // Clear validation error when user types
+    if (validationError) {
+      setValidationError(null);
     }
   };
 
@@ -98,12 +135,22 @@ export const LearningCenter = () => {
               <div className="flex flex-wrap gap-4 items-end">
                 <div className="flex-1 min-w-[200px]">
                   <label className="text-sm font-medium mb-2 block">Stock Symbol</label>
-                  <Input
-                    placeholder="e.g., AAPL"
-                    value={inputSymbol}
-                    onChange={(e) => setInputSymbol(e.target.value.toUpperCase())}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  />
+                  <div className="space-y-1">
+                    <Input
+                      placeholder="e.g., AAPL, MSFT, TSLA"
+                      value={inputSymbol}
+                      onChange={(e) => handleInputChange(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      className={validationError ? "border-destructive" : ""}
+                      maxLength={5}
+                    />
+                    {validationError && (
+                      <div className="flex items-center gap-1 text-xs text-destructive">
+                        <AlertCircle className="h-3 w-3" />
+                        <span>{validationError}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex-none">
                   <label className="text-sm font-medium mb-2 block">Contracts</label>
