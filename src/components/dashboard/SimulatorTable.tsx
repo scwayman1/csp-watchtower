@@ -12,6 +12,7 @@ import { useLearningMarketData } from "@/hooks/useLearningMarketData";
 import { useSimulatorSettings } from "@/hooks/useSimulatorSettings";
 import { useSimulatorPortfolioHistory } from "@/hooks/useSimulatorPortfolioHistory";
 import { SellCoveredCallDialog } from "./SellCoveredCallDialog";
+import { AssignedPositionRow } from "./AssignedPositionRow";
 import { SimulatorPerformanceChart } from "./SimulatorPerformanceChart";
 
 interface SimulatorTableProps {
@@ -446,38 +447,11 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
                 </TableHeader>
                 <TableBody>
                   {enhancedAssignedPositions.map((ap) => (
-                    <TableRow key={ap.id}>
-                      <TableCell className="font-medium">{ap.symbol}</TableCell>
-                      <TableCell>{ap.shares}</TableCell>
-                      <TableCell>
-                        {ap.currentPrice > 0 ? (
-                          <span className="font-medium">${ap.currentPrice.toFixed(2)}</span>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>${(ap.cost_basis / ap.shares).toFixed(2)}</TableCell>
-                      <TableCell>${ap.marketValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="text-success">
-                        ${ap.original_put_premium.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-success">
-                        ${ap.coveredCallPremiums.toFixed(2)}
-                      </TableCell>
-                      <TableCell>
-                        <span className={ap.unrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}>
-                          ${ap.unrealizedPnL.toFixed(2)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          onClick={() => setSelectedAssignedPosition(ap.id)}
-                        >
-                          Sell Call
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                    <AssignedPositionRow
+                      key={ap.id}
+                      position={ap}
+                      onSellCall={(pos) => setSelectedAssignedPosition(pos.id)}
+                    />
                   ))}
                 </TableBody>
               </Table>
