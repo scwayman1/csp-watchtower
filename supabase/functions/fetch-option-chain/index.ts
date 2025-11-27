@@ -5,9 +5,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple in-memory cache (expires after 5 minutes)
+// Simple in-memory cache (expires after 15 minutes)
 const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_DURATION = 300000; // 5 minutes
+const CACHE_DURATION = 900000; // 15 minutes
+const REQUEST_TIMEOUT = 3000; // 3 seconds per request
 
 const FINNHUB_API_KEY = Deno.env.get('FINNHUB_API_KEY');
 
@@ -125,19 +126,23 @@ serve(async (req) => {
     const underlyingPrice = quoteData.c; // Current price
     console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
-    // Step 2: Get weekly + monthly expiration dates
-    const expirationDates = getNextExpirations(4, 2); // 4 weekly + 2 monthly
+    // Step 2: Get weekly + monthly expiration dates (reduced to 3 total to avoid timeout)
+    const expirationDates = getNextExpirations(2, 1); // 2 weekly + 1 monthly
     console.log(`Processing ${expirationDates.length} expiration dates:`, expirationDates);
     
     const optionsByExpiration: Record<string, any[]> = {};
     
-    // Fetch options for all expirations in parallel
+    // Fetch options for all expirations in parallel with timeout
     const fetchPromises = expirationDates.map(async (expDate) => {
       try {
         const optionsUrl = `https://finnhub.io/api/v1/stock/option-chain?symbol=${symbol}&date=${expDate}&token=${FINNHUB_API_KEY}`;
         console.log(`Fetching options for expiration ${expDate}`);
         
-        const optionsResponse = await fetch(optionsUrl);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+        
+        const optionsResponse = await fetch(optionsUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
         
         if (!optionsResponse.ok) {
           console.error(`Options fetch failed for ${expDate}: ${optionsResponse.status}`);
