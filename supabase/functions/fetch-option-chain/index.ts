@@ -131,8 +131,8 @@ serve(async (req) => {
     
     const optionsByExpiration: Record<string, any[]> = {};
     
-    // Fetch options for each expiration
-    for (const expDate of expirationDates) {
+    // Fetch options for all expirations in parallel
+    const fetchPromises = expirationDates.map(async (expDate) => {
       try {
         const optionsUrl = `https://finnhub.io/api/v1/stock/option-chain?symbol=${symbol}&date=${expDate}&token=${FINNHUB_API_KEY}`;
         console.log(`Fetching options for expiration ${expDate}`);
@@ -141,7 +141,7 @@ serve(async (req) => {
         
         if (!optionsResponse.ok) {
           console.error(`Options fetch failed for ${expDate}: ${optionsResponse.status}`);
-          continue;
+          return null;
         }
         
         const optionsData = await optionsResponse.json();
@@ -151,13 +151,13 @@ serve(async (req) => {
         // Finnhub structure: data[0].options.PUT[] contains the put options
         if (!optionsData.data || optionsData.data.length === 0) {
           console.log(`No options data for ${expDate}`);
-          continue;
+          return null;
         }
 
         const expirationData = optionsData.data.find((d: any) => d.expirationDate === expDate);
         if (!expirationData || !expirationData.options || !expirationData.options.PUT) {
           console.log(`No PUT options found for ${expDate}`);
-          continue;
+          return null;
         }
         
         // Map Finnhub PUT options to our format
@@ -179,16 +179,26 @@ serve(async (req) => {
         if (putOptions.length > 0) {
           // Convert date to timestamp for consistency with frontend
           const timestamp = new Date(expDate).getTime() / 1000;
-          optionsByExpiration[timestamp.toString()] = putOptions;
           console.log(`Added ${putOptions.length} put options for expiration ${expDate}`);
+          return { timestamp: timestamp.toString(), options: putOptions };
         }
+        
+        return null;
       } catch (error) {
         console.error(`Error fetching options for ${expDate}:`, error);
+        return null;
       }
-      
-      // Rate limiting: small delay between requests
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+    });
+    
+    // Wait for all requests to complete
+    const results = await Promise.all(fetchPromises);
+    
+    // Build the options object from successful results
+    results.forEach(result => {
+      if (result) {
+        optionsByExpiration[result.timestamp] = result.options;
+      }
+    });
 
     const result = {
       symbol,
