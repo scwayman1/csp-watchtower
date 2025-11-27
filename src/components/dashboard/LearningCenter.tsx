@@ -11,9 +11,12 @@ import { GraduationCap, Search, RefreshCw, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLearningPositions } from "@/hooks/useLearningPositions";
 import { useOptionsChain } from "@/hooks/useOptionsChain";
+import { useTickerSearch } from "@/hooks/useTickerSearch";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Ticker symbol validation schema
 const tickerSchema = z.string()
@@ -32,8 +35,11 @@ export const LearningCenter = () => {
   const [selectedExpiration, setSelectedExpiration] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const { data: chainData, isLoading, refetch, isStale, staleReason } = useOptionsChain(searchSymbol);
+  const { data: searchResults, isLoading: isSearching } = useTickerSearch(searchQuery);
 
   const handleSearch = () => {
     const trimmedSymbol = inputSymbol.trim().toUpperCase();
@@ -61,11 +67,22 @@ export const LearningCenter = () => {
   const handleInputChange = (value: string) => {
     const upperValue = value.toUpperCase();
     setInputSymbol(upperValue);
+    setSearchQuery(value);
     
     // Clear validation error when user types
     if (validationError) {
       setValidationError(null);
     }
+  };
+
+  const handleSelectTicker = (symbol: string, description: string) => {
+    setInputSymbol(symbol);
+    setSearchQuery("");
+    setIsSearchOpen(false);
+    toast({
+      title: "Company Selected",
+      description: `${symbol} - ${description}`,
+    });
   };
 
   const handleRefresh = () => {
@@ -134,16 +151,49 @@ export const LearningCenter = () => {
               {/* Symbol Search Bar */}
               <div className="flex flex-wrap gap-4 items-end">
                 <div className="flex-1 min-w-[200px]">
-                  <label className="text-sm font-medium mb-2 block">Stock Symbol</label>
+                  <label className="text-sm font-medium mb-2 block">Stock Symbol or Company Name</label>
                   <div className="space-y-1">
-                    <Input
-                      placeholder="e.g., AAPL, MSFT, TSLA"
-                      value={inputSymbol}
-                      onChange={(e) => handleInputChange(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                      className={validationError ? "border-destructive" : ""}
-                      maxLength={5}
-                    />
+                    <Popover open={isSearchOpen && searchQuery.length >= 2} onOpenChange={setIsSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Input
+                          placeholder="e.g., AAPL, Apple, Microsoft"
+                          value={inputSymbol}
+                          onChange={(e) => handleInputChange(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                          onFocus={() => setIsSearchOpen(true)}
+                          className={validationError ? "border-destructive" : ""}
+                          maxLength={50}
+                        />
+                      </PopoverTrigger>
+                      <PopoverContent className="p-0 w-[300px]" align="start">
+                        <Command>
+                          <CommandList>
+                            {isSearching && (
+                              <CommandEmpty>Searching...</CommandEmpty>
+                            )}
+                            {!isSearching && searchResults && searchResults.length === 0 && (
+                              <CommandEmpty>No stocks found.</CommandEmpty>
+                            )}
+                            {!isSearching && searchResults && searchResults.length > 0 && (
+                              <CommandGroup heading="Stocks">
+                                {searchResults.map((result) => (
+                                  <CommandItem
+                                    key={result.symbol}
+                                    value={result.symbol}
+                                    onSelect={() => handleSelectTicker(result.symbol, result.description)}
+                                  >
+                                    <div className="flex flex-col">
+                                      <span className="font-semibold">{result.symbol}</span>
+                                      <span className="text-xs text-muted-foreground">{result.description}</span>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            )}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     {validationError && (
                       <div className="flex items-center gap-1 text-xs text-destructive">
                         <AlertCircle className="h-3 w-3" />
