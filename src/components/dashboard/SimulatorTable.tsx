@@ -197,6 +197,67 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
     }
   }, [positions.length, assignedPositions.length, userId]);
 
+  // Auto-assignment logic: check for expired ITM positions
+  useEffect(() => {
+    if (!userId || enhancedPositions.length === 0) return;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    enhancedPositions.forEach(async (pos) => {
+      const expirationDate = new Date(pos.expiration);
+      expirationDate.setHours(23, 59, 59, 999);
+      
+      // Check if position has expired
+      const isExpired = expirationDate < today;
+      
+      // Check if ITM (underlying price is below strike for puts)
+      const isITM = pos.underlyingPrice > 0 && pos.underlyingPrice < pos.strike_price;
+      
+      if (isExpired && isITM) {
+        // Auto-assign the position
+        console.log(`Auto-assigning ${pos.symbol}: Expired ITM (Price: $${pos.underlyingPrice.toFixed(2)}, Strike: $${pos.strike_price})`);
+        
+        assignPosition({
+          symbol: pos.symbol,
+          shares: pos.contracts * 100,
+          assignment_price: pos.strike_price,
+          original_put_premium: pos.totalPremium,
+          original_learning_position_id: pos.id,
+        });
+        onClose(pos.id);
+        
+        // Record snapshot for auto-assignment
+        const newAssignedValue = pos.strike_price * pos.contracts * 100;
+        await recordSnapshot({
+          portfolio_value: totalPortfolioValue,
+          cash_balance: availableCapital - newAssignedValue,
+          positions_value: totalCashSecured - pos.cashSecured,
+          assigned_shares_value: totalAssignedValue + newAssignedValue,
+          total_premiums_collected: totalPremiums,
+          event_type: 'auto_assigned',
+          event_description: `Auto-assigned ${pos.contracts * 100} shares of ${pos.symbol} at $${pos.strike_price} (Expired ITM)`,
+        });
+      } else if (isExpired && !isITM && pos.underlyingPrice > 0) {
+        // Position expired OTM - close it and keep premium
+        console.log(`Auto-closing ${pos.symbol}: Expired OTM (Price: $${pos.underlyingPrice.toFixed(2)}, Strike: $${pos.strike_price})`);
+        
+        onClose(pos.id);
+        
+        // Record snapshot for expiration
+        await recordSnapshot({
+          portfolio_value: totalPortfolioValue + pos.totalPremium,
+          cash_balance: availableCapital + pos.cashSecured,
+          positions_value: totalCashSecured - pos.cashSecured,
+          assigned_shares_value: totalAssignedValue,
+          total_premiums_collected: totalPremiums,
+          event_type: 'expired_otm',
+          event_description: `${pos.symbol} $${pos.strike_price}P expired worthless - Kept premium: $${pos.totalPremium.toFixed(2)}`,
+        });
+      }
+    });
+  }, [enhancedPositions, userId]);
+
   return (
     <div className="space-y-6">
       {/* Performance Chart */}
