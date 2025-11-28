@@ -3,9 +3,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Info, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
+import { Info, TrendingUp, TrendingDown, Sparkles, CheckCircle } from "lucide-react";
 import { TrendSparkline } from "./TrendSparkline";
 import { PremiumAnalysisDialog } from "./PremiumAnalysisDialog";
+import { AssignPositionDialog } from "./AssignPositionDialog";
 import { useState, createContext, useContext } from "react";
 
 interface AnalysisCache {
@@ -45,11 +46,13 @@ export interface Position {
 
 interface PositionsTableProps {
   positions: Position[];
+  onRefetch?: () => void;
 }
 
-export function PositionsTable({ positions }: PositionsTableProps) {
+export function PositionsTable({ positions, onRefetch }: PositionsTableProps) {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
   const [analysisCache, setAnalysisCache] = useState<AnalysisCache>({});
 
   const updateCache = (id: string, rating: 'excellent' | 'good' | 'fair' | 'poor') => {
@@ -87,6 +90,17 @@ export function PositionsTable({ positions }: PositionsTableProps) {
     setAnalysisOpen(true);
   };
 
+  const handleAssign = (position: Position) => {
+    setSelectedPosition(position);
+    setAssignOpen(true);
+  };
+
+  const handleAssignSuccess = () => {
+    if (onRefetch) {
+      onRefetch();
+    }
+  };
+
   const getBadgeVariant = (band: string): "success" | "warning" | "destructive" | "default" => {
     if (band === "success") return "success";
     if (band === "warning") return "warning";
@@ -111,7 +125,7 @@ export function PositionsTable({ positions }: PositionsTableProps) {
     <AnalysisCacheContext.Provider value={{ cache: analysisCache, setCache: updateCache }}>
       <div className="rounded-2xl border bg-card overflow-hidden">
         <div className="overflow-x-auto">
-          <Table className="min-w-[1000px]">
+          <Table className="min-w-[1100px]">
           <TableHeader>
             <TableRow>
               <TableHead>Symbol</TableHead>
@@ -127,6 +141,7 @@ export function PositionsTable({ positions }: PositionsTableProps) {
               <TableHead>DTE</TableHead>
               <TableHead>Prob Assign</TableHead>
               <TableHead>AI Analysis</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
         <TableBody>
@@ -213,6 +228,17 @@ export function PositionsTable({ positions }: PositionsTableProps) {
                   Analyze
                 </Button>
               </TableCell>
+              <TableCell>
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => handleAssign(position)}
+                  className="gap-1.5"
+                >
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Assign
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -221,11 +247,28 @@ export function PositionsTable({ positions }: PositionsTableProps) {
       </div>
 
       {selectedPosition && (
-        <PremiumAnalysisDialog
-          position={selectedPosition}
-          open={analysisOpen}
-          onOpenChange={setAnalysisOpen}
-        />
+        <>
+          <PremiumAnalysisDialog
+            position={selectedPosition}
+            open={analysisOpen}
+            onOpenChange={setAnalysisOpen}
+          />
+          <AssignPositionDialog
+            position={{
+              id: selectedPosition.id,
+              symbol: selectedPosition.symbol,
+              strikePrice: selectedPosition.strikePrice,
+              contracts: selectedPosition.contracts,
+              totalPremium: selectedPosition.totalPremium,
+              expiration: selectedPosition.expiration,
+              underlyingPrice: selectedPosition.underlyingPrice,
+              pctAboveStrike: selectedPosition.pctAboveStrike,
+            }}
+            open={assignOpen}
+            onOpenChange={setAssignOpen}
+            onSuccess={handleAssignSuccess}
+          />
+        </>
       )}
     </AnalysisCacheContext.Provider>
   );
