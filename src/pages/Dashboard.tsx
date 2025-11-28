@@ -126,7 +126,11 @@ const Dashboard = () => {
   };
   
   // Calculate portfolio stats (use filtered positions)
-  const totalPremium = filteredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
+  // Include premiums from both active positions AND assigned positions (original put premiums)
+  const activePremiums = filteredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
+  const assignedPremiums = filteredAssignedPositions.reduce((sum, p) => sum + p.original_put_premium, 0);
+  const totalPremium = activePremiums + assignedPremiums;
+  
   const totalUnrealizedPnL = filteredPositions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
   const activeContracts = filteredPositions.reduce((sum, p) => sum + p.contracts, 0);
   const atRiskCount = filteredPositions.filter(p => p.pctAboveStrike < 5).length;
