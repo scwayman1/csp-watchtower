@@ -131,12 +131,13 @@ serve(async (req) => {
     const underlyingPrice = quoteData.c; // Current price
     console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
-    // Step 2: Fetch options from Finnhub (it will return available expirations)
+    // Step 2: Fetch options from Finnhub (limit to 3 total expirations max)
     const expirationDates = getNextExpirations(2, 1); // 2 weekly + 1 monthly as hints
     console.log(`Fetching options for ${symbol} (dates are hints to Finnhub)`);
     
     const optionsByExpiration: Record<string, any[]> = {};
     const seenExpirations = new Set<string>();
+    const MAX_EXPIRATIONS = 3; // Limit to prevent CPU timeout
     
     // Fetch options - Finnhub returns actual expirations available
     const fetchPromises = expirationDates.map(async (hintDate) => {
@@ -165,47 +166,50 @@ serve(async (req) => {
 
         const results: any[] = [];
         
-        // Process each expiration Finnhub provides
-        for (const expirationData of optionsData.data) {
-          const actualExpDate = expirationData.expirationDate;
-          
-          // Skip if we've already processed this expiration
-          if (seenExpirations.has(actualExpDate)) {
-            continue;
-          }
-          seenExpirations.add(actualExpDate);
-          
-          if (!expirationData.options || !expirationData.options[optionType]) {
-            continue;
-          }
-          
-          console.log(`Processing ${optionType} options for expiration ${actualExpDate}`);
-          
-          // Map Finnhub options to our format
-          const options = expirationData.options[optionType]
-            .map((opt: any) => ({
-              strike: opt.strike || 0,
-              bid: opt.bid || 0,
-              ask: opt.ask || 0,
-              mid: opt.bid && opt.ask ? (opt.bid + opt.ask) / 2 : opt.lastTradePrice || 0,
-              volume: opt.volume || 0,
-              openInterest: opt.openInterest || 0,
-              impliedVolatility: opt.impliedVolatility || expirationData.impliedVolatility || 0,
-              delta: opt.delta || 0,
-              inTheMoney: optionType === 'PUT' 
-                ? (opt.inTheMoney === "TRUE" || opt.strike > underlyingPrice)
-                : (opt.inTheMoney === "TRUE" || opt.strike < underlyingPrice),
-              lastPrice: opt.lastTradePrice || 0
-            }))
-            .filter((opt: any) => opt.strike > 0) // Filter out invalid strikes
-            .sort((a: any, b: any) => b.strike - a.strike); // Sort by strike descending
-          
-          if (options.length > 0) {
-            // Use actual expiration date from Finnhub
-            const timestamp = new Date(actualExpDate).getTime() / 1000;
-            console.log(`Found ${options.length} ${optionType} options for ${actualExpDate}`);
-            results.push({ timestamp: timestamp.toString(), options });
-          }
+        // Process only the first expiration from each fetch to limit CPU usage
+        const expirationData = optionsData.data[0];
+        if (!expirationData) {
+          return [];
+        }
+        
+        const actualExpDate = expirationData.expirationDate;
+        
+        // Skip if we've already processed this expiration or hit limit
+        if (seenExpirations.has(actualExpDate) || seenExpirations.size >= MAX_EXPIRATIONS) {
+          return [];
+        }
+        seenExpirations.add(actualExpDate);
+        
+        if (!expirationData.options || !expirationData.options[optionType]) {
+          return [];
+        }
+        
+        console.log(`Processing ${optionType} options for expiration ${actualExpDate}`);
+        
+        // Map Finnhub options to our format
+        const options = expirationData.options[optionType]
+          .map((opt: any) => ({
+            strike: opt.strike || 0,
+            bid: opt.bid || 0,
+            ask: opt.ask || 0,
+            mid: opt.bid && opt.ask ? (opt.bid + opt.ask) / 2 : opt.lastTradePrice || 0,
+            volume: opt.volume || 0,
+            openInterest: opt.openInterest || 0,
+            impliedVolatility: opt.impliedVolatility || expirationData.impliedVolatility || 0,
+            delta: opt.delta || 0,
+            inTheMoney: optionType === 'PUT' 
+              ? (opt.inTheMoney === "TRUE" || opt.strike > underlyingPrice)
+              : (opt.inTheMoney === "TRUE" || opt.strike < underlyingPrice),
+            lastPrice: opt.lastTradePrice || 0
+          }))
+          .filter((opt: any) => opt.strike > 0) // Filter out invalid strikes
+          .sort((a: any, b: any) => b.strike - a.strike); // Sort by strike descending
+        
+        if (options.length > 0) {
+          // Use actual expiration date from Finnhub
+          const timestamp = new Date(actualExpDate).getTime() / 1000;
+          console.log(`Found ${options.length} ${optionType} options for ${actualExpDate}`);
+          results.push({ timestamp: timestamp.toString(), options });
         }
         
         return results;
