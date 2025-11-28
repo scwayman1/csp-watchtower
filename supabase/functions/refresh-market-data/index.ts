@@ -39,13 +39,30 @@ serve(async (req) => {
     
     for (const symbol of symbols) {
       try {
+        // Add delay between requests to avoid rate limiting
+        if (priceUpdates.length > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
         // Fetch quote data from Yahoo Finance
         const quoteResponse = await fetch(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=5m&range=1d`
+          `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=5m&range=1d`,
+          {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          }
         );
         
         if (!quoteResponse.ok) {
-          console.error(`Failed to fetch data for ${symbol}:`, quoteResponse.status);
+          console.error(`Failed to fetch data for ${symbol}: HTTP ${quoteResponse.status}`);
+          continue;
+        }
+
+        // Check if response is JSON
+        const contentType = quoteResponse.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error(`Non-JSON response for ${symbol}: ${contentType}`);
           continue;
         }
         
