@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import type { AssignedPosition } from "@/hooks/useAssignedPositions";
 import { SellCallDialog } from "./SellCallDialog";
+import { CoveredCallImportBar } from "./CoveredCallImportBar";
 
 interface AssignedPositionsTableProps {
   positions: AssignedPosition[];
@@ -21,7 +22,12 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
     new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
-    <div className="rounded-2xl border bg-card overflow-hidden">
+    <div className="space-y-4">
+      {/* Bulk Import Bar */}
+      <CoveredCallImportBar onSuccess={onRefetch} />
+      
+      {/* Assigned Positions Table */}
+      <div className="rounded-2xl border bg-card overflow-hidden">
       <div className="p-4 sm:p-6 border-b">
         <div className="flex items-center justify-between">
           <div>
@@ -114,6 +120,7 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
         symbol={selectedPosition?.symbol || ""}
         onSuccess={onRefetch}
       />
+      </div>
     </div>
   );
 }
