@@ -21,7 +21,7 @@ interface AssignPositionDialogProps {
     underlyingPrice: number;
     pctAboveStrike: number;
   };
-  onSuccess: () => void;
+  onSuccess: () => Promise<void>;
 }
 
 export function AssignPositionDialog({ 
@@ -87,8 +87,8 @@ export function AssignPositionDialog({
         description: `Successfully assigned ${shares} shares of ${position.symbol} at $${parseFloat(assignmentPrice).toFixed(2)}`,
       });
 
-      onSuccess();
       onOpenChange(false);
+      await onSuccess();
     } catch (error: any) {
       console.error("Error assigning position:", error);
       toast({

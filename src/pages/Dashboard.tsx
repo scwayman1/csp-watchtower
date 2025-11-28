@@ -315,7 +315,11 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           ) : (
-            <PositionsTable positions={filteredPositions} onRefetch={refetch} />
+            <PositionsTable 
+              positions={filteredPositions} 
+              onRefetch={refetch}
+              onRefetchAssigned={refetchAssigned}
+            />
           )}
         </div>
 

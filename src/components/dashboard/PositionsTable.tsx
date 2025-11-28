@@ -47,9 +47,10 @@ export interface Position {
 interface PositionsTableProps {
   positions: Position[];
   onRefetch?: () => void;
+  onRefetchAssigned?: () => void;
 }
 
-export function PositionsTable({ positions, onRefetch }: PositionsTableProps) {
+export function PositionsTable({ positions, onRefetch, onRefetchAssigned }: PositionsTableProps) {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -95,10 +96,12 @@ export function PositionsTable({ positions, onRefetch }: PositionsTableProps) {
     setAssignOpen(true);
   };
 
-  const handleAssignSuccess = () => {
-    if (onRefetch) {
-      onRefetch();
-    }
+  const handleAssignSuccess = async () => {
+    // Refetch both active positions and assigned positions
+    const promises = [];
+    if (onRefetch) promises.push(onRefetch());
+    if (onRefetchAssigned) promises.push(onRefetchAssigned());
+    await Promise.all(promises);
   };
 
   const getBadgeVariant = (band: string): "success" | "warning" | "destructive" | "default" => {
