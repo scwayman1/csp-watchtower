@@ -13,7 +13,8 @@ const REQUEST_TIMEOUT = 3000; // 3 seconds per request
 const FINNHUB_API_KEY = Deno.env.get('FINNHUB_API_KEY');
 
 // Helper to get next expiration dates (weekly + monthly)
-function getNextExpirations(weeklyCount: number = 4, monthlyCount: number = 2): string[] {
+// Reduced to minimize CPU usage
+function getNextExpirations(weeklyCount: number = 1, monthlyCount: number = 1): string[] {
   const dates: string[] = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -131,13 +132,14 @@ serve(async (req) => {
     const underlyingPrice = quoteData.c; // Current price
     console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
-    // Step 2: Fetch options from Finnhub (limit to 3 total expirations max)
-    const expirationDates = getNextExpirations(2, 1); // 2 weekly + 1 monthly as hints
+    // Step 2: Fetch options from Finnhub (limit to 2 total expirations max)
+    const expirationDates = getNextExpirations(1, 1); // 1 weekly + 1 monthly as hints
     console.log(`Fetching options for ${symbol} (dates are hints to Finnhub)`);
     
     const optionsByExpiration: Record<string, any[]> = {};
     const seenExpirations = new Set<string>();
-    const MAX_EXPIRATIONS = 3; // Limit to prevent CPU timeout
+    const MAX_EXPIRATIONS = 2; // Limit to prevent CPU timeout
+    const STRIKE_RANGE_PCT = 0.20; // Only fetch strikes within ±20% of underlying price
     
     // Fetch options - Finnhub returns actual expirations available
     const fetchPromises = expirationDates.map(async (hintDate) => {
@@ -186,10 +188,18 @@ serve(async (req) => {
         
         console.log(`Processing ${optionType} options for expiration ${actualExpDate}`);
         
-        // Map Finnhub options to our format
+        // Filter and map Finnhub options to our format
+        // Only process strikes within ±20% of underlying to reduce CPU usage
+        const minStrike = underlyingPrice * (1 - STRIKE_RANGE_PCT);
+        const maxStrike = underlyingPrice * (1 + STRIKE_RANGE_PCT);
+        
         const options = expirationData.options[optionType]
+          .filter((opt: any) => {
+            const strike = opt.strike || 0;
+            return strike > 0 && strike >= minStrike && strike <= maxStrike;
+          })
           .map((opt: any) => ({
-            strike: opt.strike || 0,
+            strike: opt.strike,
             bid: opt.bid || 0,
             ask: opt.ask || 0,
             mid: opt.bid && opt.ask ? (opt.bid + opt.ask) / 2 : opt.lastTradePrice || 0,
@@ -202,7 +212,6 @@ serve(async (req) => {
               : (opt.inTheMoney === "TRUE" || opt.strike < underlyingPrice),
             lastPrice: opt.lastTradePrice || 0
           }))
-          .filter((opt: any) => opt.strike > 0) // Filter out invalid strikes
           .sort((a: any, b: any) => b.strike - a.strike); // Sort by strike descending
         
         if (options.length > 0) {
