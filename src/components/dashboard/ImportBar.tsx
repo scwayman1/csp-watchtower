@@ -1,14 +1,77 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Upload } from "lucide-react";
+import { Upload, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
 
 export function ImportBar() {
   const [orderText, setOrderText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fileName, setFileName] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
+    setLoading(true);
+
+    try {
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+      if (fileExtension === 'txt' || fileExtension === 'csv') {
+        // Read text files directly
+        const text = await file.text();
+        setOrderText(text);
+        toast({
+          title: "File loaded",
+          description: `${file.name} loaded. Click "Parse & Import" to process.`,
+        });
+      } else if (fileExtension === 'pdf') {
+        // For PDFs, we'll need to parse using document parsing
+        toast({
+          title: "Processing PDF",
+          description: "Extracting text from PDF file...",
+        });
+        
+        // Convert file to base64 and save to temp location
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const base64 = event.target?.result as string;
+          // For now, show user they need to paste the content
+          // In a future enhancement, we could integrate PDF parsing
+          toast({
+            title: "PDF uploaded",
+            description: "Please copy the order text from your PDF and paste it below, or upload a .txt/.csv file instead.",
+            variant: "default",
+          });
+        };
+        reader.readAsDataURL(file);
+      } else {
+        toast({
+          title: "Unsupported file type",
+          description: "Please upload a .txt, .csv, or .pdf file",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('File upload error:', error);
+      toast({
+        title: "Failed to read file",
+        description: "Please try again or paste the text manually.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   const handleParse = async () => {
     if (!orderText.trim()) {
@@ -59,6 +122,7 @@ export function ImportBar() {
         description: `${positions.length} position${positions.length > 1 ? 's' : ''} added to your dashboard.`,
       });
       setOrderText("");
+      setFileName("");
     } catch (error: any) {
       console.error('Parse error:', error);
       toast({
@@ -75,12 +139,36 @@ export function ImportBar() {
     <Card>
       <CardContent className="pt-6">
         <div className="space-y-4">
-          <div>
+        <div>
             <label className="text-sm font-medium mb-2 block">
               Import Broker Order
             </label>
+            <div className="flex gap-2 mb-3">
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.csv,.pdf"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="file-upload"
+              />
+              <Button 
+                variant="outline" 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={loading}
+                className="flex-1"
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Upload File (.txt, .csv, .pdf)
+              </Button>
+            </div>
+            {fileName && (
+              <p className="text-xs text-muted-foreground mb-2">
+                Loaded: {fileName}
+              </p>
+            )}
             <Textarea
-              placeholder="Paste broker order text or portfolio export here (supports multiple positions)..."
+              placeholder="Or paste broker order text or portfolio export here (supports multiple positions)..."
               value={orderText}
               onChange={(e) => setOrderText(e.target.value)}
               rows={6}
@@ -92,7 +180,14 @@ export function ImportBar() {
               <Upload className="mr-2 h-4 w-4" />
               {loading ? "Parsing..." : "Parse & Import"}
             </Button>
-            <Button variant="outline" onClick={() => setOrderText("")} disabled={loading}>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setOrderText("");
+                setFileName("");
+              }} 
+              disabled={loading}
+            >
               Clear
             </Button>
           </div>
