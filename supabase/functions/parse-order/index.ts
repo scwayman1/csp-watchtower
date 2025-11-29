@@ -94,6 +94,27 @@ serve(async (req) => {
           });
         }
       }
+
+      // Format 4: Generic OCC-style symbol blocks like "QQQ251128P605   1   6.4200"
+      if (positions.length === 0) {
+        const genericPattern = /([A-Z]{1,6})(\d{6})P(\d+(?:\.\d+)?)[\s]+(\d+)[\s]+(\d+(?:\.\d+)?)/g;
+        let m: RegExpExecArray | null;
+
+        while ((m = genericPattern.exec(orderText)) !== null) {
+          const [, symbol, dateStr, strike, contracts, premium] = m;
+          const year = '20' + dateStr.substring(0, 2);
+          const month = dateStr.substring(2, 4);
+          const day = dateStr.substring(4, 6);
+
+          positions.push({
+            symbol,
+            strike,
+            exp: `${year}-${month}-${day}`,
+            premium,
+            contracts,
+          });
+        }
+      }
     }
 
     if (positions.length === 0) {
