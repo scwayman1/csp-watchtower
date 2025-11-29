@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ShareManagement } from "@/components/settings/ShareManagement";
 import { AuditTrail } from "@/components/settings/AuditTrail";
 import { PortfolioIngestion } from "@/components/settings/PortfolioIngestion";
+import { StatementReconciliation } from "@/components/dashboard/StatementReconciliation";
 import { Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
@@ -237,6 +238,9 @@ const Settings = () => {
             setOtherHoldingsValue(String(otherHoldings));
           }}
         />
+
+        {/* Statement Reconciliation */}
+        <StatementReconciliation />
 
         {/* Portfolio Value Tracking */}
         <Card>
