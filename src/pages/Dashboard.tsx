@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { CommandPanelCard } from "@/components/dashboard/CommandPanelCard";
 import { RadialGauge } from "@/components/dashboard/RadialGauge";
+import { AssetsTrendChart } from "@/components/dashboard/AssetsTrendChart";
 import { ImportBar } from "@/components/dashboard/ImportBar";
 import { FiltersToolbar } from "@/components/dashboard/FiltersToolbar";
 import { PositionsTable } from "@/components/dashboard/PositionsTable";
@@ -377,6 +378,9 @@ const Dashboard = () => {
                 subtitle="< 5% above strike"
                 icon={AlertTriangle}
               />
+              
+              {/* Assets Trend Chart - spans multiple columns */}
+              <AssetsTrendChart currentValue={totalPortfolioValue} />
             </div>
           </CardContent>
         </Card>
