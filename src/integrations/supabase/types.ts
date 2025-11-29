@@ -596,9 +596,11 @@ export type Database = {
       }
       user_settings: {
         Row: {
+          cash_balance: number | null
           created_at: string | null
           id: string
           market_data_provider: string | null
+          other_holdings_value: number | null
           probability_model: string | null
           refresh_rate_seconds: number | null
           safe_threshold: number | null
@@ -608,9 +610,11 @@ export type Database = {
           warning_threshold: number | null
         }
         Insert: {
+          cash_balance?: number | null
           created_at?: string | null
           id?: string
           market_data_provider?: string | null
+          other_holdings_value?: number | null
           probability_model?: string | null
           refresh_rate_seconds?: number | null
           safe_threshold?: number | null
@@ -620,9 +624,11 @@ export type Database = {
           warning_threshold?: number | null
         }
         Update: {
+          cash_balance?: number | null
           created_at?: string | null
           id?: string
           market_data_provider?: string | null
+          other_holdings_value?: number | null
           probability_model?: string | null
           refresh_rate_seconds?: number | null
           safe_threshold?: number | null
