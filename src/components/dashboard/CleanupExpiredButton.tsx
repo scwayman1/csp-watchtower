@@ -14,7 +14,18 @@ export function CleanupExpiredButton({ onSuccess }: CleanupExpiredButtonProps) {
   const handleCleanup = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('cleanup-expired-positions');
+      // Get current session to ensure we're authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('You must be logged in to perform this action');
+      }
+
+      const { data, error } = await supabase.functions.invoke('cleanup-expired-positions', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
 
       if (error) throw error;
 
