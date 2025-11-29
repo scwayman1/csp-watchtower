@@ -1,9 +1,68 @@
 import { useState } from "react";
-import { ChevronRight, TrendingUp, TrendingDown } from "lucide-react";
+import { ChevronRight, TrendingUp, TrendingDown, Leaf, Snowflake, Flower, Sun, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PositionsTable, Position } from "./PositionsTable";
 import { cn } from "@/lib/utils";
+
+// Batch themes based on month
+const getBatchTheme = (dateString: string) => {
+  const month = new Date(dateString).getMonth();
+  
+  const themes = {
+    thanksgiving: {
+      gradient: "from-orange-500/20 via-amber-500/10 to-orange-600/20",
+      accentBar: "bg-gradient-to-b from-orange-500 to-amber-600",
+      icon: "🦃",
+      iconBg: "bg-orange-500/30",
+      iconBgHover: "bg-orange-500/50",
+      textAccent: "text-orange-400"
+    },
+    winter: {
+      gradient: "from-blue-500/20 via-cyan-500/10 to-blue-600/20",
+      accentBar: "bg-gradient-to-b from-blue-400 to-cyan-500",
+      icon: "❄️",
+      iconBg: "bg-blue-500/30",
+      iconBgHover: "bg-blue-500/50",
+      textAccent: "text-blue-400"
+    },
+    spring: {
+      gradient: "from-pink-500/20 via-rose-500/10 to-pink-600/20",
+      accentBar: "bg-gradient-to-b from-pink-400 to-rose-500",
+      icon: "🌸",
+      iconBg: "bg-pink-500/30",
+      iconBgHover: "bg-pink-500/50",
+      textAccent: "text-pink-400"
+    },
+    summer: {
+      gradient: "from-yellow-500/20 via-amber-500/10 to-yellow-600/20",
+      accentBar: "bg-gradient-to-b from-yellow-400 to-amber-500",
+      icon: "☀️",
+      iconBg: "bg-yellow-500/30",
+      iconBgHover: "bg-yellow-500/50",
+      textAccent: "text-yellow-400"
+    },
+    fall: {
+      gradient: "from-red-500/20 via-orange-500/10 to-red-600/20",
+      accentBar: "bg-gradient-to-b from-red-400 to-orange-500",
+      icon: "🍂",
+      iconBg: "bg-red-500/30",
+      iconBgHover: "bg-red-500/50",
+      textAccent: "text-red-400"
+    }
+  };
+
+  // November = Thanksgiving theme
+  if (month === 10) return themes.thanksgiving;
+  // December, January, February = Winter
+  if (month === 11 || month === 0 || month === 1) return themes.winter;
+  // March, April, May = Spring
+  if (month >= 2 && month <= 4) return themes.spring;
+  // June, July, August = Summer
+  if (month >= 5 && month <= 7) return themes.summer;
+  // September, October = Fall
+  return themes.fall;
+};
 
 interface AssignedPositionData {
   id: string;
@@ -45,9 +104,8 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  // Generate gradient hue based on batch index for color variation
-  const hueRotation = (batchIndex * 45) % 360;
-  const gradientClass = `hue-rotate-[${hueRotation}deg]`;
+  // Get theme based on batch date
+  const theme = getBatchTheme(batchDate);
   
   // Determine if this batch was profitable
   const isProfitable = totalUnrealizedPnL >= 0;
@@ -57,29 +115,43 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
       <CollapsibleTrigger asChild>
         <div className={cn(
           "relative flex items-center justify-between p-5 cursor-pointer transition-all duration-300 border-b border-border/50",
-          "bg-gradient-to-r from-card/80 via-card to-card/80",
-          "hover:from-accent/20 hover:via-accent/10 hover:to-accent/20",
-          "hover:shadow-lg hover:scale-[1.01] hover:border-accent/30",
-          isOpen && "bg-accent/10 shadow-md scale-[1.01] border-accent/50"
+          "bg-gradient-to-r",
+          theme.gradient,
+          "hover:shadow-lg hover:scale-[1.01]",
+          isOpen && "shadow-md scale-[1.01]"
         )}
-        style={{
-          backgroundImage: `linear-gradient(to right, hsl(var(--card) / 0.8), hsl(var(--accent) / 0.05), hsl(var(--card) / 0.8))`,
-        }}
         >
-          {/* Accent Bar */}
+          {/* Themed Accent Bar */}
           <div className={cn(
             "absolute left-0 top-0 bottom-0 w-1 transition-all duration-300",
-            isProfitable ? "bg-success" : "bg-destructive",
+            theme.accentBar,
             isOpen && "w-2"
           )} />
           
-          <div className="flex items-center gap-4 flex-1 ml-2">
+          {/* Decorative themed icons in background */}
+          <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
+            <div className="absolute top-2 right-10 text-4xl">{theme.icon}</div>
+            <div className="absolute bottom-2 right-32 text-3xl">{theme.icon}</div>
+            <div className="absolute top-1/2 right-1/4 text-2xl">{theme.icon}</div>
+          </div>
+          
+          <div className="flex items-center gap-4 flex-1 ml-2 relative z-10">
+            {/* Themed icon button */}
             <div className={cn(
-              "flex items-center justify-center w-8 h-8 rounded-lg bg-accent/30 transition-all duration-300",
-              isOpen && "bg-accent/50 scale-110"
+              "flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-300 text-xl",
+              theme.iconBg,
+              isOpen && theme.iconBgHover + " scale-110"
+            )}>
+              {theme.icon}
+            </div>
+            
+            <div className={cn(
+              "flex items-center justify-center w-8 h-8 rounded-lg bg-card/50 backdrop-blur-sm transition-all duration-300",
+              isOpen && "scale-110"
             )}>
               <ChevronRight className={cn(
-                "h-4 w-4 text-accent-foreground transition-transform duration-200",
+                "h-4 w-4 transition-transform duration-200",
+                theme.textAccent,
                 isOpen && "rotate-90"
               )} />
             </div>
@@ -87,7 +159,7 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-5 gap-3 sm:gap-4">
               <div>
                 <div className="text-xs text-muted-foreground/70 uppercase tracking-wide mb-1">Batch Date</div>
-                <div className="font-bold text-lg">{formatDate(batchDate)}</div>
+                <div className={cn("font-bold text-lg", theme.textAccent)}>{formatDate(batchDate)}</div>
               </div>
               
               <div>
@@ -110,9 +182,9 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
               
               <div>
                 <div className="text-xs text-muted-foreground/70 uppercase tracking-wide mb-1">Total Premium</div>
-                <div className="font-bold text-lg text-primary">{formatCurrency(totalPremium)}</div>
+                <div className={cn("font-bold text-lg", theme.textAccent)}>{formatCurrency(totalPremium)}</div>
                 {assignedPremium > 0 && (
-                  <div className="text-xs text-muted-foreground mt-0.5">
+                  <div className="text-xs text-muted-foreground/80 mt-0.5">
                     {formatCurrency(assignedPremium)} from assigned
                   </div>
                 )}
@@ -140,7 +212,12 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
       </CollapsibleTrigger>
       
       <CollapsibleContent className="transition-all data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-        <div className="p-6 bg-accent/5 border-t border-accent/20">
+        <div className={cn(
+          "p-6 border-t",
+          "bg-gradient-to-b",
+          theme.gradient,
+          "backdrop-blur-sm"
+        )}>
           <PositionsTable 
             positions={positions}
             onRefetch={onRefetch}
