@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import AcceptInvite from "./pages/AcceptInvite";
 import NotFound from "./pages/NotFound";
 import { NavLink } from "./components/NavLink";
+import { TerminalSidebar } from "./components/TerminalSidebar";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
             path="/*"
             element={
               <div className="flex min-h-screen w-full bg-background">
+                <TerminalSidebar />
                 <main className="flex-1 overflow-x-hidden">
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
