@@ -135,27 +135,22 @@ export function PositionsTable({ positions, onRefetch, onRefetchAssigned }: Posi
         </div>
       </ScrollArea>
 
-      <PremiumAnalysisDialog
-        open={analysisOpen}
-        onOpenChange={setAnalysisOpen}
-        position={selectedPosition}
-      />
+      {selectedPosition && (
+        <>
+          <PremiumAnalysisDialog
+            open={analysisOpen}
+            onOpenChange={setAnalysisOpen}
+            position={selectedPosition}
+          />
 
-      <AssignPositionDialog
-        open={assignOpen}
-        onOpenChange={setAssignOpen}
-        position={selectedPosition || { 
-          id: '', 
-          symbol: '', 
-          strikePrice: 0, 
-          totalPremium: 0, 
-          contracts: 0,
-          expiration: '',
-          underlyingPrice: 0,
-          pctAboveStrike: 0,
-        }}
-        onSuccess={handleAssignSuccess}
-      />
+          <AssignPositionDialog
+            open={assignOpen}
+            onOpenChange={setAssignOpen}
+            position={selectedPosition}
+            onSuccess={handleAssignSuccess}
+          />
+        </>
+      )}
     </AnalysisCacheContext.Provider>
   );
 }
