@@ -5,20 +5,35 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { PositionsTable, Position } from "./PositionsTable";
 import { cn } from "@/lib/utils";
 
+interface AssignedPositionData {
+  id: string;
+  symbol: string;
+  shares: number;
+  original_put_premium: number;
+  original_position_id: string | null;
+}
+
 interface BatchRowProps {
   batchDate: string;
   positions: Position[];
+  assignedPositions?: AssignedPositionData[];
   onRefetch?: () => void;
   onRefetchAssigned?: () => void;
   batchIndex?: number;
 }
 
-export function BatchRow({ batchDate, positions, onRefetch, onRefetchAssigned, batchIndex = 0 }: BatchRowProps) {
+export function BatchRow({ batchDate, positions, assignedPositions = [], onRefetch, onRefetchAssigned, batchIndex = 0 }: BatchRowProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const totalPremium = positions.reduce((sum, p) => sum + p.totalPremium, 0);
+  // Calculate totals including assigned positions
+  const expiredPremium = positions.reduce((sum, p) => sum + p.totalPremium, 0);
+  const assignedPremium = assignedPositions.reduce((sum, ap) => sum + ap.original_put_premium, 0);
+  const totalPremium = expiredPremium + assignedPremium;
+  
   const totalUnrealizedPnL = positions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
   const contractsCount = positions.reduce((sum, p) => sum + p.contracts, 0);
+  const assignedSharesCount = assignedPositions.reduce((sum, ap) => sum + ap.shares, 0);
+  const assignedContractsCount = Math.floor(assignedSharesCount / 100);
   
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -69,24 +84,38 @@ export function BatchRow({ batchDate, positions, onRefetch, onRefetchAssigned, b
               )} />
             </div>
             
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-6">
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-5 gap-3 sm:gap-4">
               <div>
                 <div className="text-xs text-muted-foreground/70 uppercase tracking-wide mb-1">Batch Date</div>
                 <div className="font-bold text-lg">{formatDate(batchDate)}</div>
               </div>
               
               <div>
-                <div className="text-xs text-muted-foreground/70 uppercase tracking-wide mb-1">Positions</div>
+                <div className="text-xs text-muted-foreground/70 uppercase tracking-wide mb-1">Expired</div>
                 <div className="font-semibold text-lg">{positions.length} position{positions.length !== 1 ? 's' : ''}</div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary/50" />
                   {contractsCount} contract{contractsCount !== 1 ? 's' : ''}
                 </div>
               </div>
+
+              <div>
+                <div className="text-xs text-muted-foreground/70 uppercase tracking-wide mb-1">Assigned</div>
+                <div className="font-semibold text-lg text-warning">{assignedPositions.length} position{assignedPositions.length !== 1 ? 's' : ''}</div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-warning/50" />
+                  {assignedContractsCount} contract{assignedContractsCount !== 1 ? 's' : ''}
+                </div>
+              </div>
               
               <div>
                 <div className="text-xs text-muted-foreground/70 uppercase tracking-wide mb-1">Total Premium</div>
                 <div className="font-bold text-lg text-primary">{formatCurrency(totalPremium)}</div>
+                {assignedPremium > 0 && (
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {formatCurrency(assignedPremium)} from assigned
+                  </div>
+                )}
               </div>
               
               <div>

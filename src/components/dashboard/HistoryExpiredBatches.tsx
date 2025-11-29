@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Position } from "./PositionsTable";
 import { BatchRow } from "./BatchRow";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
 
 interface HistoryExpiredBatchesProps {
   positions: Position[];
@@ -9,11 +10,39 @@ interface HistoryExpiredBatchesProps {
   onRefetchAssigned?: () => void;
 }
 
+interface AssignedPositionData {
+  id: string;
+  symbol: string;
+  shares: number;
+  original_put_premium: number;
+  original_position_id: string | null;
+}
+
 interface PositionWithOpenedAt extends Position {
   openedAt?: string;
 }
 
 export function HistoryExpiredBatches({ positions, onRefetch, onRefetchAssigned }: HistoryExpiredBatchesProps) {
+  const [assignedPositions, setAssignedPositions] = useState<AssignedPositionData[]>([]);
+
+  // Fetch assigned positions to show complete batch data
+  useEffect(() => {
+    const fetchAssignedPositions = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('assigned_positions')
+        .select('id, symbol, shares, original_put_premium, original_position_id');
+
+      if (data) {
+        setAssignedPositions(data as AssignedPositionData[]);
+      }
+    };
+
+    fetchAssignedPositions();
+  }, []);
+
   // Group positions by opened date (batch)
   const batches = useMemo(() => {
     const grouped = new Map<string, Position[]>();
@@ -43,16 +72,25 @@ export function HistoryExpiredBatches({ positions, onRefetch, onRefetchAssigned 
       <h2 className="text-xl font-semibold mb-4">History (Expired Positions)</h2>
       <Card className="rounded-2xl overflow-hidden">
         <CardContent className="p-0">
-          {batches.map(([batchDate, batchPositions], index) => (
-            <BatchRow
-              key={batchDate}
-              batchDate={batchDate}
-              positions={batchPositions}
-              onRefetch={onRefetch}
-              onRefetchAssigned={onRefetchAssigned}
-              batchIndex={index}
-            />
-          ))}
+          {batches.map(([batchDate, batchPositions], index) => {
+            // Find assigned positions from this batch
+            const batchPositionIds = batchPositions.map(p => p.id);
+            const batchAssignedPositions = assignedPositions.filter(
+              ap => ap.original_position_id && batchPositionIds.includes(ap.original_position_id)
+            );
+
+            return (
+              <BatchRow
+                key={batchDate}
+                batchDate={batchDate}
+                positions={batchPositions}
+                assignedPositions={batchAssignedPositions}
+                onRefetch={onRefetch}
+                onRefetchAssigned={onRefetchAssigned}
+                batchIndex={index}
+              />
+            );
+          })}
         </CardContent>
       </Card>
     </div>
