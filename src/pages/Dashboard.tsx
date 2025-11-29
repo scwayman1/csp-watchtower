@@ -150,6 +150,18 @@ const Dashboard = () => {
   const coveredCallPremiums = filteredAssignedPositions.reduce((sum, p) => sum + (p.total_call_premiums || 0), 0);
   const totalPremium = activePremiums + expiredPremiums + assignedPutPremiums + coveredCallPremiums;
   
+  // Debug logging for premium calculation
+  console.log('Premium Breakdown:', {
+    activePremiums: activePremiums.toFixed(2),
+    activeCount: activePositions.length,
+    expiredPremiums: expiredPremiums.toFixed(2),
+    expiredCount: expiredPositions.length,
+    assignedPutPremiums: assignedPutPremiums.toFixed(2),
+    assignedCount: filteredAssignedPositions.length,
+    coveredCallPremiums: coveredCallPremiums.toFixed(2),
+    totalPremium: totalPremium.toFixed(2)
+  });
+  
   // 2. Assigned Shares Metrics
   const assignedSharesCostBasis = filteredAssignedPositions.reduce((sum, p) => 
     sum + (p.cost_basis * p.shares), 0
