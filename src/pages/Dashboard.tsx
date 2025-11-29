@@ -205,9 +205,8 @@ const Dashboard = () => {
     ? (settings.other_holdings_value || 0) 
     : (settings.cash_balance || 0) + assignedSharesMarketValue + totalUnrealizedPnL;
   
-  // 5. Available Cash
-  // Starting cash + premiums collected - capital tied up in assignments - cash securing active contracts
-  const availableCash = (settings.cash_balance || 0) + totalPremium - assignedSharesCostBasis - cashSecured;
+  // 5. Available Cash = Total Assets - Assigned Capital
+  const availableCash = totalPortfolioValue - assignedSharesMarketValue;
   
   // Record portfolio snapshot when key metrics change
   useEffect(() => {
