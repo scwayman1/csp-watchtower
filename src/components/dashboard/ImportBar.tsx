@@ -6,6 +6,7 @@ import { Upload, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import * as pdfjsLib from 'pdfjs-dist';
 
 export function ImportBar() {
   const [orderText, setOrderText] = useState("");
@@ -37,25 +38,30 @@ export function ImportBar() {
           description: "Extracting text from PDF file...",
         });
         
-        // Create a temporary file path for parsing
-        const tempPath = `user-uploads://${file.name}`;
-        
-        // Read file as array buffer and upload to user-uploads
-        const arrayBuffer = await file.arrayBuffer();
-        const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-        
-        // For PDF parsing, we need to use the document parsing endpoint
-        // Since we can't directly call the parse_document tool from frontend,
-        // we'll read the file and extract text using a simple approach
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        // Try to extract text using PDF.js or similar library
-        // For now, we'll use a simple text extraction approach
         try {
-          const text = await file.text();
-          if (text && text.trim()) {
-            setOrderText(text);
+          // Set worker source for PDF.js
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+          
+          // Read file as array buffer
+          const arrayBuffer = await file.arrayBuffer();
+          
+          // Load PDF document
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          
+          let extractedText = '';
+          
+          // Extract text from all pages
+          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+              .map((item: any) => item.str)
+              .join(' ');
+            extractedText += pageText + '\n';
+          }
+          
+          if (extractedText.trim()) {
+            setOrderText(extractedText);
             toast({
               title: "PDF text extracted",
               description: `${file.name} processed. Click "Parse & Import" to continue.`,
@@ -64,11 +70,11 @@ export function ImportBar() {
             throw new Error('No text found in PDF');
           }
         } catch (pdfError) {
-          // If direct text extraction fails, ask user to paste manually
+          console.error('PDF extraction error:', pdfError);
           toast({
-            title: "PDF processing",
+            title: "PDF processing failed",
             description: "Could not auto-extract text. Please copy the order text from your PDF and paste it below.",
-            variant: "default",
+            variant: "destructive",
           });
         }
       } else {
