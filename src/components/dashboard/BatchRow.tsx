@@ -23,7 +23,9 @@ export function BatchRow({ batchDate, positions, onRefetch, onRefetchAssigned }:
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    if (!dateString) return "-";
+    const [year, month, day] = dateString.split("-");
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
