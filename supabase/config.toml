@@ -6,9 +6,6 @@ verify_jwt = true
 [functions.calculate-metrics]
 verify_jwt = true
 
-[functions.cleanup-expired-positions]
-verify_jwt = true
-
 [functions.fetch-market-data]
 verify_jwt = true
 
