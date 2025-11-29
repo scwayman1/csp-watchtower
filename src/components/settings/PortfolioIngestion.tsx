@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Upload } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface PortfolioIngestionProps {
   onParsed: (cashBalance: number, otherHoldingsValue: number) => void;
@@ -12,7 +14,40 @@ interface PortfolioIngestionProps {
 export function PortfolioIngestion({ onParsed }: PortfolioIngestionProps) {
   const [portfolioText, setPortfolioText] = useState("");
   const [parsing, setParsing] = useState(false);
+  const [trackedSymbols, setTrackedSymbols] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      loadTrackedSymbols();
+    }
+  }, [user]);
+
+  const loadTrackedSymbols = async () => {
+    try {
+      const [assignedRes, activeRes] = await Promise.all([
+        supabase
+          .from('assigned_positions')
+          .select('symbol')
+          .eq('user_id', user!.id)
+          .eq('is_active', true),
+        supabase
+          .from('positions')
+          .select('symbol')
+          .eq('user_id', user!.id)
+          .eq('is_active', true)
+      ]);
+
+      const symbols = new Set<string>();
+      assignedRes.data?.forEach(p => symbols.add(p.symbol.toUpperCase()));
+      activeRes.data?.forEach(p => symbols.add(p.symbol.toUpperCase()));
+      
+      setTrackedSymbols(symbols);
+    } catch (error) {
+      console.error('Error loading tracked symbols:', error);
+    }
+  };
 
   const parsePortfolio = () => {
     setParsing(true);
@@ -41,16 +76,18 @@ export function PortfolioIngestion({ onParsed }: PortfolioIngestionProps) {
             line.includes('TREASURY')) {
           cashBalance += value;
         } 
-        // Check if it's assigned shares we track separately (AMZN, CRM, etc.)
-        else if (line.includes('AMZN') || 
-                 line.includes('CRM') || 
-                 line.includes('AMAZON') || 
-                 line.includes('SALESFORCE')) {
-          // Skip - these are tracked in assigned_positions table
-          continue;
-        }
-        // Everything else is "other holdings" (mutual funds, bonds, etc.)
+        // Check if it's a symbol we're already tracking in positions or assigned_positions
         else {
+          const isTracked = Array.from(trackedSymbols).some(symbol => 
+            line.toUpperCase().includes(symbol)
+          );
+          
+          if (isTracked) {
+            // Skip - already tracked in positions or assigned_positions tables
+            continue;
+          }
+          
+          // Everything else is "other holdings" (mutual funds, bonds, etc.)
           otherHoldingsValue += value;
         }
       }
