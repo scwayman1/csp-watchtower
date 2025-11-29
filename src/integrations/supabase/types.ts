@@ -115,6 +115,60 @@ export type Database = {
           },
         ]
       }
+      allocations: {
+        Row: {
+          advisor_id: string
+          client_id: string
+          contracts: number
+          created_at: string | null
+          estimated_premium_total: number
+          id: string
+          model_trade_id: string
+          source: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          advisor_id: string
+          client_id: string
+          contracts: number
+          created_at?: string | null
+          estimated_premium_total: number
+          id?: string
+          model_trade_id: string
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          advisor_id?: string
+          client_id?: string
+          contracts?: number
+          created_at?: string | null
+          estimated_premium_total?: number
+          id?: string
+          model_trade_id?: string
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "allocations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "allocations_model_trade_id_fkey"
+            columns: ["model_trade_id"]
+            isOneToOne: false
+            referencedRelation: "model_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assigned_positions: {
         Row: {
           assignment_date: string
@@ -174,6 +228,57 @@ export type Database = {
           },
         ]
       }
+      clients: {
+        Row: {
+          advisor_id: string
+          available_cash: number | null
+          created_at: string | null
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          open_csp_count: number | null
+          portfolio_value: number | null
+          premium_ytd: number | null
+          risk_level: string | null
+          segment: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          advisor_id: string
+          available_cash?: number | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          open_csp_count?: number | null
+          portfolio_value?: number | null
+          premium_ytd?: number | null
+          risk_level?: string | null
+          segment?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          advisor_id?: string
+          available_cash?: number | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          open_csp_count?: number | null
+          portfolio_value?: number | null
+          premium_ytd?: number | null
+          risk_level?: string | null
+          segment?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       covered_calls: {
         Row: {
           assigned_position_id: string
@@ -223,6 +328,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      cycles: {
+        Row: {
+          advisor_id: string
+          created_at: string | null
+          end_date: string | null
+          id: string
+          name: string
+          notes: string | null
+          start_date: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          advisor_id: string
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          start_date: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          advisor_id?: string
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          start_date?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       learning_assigned_positions: {
         Row: {
@@ -403,6 +544,62 @@ export type Database = {
         }
         Relationships: []
       }
+      model_trades: {
+        Row: {
+          advisor_id: string
+          created_at: string | null
+          cycle_id: string
+          expiration: string
+          id: string
+          notes: string | null
+          risk_level: string | null
+          source: string | null
+          strategy: string
+          strike: number
+          target_premium: number
+          underlying: string
+          updated_at: string | null
+        }
+        Insert: {
+          advisor_id: string
+          created_at?: string | null
+          cycle_id: string
+          expiration: string
+          id?: string
+          notes?: string | null
+          risk_level?: string | null
+          source?: string | null
+          strategy: string
+          strike: number
+          target_premium: number
+          underlying: string
+          updated_at?: string | null
+        }
+        Update: {
+          advisor_id?: string
+          created_at?: string | null
+          cycle_id?: string
+          expiration?: string
+          id?: string
+          notes?: string | null
+          risk_level?: string | null
+          source?: string | null
+          strategy?: string
+          strike?: number
+          target_premium?: number
+          underlying?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_trades_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       option_data: {
         Row: {
           ask_price: number | null
@@ -518,6 +715,7 @@ export type Database = {
       }
       positions: {
         Row: {
+          allocation_id: string | null
           broker: string | null
           closed_at: string | null
           contracts: number
@@ -529,6 +727,7 @@ export type Database = {
           opened_at: string | null
           premium_per_contract: number
           raw_order_text: string | null
+          source: string | null
           strike_price: number
           symbol: string
           underlying_name: string | null
@@ -536,6 +735,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          allocation_id?: string | null
           broker?: string | null
           closed_at?: string | null
           contracts?: number
@@ -547,6 +747,7 @@ export type Database = {
           opened_at?: string | null
           premium_per_contract: number
           raw_order_text?: string | null
+          source?: string | null
           strike_price: number
           symbol: string
           underlying_name?: string | null
@@ -554,6 +755,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          allocation_id?: string | null
           broker?: string | null
           closed_at?: string | null
           contracts?: number
@@ -565,13 +767,22 @@ export type Database = {
           opened_at?: string | null
           premium_per_contract?: number
           raw_order_text?: string | null
+          source?: string | null
           strike_price?: number
           symbol?: string
           underlying_name?: string | null
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "positions_allocation_id_fkey"
+            columns: ["allocation_id"]
+            isOneToOne: false
+            referencedRelation: "allocations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       simulator_portfolio_history: {
         Row: {
@@ -632,6 +843,27 @@ export type Database = {
           id?: string
           starting_capital?: number
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
         Relationships: []
@@ -698,9 +930,16 @@ export type Database = {
           shared_with_user_id: string
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "investor" | "advisor" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -827,6 +1066,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["investor", "advisor", "admin"],
+    },
   },
 } as const
