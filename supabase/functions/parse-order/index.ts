@@ -73,6 +73,27 @@ serve(async (req) => {
           break;
         }
       }
+
+      // Format 3: Thrivent multi-position trade confirmation ("YOU SOLD" lines)
+      if (positions.length === 0) {
+        const thriventPattern = /YOU\s+SOLD\s+\d{1,2}-\d{2}-\d{2}\s+\d{1,2}-\d{2}-\d{2}\s+([A-Z]+)(\d{6})P(\d+(?:\.\d+)?)[\s]+(\d+)[\s]+(\d+(?:\.\d+)?)/g;
+        let m: RegExpExecArray | null;
+        
+        while ((m = thriventPattern.exec(orderText)) !== null) {
+          const [, symbol, dateStr, strike, contracts, premium] = m;
+          const year = '20' + dateStr.substring(0, 2);
+          const month = dateStr.substring(2, 4);
+          const day = dateStr.substring(4, 6);
+
+          positions.push({
+            symbol,
+            strike,
+            exp: `${year}-${month}-${day}`,
+            premium,
+            contracts,
+          });
+        }
+      }
     }
 
     if (positions.length === 0) {
