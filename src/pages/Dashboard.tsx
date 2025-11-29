@@ -44,10 +44,7 @@ const Dashboard = () => {
     const now = new Date();
     
     return positions.filter(position => {
-      // Parse the opened_at date from the position
-      // Note: positions don't have opened_at in the Position type, using created_at logic
-      // You may need to add opened_at field if it exists in your database
-      const positionDate = new Date(position.expiration); // Using expiration as proxy for now
+      const positionDate = new Date(position.expiration);
       
       switch (timePeriod) {
         case "mtd":
@@ -68,6 +65,25 @@ const Dashboard = () => {
       }
     });
   }, [positions, timePeriod, customDateRange]);
+
+  // Separate active (not expired) and expired positions
+  const activePositions = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return filteredPositions.filter(position => {
+      const expirationDate = new Date(position.expiration);
+      return expirationDate >= today;
+    });
+  }, [filteredPositions]);
+
+  const expiredPositions = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return filteredPositions.filter(position => {
+      const expirationDate = new Date(position.expiration);
+      return expirationDate < today;
+    });
+  }, [filteredPositions]);
 
   // Filter assigned positions by time period
   const filteredAssignedPositions = useMemo(() => {
@@ -125,25 +141,25 @@ const Dashboard = () => {
     }
   };
   
-  // Calculate portfolio stats (use filtered positions)
+  // Calculate portfolio stats (use active positions only, not expired)
   // Include premiums from both active positions AND assigned positions (original put premiums)
-  const activePremiums = filteredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
+  const activePremiums = activePositions.reduce((sum, p) => sum + p.totalPremium, 0);
   const assignedPremiums = filteredAssignedPositions.reduce((sum, p) => sum + p.original_put_premium, 0);
   const totalPremium = activePremiums + assignedPremiums;
   
-  const totalUnrealizedPnL = filteredPositions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
-  const activeContracts = filteredPositions.reduce((sum, p) => sum + p.contracts, 0);
-  const atRiskCount = filteredPositions.filter(p => p.pctAboveStrike < 5).length;
-  const cashSecured = filteredPositions.reduce((sum, p) => sum + (p.strikePrice * 100 * p.contracts), 0);
+  const totalUnrealizedPnL = activePositions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
+  const activeContracts = activePositions.reduce((sum, p) => sum + p.contracts, 0);
+  const atRiskCount = activePositions.filter(p => p.pctAboveStrike < 5).length;
+  const cashSecured = activePositions.reduce((sum, p) => sum + (p.strikePrice * 100 * p.contracts), 0);
   
-  // Find next expiration (use filtered positions)
-  const sortedByExp = [...filteredPositions].sort((a, b) => a.daysToExp - b.daysToExp);
+  // Find next expiration (use active positions only)
+  const sortedByExp = [...activePositions].sort((a, b) => a.daysToExp - b.daysToExp);
   const nextExp = sortedByExp[0];
 
-  // Export to CSV (use filtered positions)
+  // Export to CSV (use active positions only)
   const exportToCSV = () => {
     const headers = ['Symbol', 'Strike', 'Expiration', 'Contracts', 'Premium/ct', 'Total Premium', 'Unrealized P/L', 'Days to Exp', '% Above Strike', 'Prob Assignment'];
-    const rows = filteredPositions.map(p => [
+    const rows = activePositions.map(p => [
       p.symbol,
       p.strikePrice,
       p.expiration,
@@ -165,8 +181,8 @@ const Dashboard = () => {
     a.click();
   };
 
-  // Chart data for P/L over time (use filtered positions)
-  const chartData = filteredPositions.map(p => ({
+  // Chart data for P/L over time (use active positions only)
+  const chartData = activePositions.map(p => ({
     name: p.symbol,
     pnl: p.unrealizedPnL,
   })).sort((a, b) => b.pnl - a.pnl).slice(0, 10);
@@ -211,7 +227,7 @@ const Dashboard = () => {
             <Button 
               variant="outline" 
               onClick={exportToCSV} 
-              disabled={filteredPositions.length === 0}
+              disabled={activePositions.length === 0}
               size="sm"
               className="flex-1 sm:flex-none"
             >
@@ -271,7 +287,7 @@ const Dashboard = () => {
           <StatCard
             title="Active Contracts"
             value={activeContracts.toString()}
-            subtitle={`${filteredPositions.length} positions`}
+            subtitle={`${activePositions.length} positions`}
             icon={FileText}
           />
           <StatCard
@@ -301,26 +317,26 @@ const Dashboard = () => {
         />
 
         {/* Performance Analytics */}
-        <PerformanceMetrics positions={filteredPositions} />
+        <PerformanceMetrics positions={activePositions} />
 
         {/* AI Performance Tracking */}
         <AIPerformanceTracker />
 
         {/* Expiration Calendar */}
-        <ExpirationCalendar positions={filteredPositions} />
+        <ExpirationCalendar positions={activePositions} />
 
-        {/* Positions Table */}
+        {/* Active Positions Table */}
         <div>
           <h2 className="text-xl font-semibold mb-4">Active Positions</h2>
-          {filteredPositions.length === 0 ? (
+          {activePositions.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center text-muted-foreground">
-                No positions found for the selected time period.
+                No active positions found for the selected time period.
               </CardContent>
             </Card>
           ) : (
             <PositionsTable 
-              positions={filteredPositions} 
+              positions={activePositions} 
               onRefetch={refetch}
               onRefetchAssigned={refetchAssigned}
             />
@@ -331,6 +347,18 @@ const Dashboard = () => {
         <div>
           <AssignedPositionsTable positions={filteredAssignedPositions} onRefetch={refetchAssigned} />
         </div>
+
+        {/* History - Expired Positions */}
+        {expiredPositions.length > 0 && (
+          <div>
+            <h2 className="text-xl font-semibold mb-4">History (Expired Positions)</h2>
+            <PositionsTable 
+              positions={expiredPositions} 
+              onRefetch={refetch}
+              onRefetchAssigned={refetchAssigned}
+            />
+          </div>
+        )}
 
         {/* Learning Center */}
         <LearningCenter />
