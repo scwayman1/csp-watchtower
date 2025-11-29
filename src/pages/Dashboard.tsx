@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { CommandPanelCard } from "@/components/dashboard/CommandPanelCard";
+import { RadialGauge } from "@/components/dashboard/RadialGauge";
 import { ImportBar } from "@/components/dashboard/ImportBar";
 import { FiltersToolbar } from "@/components/dashboard/FiltersToolbar";
 import { PositionsTable } from "@/components/dashboard/PositionsTable";
@@ -244,55 +245,52 @@ const Dashboard = () => {
     );
   }
 
+  // Calculate ROC metrics
+  const annualizedROC = totalPremium > 0 && totalPortfolioValue > 0 
+    ? ((totalPremium / totalPortfolioValue) * (365 / 30)) * 100 
+    : 0;
+  
+  const cycleCompletions = expiredPositions.length > 0 && positions.length > 0
+    ? (expiredPositions.length / positions.length) * 100
+    : 0;
+
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4">
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Top Action Bar */}
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Cash-Secured Put Tracker</h1>
-            <p className="text-sm sm:text-base text-foreground/70 mt-1">
-              Monitor your positions with real-time risk metrics and assignment probabilities
+            <h1 className="text-3xl font-bold">Terminal</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Real-time position tracking & analytics
             </p>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <TrendingUp className="h-4 w-4 text-foreground/70" />
-              <span className="text-xs sm:text-sm text-foreground/70">
-                Using <Badge variant="outline" className="ml-1 text-xs">{getModelDisplayName(settings.probability_model)}</Badge> probability model
-              </span>
-            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2">
             <Button 
               variant="outline" 
+              size="sm"
               onClick={handleRefreshMarketData} 
               disabled={refreshing}
-              size="sm"
-              className="flex-1 sm:flex-none"
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh Prices</span>
-              <span className="sm:hidden">Refresh</span>
+              Refresh
             </Button>
             <Button 
               variant="outline" 
+              size="sm"
               onClick={exportToCSV} 
               disabled={activePositions.length === 0}
-              size="sm"
-              className="flex-1 sm:flex-none"
             >
               <Download className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Export CSV</span>
-              <span className="sm:hidden">Export</span>
+              Export
             </Button>
             <Button 
               variant="outline" 
-              onClick={signOut}
               size="sm"
-              className="flex-1 sm:flex-none"
+              onClick={signOut}
             >
               <LogOut className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Sign Out</span>
-              <span className="sm:hidden">Out</span>
+              Sign Out
             </Button>
           </div>
         </div>
@@ -319,47 +317,62 @@ const Dashboard = () => {
           onCustomDateRangeChange={setCustomDateRange}
         />
 
-        {/* Portfolio Summary Cards */}
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <StatCard
-            title="Total Broker Account"
-            value={`$${totalPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            subtitle={`Assigned: $${assignedSharesMarketValue.toLocaleString()} | Reserved: $${cashSecured.toLocaleString()}`}
-            icon={TrendingUp}
-          />
-          <StatCard
-            title="Total Premium Collected"
-            value={`$${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            subtitle="Puts + covered calls"
-            icon={DollarSign}
-          />
-          <StatCard
-            title="Assigned Shares Value"
-            value={`$${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-            subtitle={`Cost: $${assignedSharesCostBasis.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-            icon={FileText}
-          />
-          <StatCard
-            title="Cash Secured"
-            value={`$${cashSecured.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-            subtitle="Active positions capital"
-            icon={Calendar}
-          />
-          <StatCard
-            title="Active Contracts"
-            value={activeContracts.toString()}
-            subtitle={`${activePositions.length} positions`}
-            icon={FileText}
-          />
-          <StatCard
-            title="At-Risk Positions"
-            value={atRiskCount.toString()}
-            subtitle="< 5% above strike"
-            icon={AlertTriangle}
-            badgeVariant={atRiskCount > 0 ? "destructive" : "success"}
-            badgeLabel={atRiskCount > 0 ? "ALERT" : "SAFE"}
-          />
-        </div>
+        {/* Portfolio Command Panel */}
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-border">
+            <CardTitle className="text-lg">Portfolio Command Panel</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+              <CommandPanelCard
+                label="Net Worth"
+                value={`$${(totalPortfolioValue / 1000).toFixed(1)}K`}
+                trend={{ value: "2.3%", isPositive: true }}
+                icon={TrendingUp}
+              />
+              <CommandPanelCard
+                label="Available Cash"
+                value={`$${((settings.cash_balance || 0) / 1000).toFixed(1)}K`}
+                subtitle="Liquid capital"
+                icon={DollarSign}
+              />
+              <CommandPanelCard
+                label="Daily P/L"
+                value={`$${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                trend={{ value: `${totalUnrealizedPnL >= 0 ? '+' : ''}${totalUnrealizedPnL.toFixed(0)}`, isPositive: totalUnrealizedPnL >= 0 }}
+              />
+              <CommandPanelCard
+                label="Theta / Day"
+                value={`$${(totalPremium / 30).toFixed(0)}`}
+                subtitle="Est. daily decay"
+              />
+              <div className="col-span-1">
+                <Card className="h-full">
+                  <CardContent className="p-0">
+                    <RadialGauge 
+                      value={annualizedROC} 
+                      max={100} 
+                      label="Annualized ROC"
+                      unit="%"
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="col-span-1">
+                <Card className="h-full">
+                  <CardContent className="p-0">
+                    <RadialGauge 
+                      value={cycleCompletions} 
+                      max={100} 
+                      label="Cycle Completions"
+                      unit="%"
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Import Bar */}
         <ImportBar />
@@ -380,36 +393,65 @@ const Dashboard = () => {
         {/* Expiration Calendar */}
         <ExpirationCalendar positions={activePositions} />
 
-        {/* Active Positions Table */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Active Positions</h2>
-          {activePositions.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 text-center text-muted-foreground">
+        {/* Active Positions Matrix */}
+        <Card>
+          <CardHeader className="border-b border-border">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Active Positions Matrix</CardTitle>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center border border-border rounded-lg p-1">
+                  <button className="px-3 py-1 text-xs rounded bg-primary text-primary-foreground">All</button>
+                  <button className="px-3 py-1 text-xs rounded text-muted-foreground hover:bg-muted">By DTE</button>
+                  <button className="px-3 py-1 text-xs rounded text-muted-foreground hover:bg-muted">By Risk</button>
+                </div>
+                <Button variant="outline" size="sm" className="text-xs">
+                  AI Insight
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {activePositions.length === 0 ? (
+              <div className="p-6 text-center text-muted-foreground">
                 No active positions found for the selected time period.
-              </CardContent>
-            </Card>
-          ) : (
-            <PositionsTable 
-              positions={activePositions} 
-              onRefetch={refetch}
-              onRefetchAssigned={refetchAssigned}
-            />
-          )}
-        </div>
+              </div>
+            ) : (
+              <PositionsTable 
+                positions={activePositions} 
+                onRefetch={refetch}
+                onRefetchAssigned={refetchAssigned}
+              />
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Assigned Positions Section */}
-        <div>
-          <AssignedPositionsTable positions={filteredAssignedPositions} onRefetch={refetchAssigned} />
-        </div>
+        {/* Assigned Positions Zone */}
+        <Card>
+          <CardHeader className="border-b border-border">
+            <CardTitle className="text-lg">Assigned Positions Zone</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <AssignedPositionsTable positions={filteredAssignedPositions} onRefetch={refetchAssigned} />
+          </CardContent>
+        </Card>
 
-        {/* History - Expired Positions */}
+        {/* History Zone */}
         {expiredPositions.length > 0 && (
-          <HistoryExpiredBatches 
-            positions={expiredPositions} 
-            onRefetch={refetch}
-            onRefetchAssigned={refetchAssigned}
-          />
+          <Card>
+            <CardHeader className="border-b border-border">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">History Zone</CardTitle>
+                <Badge variant="outline" className="text-xs">vintage cards</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <HistoryExpiredBatches 
+                positions={expiredPositions} 
+                onRefetch={refetch}
+                onRefetchAssigned={refetchAssigned}
+              />
+            </CardContent>
+          </Card>
         )}
 
         {/* Learning Center */}

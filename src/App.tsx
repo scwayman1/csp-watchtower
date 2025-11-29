@@ -24,16 +24,8 @@ const App = () => (
           <Route
             path="/*"
             element={
-              <div className="flex min-h-screen flex-col">
-                <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                  <div className="container flex h-14 items-center">
-                    <nav className="flex gap-6">
-                      <NavLink to="/">Dashboard</NavLink>
-                      <NavLink to="/settings">Settings</NavLink>
-                    </nav>
-                  </div>
-                </header>
-                <main className="flex-1">
+              <div className="flex min-h-screen w-full bg-background">
+                <main className="flex-1 overflow-x-hidden">
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/settings" element={<Settings />} />
