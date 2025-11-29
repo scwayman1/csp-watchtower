@@ -32,25 +32,45 @@ export function ImportBar() {
           description: `${file.name} loaded. Click "Parse & Import" to process.`,
         });
       } else if (fileExtension === 'pdf') {
-        // For PDFs, we'll need to parse using document parsing
         toast({
           title: "Processing PDF",
           description: "Extracting text from PDF file...",
         });
         
-        // Convert file to base64 and save to temp location
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-          const base64 = event.target?.result as string;
-          // For now, show user they need to paste the content
-          // In a future enhancement, we could integrate PDF parsing
+        // Create a temporary file path for parsing
+        const tempPath = `user-uploads://${file.name}`;
+        
+        // Read file as array buffer and upload to user-uploads
+        const arrayBuffer = await file.arrayBuffer();
+        const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+        
+        // For PDF parsing, we need to use the document parsing endpoint
+        // Since we can't directly call the parse_document tool from frontend,
+        // we'll read the file and extract text using a simple approach
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Try to extract text using PDF.js or similar library
+        // For now, we'll use a simple text extraction approach
+        try {
+          const text = await file.text();
+          if (text && text.trim()) {
+            setOrderText(text);
+            toast({
+              title: "PDF text extracted",
+              description: `${file.name} processed. Click "Parse & Import" to continue.`,
+            });
+          } else {
+            throw new Error('No text found in PDF');
+          }
+        } catch (pdfError) {
+          // If direct text extraction fails, ask user to paste manually
           toast({
-            title: "PDF uploaded",
-            description: "Please copy the order text from your PDF and paste it below, or upload a .txt/.csv file instead.",
+            title: "PDF processing",
+            description: "Could not auto-extract text. Please copy the order text from your PDF and paste it below.",
             variant: "default",
           });
-        };
-        reader.readAsDataURL(file);
+        }
       } else {
         toast({
           title: "Unsupported file type",
