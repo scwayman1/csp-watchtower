@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShareManagement } from "@/components/settings/ShareManagement";
 import { AuditTrail } from "@/components/settings/AuditTrail";
+import { PortfolioIngestion } from "@/components/settings/PortfolioIngestion";
 import { Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
@@ -229,12 +230,20 @@ const Settings = () => {
           </CardContent>
         </Card>
 
+        {/* Quick Portfolio Import */}
+        <PortfolioIngestion 
+          onParsed={(cash, otherHoldings) => {
+            setCashBalance(String(cash));
+            setOtherHoldingsValue(String(otherHoldings));
+          }}
+        />
+
         {/* Portfolio Value Tracking */}
         <Card>
           <CardHeader>
             <CardTitle>Portfolio Value Tracking</CardTitle>
             <CardDescription>
-              Set your current cash balance and other holdings to track total portfolio value
+              Manual entry or use Quick Portfolio Import above
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
