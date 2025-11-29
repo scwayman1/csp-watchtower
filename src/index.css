@@ -8,95 +8,103 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 204 92% 10%;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 204 92% 10%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 204 92% 10%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 185 100% 38%;
+    --primary: 185 94% 48%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 189 20% 96%;
-    --secondary-foreground: 204 92% 10%;
+    --secondary: 217 33% 20%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 189 20% 96%;
-    --muted-foreground: 201 30% 45%;
+    --muted: 217 33% 20%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 338 88% 66%;
+    --accent: 185 94% 48%;
     --accent-foreground: 0 0% 100%;
 
-    --success: 160 100% 45%;
+    --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 30 100% 64%;
+    --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 90%;
-    --input: 220 15% 90%;
-    --ring: 185 100% 38%;
+    --border: 217 33% 23%;
+    --input: 217 33% 23%;
+    --ring: 185 94% 48%;
 
     --radius: 1rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 204 92% 10%;
-    --sidebar-primary: 185 100% 38%;
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 185 94% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 189 20% 96%;
-    --sidebar-accent-foreground: 204 92% 10%;
-    --sidebar-border: 220 15% 90%;
-    --sidebar-ring: 185 100% 38%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 15%;
+    --sidebar-ring: 185 94% 48%;
+
+    --risk-low: 142 76% 36%;
+    --risk-medium: 38 92% 50%;
+    --risk-high: 0 72% 51%;
   }
 
   .dark {
-    --background: 204 92% 10%;
-    --foreground: 189 63% 94%;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
 
-    --card: 204 92% 15%;
-    --card-foreground: 189 63% 94%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 204 92% 15%;
-    --popover-foreground: 189 63% 94%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 185 100% 38%;
+    --primary: 185 94% 48%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 204 92% 15%;
-    --secondary-foreground: 189 63% 94%;
+    --secondary: 217 33% 20%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 204 92% 15%;
-    --muted-foreground: 201 25% 75%;
+    --muted: 217 33% 20%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 338 88% 66%;
+    --accent: 185 94% 48%;
     --accent-foreground: 0 0% 100%;
 
-    --success: 160 100% 45%;
+    --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 30 100% 64%;
+    --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 201 19% 25%;
-    --input: 201 19% 25%;
-    --ring: 185 100% 38%;
+    --border: 217 33% 23%;
+    --input: 217 33% 23%;
+    --ring: 185 94% 48%;
 
-    --sidebar-background: 204 92% 10%;
-    --sidebar-foreground: 189 63% 94%;
-    --sidebar-primary: 185 100% 38%;
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 185 94% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 204 92% 15%;
-    --sidebar-accent-foreground: 189 63% 94%;
-    --sidebar-border: 201 19% 25%;
-    --sidebar-ring: 185 100% 38%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 15%;
+    --sidebar-ring: 185 94% 48%;
+
+    --risk-low: 142 76% 36%;
+    --risk-medium: 38 92% 50%;
+    --risk-high: 0 72% 51%;
   }
 }
 

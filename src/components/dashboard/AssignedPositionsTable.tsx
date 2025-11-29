@@ -30,20 +30,7 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
       {/* Bulk Import Bar */}
       <CoveredCallImportBar onSuccess={onRefetch} />
       
-      {/* Assigned Positions Table */}
-      <div className="rounded-2xl border bg-card overflow-hidden">
-      <div className="p-4 sm:p-6 border-b">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-base sm:text-lg font-semibold">Assigned Shares (Wheel Strategy)</h3>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Track shares from assigned puts and covered call premiums
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto border border-border rounded-lg">
         <Table className="min-w-[1000px]">
         <TableHeader>
           <TableRow>
@@ -124,7 +111,6 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
         symbol={selectedPosition?.symbol || ""}
         onSuccess={onRefetch}
       />
-      </div>
     </div>
   );
 }
