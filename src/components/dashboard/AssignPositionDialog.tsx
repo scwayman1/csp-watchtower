@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,14 @@ export function AssignPositionDialog({
   const [assignmentDate, setAssignmentDate] = useState(today);
   const [assignmentPrice, setAssignmentPrice] = useState(position.strikePrice.toString());
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Reset form when dialog opens or position changes
+  useEffect(() => {
+    if (open) {
+      setAssignmentDate(today);
+      setAssignmentPrice(position.strikePrice.toString());
+    }
+  }, [open, position.strikePrice, today]);
 
   const shares = position.contracts * 100;
   const costBasis = parseFloat(assignmentPrice) - (position.totalPremium / shares);
