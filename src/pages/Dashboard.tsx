@@ -205,6 +205,10 @@ const Dashboard = () => {
     ? (settings.other_holdings_value || 0) 
     : (settings.cash_balance || 0) + assignedSharesMarketValue + totalUnrealizedPnL;
   
+  // 5. Available Cash
+  // Starting cash + premiums collected - capital tied up in assignments - cash securing active contracts
+  const availableCash = (settings.cash_balance || 0) + totalPremium - assignedSharesCostBasis - cashSecured;
+  
   // Record portfolio snapshot when key metrics change
   useEffect(() => {
     if (!user?.id || authLoading || positionsLoading || assignedLoading) return;
@@ -385,7 +389,7 @@ const Dashboard = () => {
               />
               <CommandPanelCard
                 label="Available Cash"
-                value={`$${((settings.cash_balance || 0) / 1000).toFixed(1)}K`}
+                value={`$${(availableCash / 1000).toFixed(1)}K`}
                 subtitle="Liquid capital"
                 icon={DollarSign}
               />
