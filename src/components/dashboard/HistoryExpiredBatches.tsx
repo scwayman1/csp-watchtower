@@ -18,29 +18,47 @@ interface AssignedPositionData {
   original_position_id: string | null;
 }
 
+interface OriginalPositionData {
+  id: string;
+  expiration: string;
+}
+
 interface PositionWithOpenedAt extends Position {
   openedAt?: string;
 }
 
 export function HistoryExpiredBatches({ positions, onRefetch, onRefetchAssigned }: HistoryExpiredBatchesProps) {
   const [assignedPositions, setAssignedPositions] = useState<AssignedPositionData[]>([]);
+  const [allPositions, setAllPositions] = useState<OriginalPositionData[]>([]);
 
-  // Fetch assigned positions to show complete batch data
+  // Fetch all positions and assigned positions to match by expiration date
   useEffect(() => {
-    const fetchAssignedPositions = async () => {
+    const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await supabase
-        .from('assigned_positions')
-        .select('id, symbol, shares, original_put_premium, original_position_id');
+      // Fetch all positions (including those that led to assignments)
+      const { data: positionsData } = await supabase
+        .from('positions')
+        .select('id, expiration')
+        .eq('user_id', user.id);
 
-      if (data) {
-        setAssignedPositions(data as AssignedPositionData[]);
+      if (positionsData) {
+        setAllPositions(positionsData as OriginalPositionData[]);
+      }
+
+      // Fetch assigned positions
+      const { data: assignedData } = await supabase
+        .from('assigned_positions')
+        .select('id, symbol, shares, original_put_premium, original_position_id')
+        .eq('user_id', user.id);
+
+      if (assignedData) {
+        setAssignedPositions(assignedData as AssignedPositionData[]);
       }
     };
 
-    fetchAssignedPositions();
+    fetchData();
   }, []);
 
   // Group positions by opened date (batch)
@@ -73,10 +91,15 @@ export function HistoryExpiredBatches({ positions, onRefetch, onRefetchAssigned 
       <Card className="rounded-2xl overflow-hidden">
         <CardContent className="p-0">
           {batches.map(([batchDate, batchPositions], index) => {
-            // Find assigned positions from this batch
-            const batchPositionIds = batchPositions.map(p => p.id);
+            // Find all original positions with this expiration date
+            const originalPositionsWithExpiration = allPositions.filter(
+              p => p.expiration === batchDate
+            );
+            const originalPositionIds = originalPositionsWithExpiration.map(p => p.id);
+            
+            // Find assigned positions that originated from positions with this expiration date
             const batchAssignedPositions = assignedPositions.filter(
-              ap => ap.original_position_id && batchPositionIds.includes(ap.original_position_id)
+              ap => ap.original_position_id && originalPositionIds.includes(ap.original_position_id)
             );
 
             return (
