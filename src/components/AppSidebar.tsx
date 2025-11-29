@@ -103,6 +103,24 @@ export function AppSidebar() {
               </SidebarGroupContent>
             </CollapsibleContent>
           </Collapsible>
+          
+          {/* Show icons only when collapsed */}
+          {isCollapsed && (
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {dashboardSections.map((section) => (
+                  <SidebarMenuItem key={section.id}>
+                    <SidebarMenuButton
+                      onClick={() => scrollToSection(section.id)}
+                      tooltip={section.title}
+                    >
+                      <section.icon className="h-4 w-4" />
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          )}
         </SidebarGroup>
 
         {/* Settings (Always Visible) */}
