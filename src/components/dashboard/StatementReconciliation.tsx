@@ -6,9 +6,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { AlertCircle, CheckCircle, FileSearch } from "lucide-react";
+import { AlertCircle, CheckCircle, FileSearch, RefreshCw } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useSettings } from "@/hooks/useSettings";
 
 interface ReconciliationReport {
+  totalAccountValue?: number;
   extractedPositions: Array<{
     symbol: string;
     contracts: number;
@@ -26,10 +29,50 @@ interface ReconciliationReport {
   summary: string;
 }
 
-export function StatementReconciliation() {
+interface StatementReconciliationProps {
+  onBaselineUpdate?: () => void;
+}
+
+export function StatementReconciliation({ onBaselineUpdate }: StatementReconciliationProps) {
+  const { user } = useAuth();
+  const { updateSettings } = useSettings(user?.id);
   const [statementText, setStatementText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [report, setReport] = useState<ReconciliationReport | null>(null);
+
+  const handleUpdateBaseline = async () => {
+    if (!report?.totalAccountValue) {
+      toast({
+        title: "No baseline value",
+        description: "Could not extract total account value from statement.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      await updateSettings({
+        other_holdings_value: report.totalAccountValue,
+      });
+
+      toast({
+        title: "Baseline updated",
+        description: `Total Assets baseline set to $${report.totalAccountValue.toLocaleString()}`,
+      });
+
+      onBaselineUpdate?.();
+    } catch (error: any) {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update baseline",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   const handleReconcile = async () => {
     if (!statementText.trim()) {
@@ -111,6 +154,23 @@ export function StatementReconciliation() {
                 <strong>Summary:</strong> {report.summary}
               </AlertDescription>
             </Alert>
+
+            {report.totalAccountValue && (
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
+                <div>
+                  <p className="text-sm text-muted-foreground">Extracted Total Account Value</p>
+                  <p className="text-2xl font-bold">${report.totalAccountValue.toLocaleString()}</p>
+                </div>
+                <Button 
+                  onClick={handleUpdateBaseline}
+                  disabled={updating}
+                  variant="default"
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${updating ? 'animate-spin' : ''}`} />
+                  {updating ? "Updating..." : "Update Baseline"}
+                </Button>
+              </div>
+            )}
 
             <div className="grid grid-cols-3 gap-4">
               <Card>

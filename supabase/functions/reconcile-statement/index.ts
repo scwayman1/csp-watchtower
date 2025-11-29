@@ -51,15 +51,17 @@ DATABASE RECORDS (${dbPositions?.length || 0} expired positions):
 ${JSON.stringify(dbPositions, null, 2)}
 
 Your task:
-1. Extract ALL cash-secured put positions from the broker statement
-2. For each position, extract: symbol, contracts, premium per contract, total premium collected, date opened
-3. Compare extracted positions with database records
-4. Identify discrepancies: missing positions, incorrect premiums, wrong dates
-5. Calculate the correct total premium that should be in the database
-6. Provide a reconciliation report with specific action items
+1. Extract the TOTAL ACCOUNT VALUE from the broker statement (look for labels like "Total Account Value", "Net Worth", "Total Assets", "Account Balance", etc.)
+2. Extract ALL cash-secured put positions from the broker statement
+3. For each position, extract: symbol, contracts, premium per contract, total premium collected, date opened
+4. Compare extracted positions with database records
+5. Identify discrepancies: missing positions, incorrect premiums, wrong dates
+6. Calculate the correct total premium that should be in the database
+7. Provide a reconciliation report with specific action items
 
 Return a JSON object with this structure:
 {
+  "totalAccountValue": 838014.43,
   "extractedPositions": [
     {
       "symbol": "AAPL",
