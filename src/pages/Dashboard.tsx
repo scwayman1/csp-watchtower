@@ -323,7 +323,13 @@ const Dashboard = () => {
             <CardTitle className="text-lg">Portfolio Command Panel</CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+              <CommandPanelCard
+                label="Total Assets"
+                value={`$${(totalPortfolioValue / 1000).toFixed(1)}K`}
+                subtitle="Complete portfolio value"
+                icon={TrendingUp}
+              />
               <CommandPanelCard
                 label="Total Premium"
                 value={`$${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
