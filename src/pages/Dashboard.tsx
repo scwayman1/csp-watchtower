@@ -142,11 +142,11 @@ const Dashboard = () => {
     }
   };
   
-  // Calculate portfolio stats (use active positions only, not expired)
-  // Include premiums from both active positions AND assigned positions (original put premiums)
+  // Calculate portfolio stats (use active + expired positions, plus assigned premiums)
   const activePremiums = activePositions.reduce((sum, p) => sum + p.totalPremium, 0);
+  const expiredPremiums = expiredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
   const assignedPremiums = filteredAssignedPositions.reduce((sum, p) => sum + p.original_put_premium, 0);
-  const totalPremium = activePremiums + assignedPremiums;
+  const totalPremium = activePremiums + expiredPremiums + assignedPremiums;
   
   const totalUnrealizedPnL = activePositions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
   const activeContracts = activePositions.reduce((sum, p) => sum + p.contracts, 0);
