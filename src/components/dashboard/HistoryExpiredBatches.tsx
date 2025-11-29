@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Position } from "./PositionsTable";
 import { BatchRow } from "./BatchRow";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CleanupExpiredButton } from "./CleanupExpiredButton";
 
 interface HistoryExpiredBatchesProps {
   positions: Position[];
@@ -40,7 +41,10 @@ export function HistoryExpiredBatches({ positions, onRefetch, onRefetchAssigned 
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-4">History (Expired Positions)</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold">History (Expired Positions)</h2>
+        <CleanupExpiredButton onSuccess={onRefetch} />
+      </div>
       <Card className="rounded-2xl overflow-hidden">
         <CardContent className="p-0">
           {batches.map(([batchDate, batchPositions]) => (
