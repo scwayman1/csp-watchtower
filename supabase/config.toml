@@ -1,19 +1,28 @@
 project_id = "jjalbfuofnznouwgtxql"
 
-[functions.reconcile-statement]
-verify_jwt = true
-
-[functions.parse-order]
-verify_jwt = true
-
-[functions.fetch-market-data]
+[functions.analyze-premium]
 verify_jwt = true
 
 [functions.calculate-metrics]
 verify_jwt = true
 
+[functions.cleanup-expired-positions]
+verify_jwt = true
+
+[functions.fetch-market-data]
+verify_jwt = true
+
+[functions.fetch-option-chain]
+verify_jwt = false
+
 [functions.parse-covered-call]
 verify_jwt = false
+
+[functions.parse-order]
+verify_jwt = true
+
+[functions.reconcile-statement]
+verify_jwt = true
 
 [functions.send-invite-email]
 verify_jwt = false
@@ -21,9 +30,4 @@ verify_jwt = false
 [functions.track-outcome]
 verify_jwt = false
 
-[functions.fetch-option-chain]
-verify_jwt = false
-
-[functions.analyze-premium]
-verify_jwt = true
 
