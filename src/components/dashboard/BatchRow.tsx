@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, TrendingUp, TrendingDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PositionsTable, Position } from "./PositionsTable";
@@ -10,9 +10,10 @@ interface BatchRowProps {
   positions: Position[];
   onRefetch?: () => void;
   onRefetchAssigned?: () => void;
+  batchIndex?: number;
 }
 
-export function BatchRow({ batchDate, positions, onRefetch, onRefetchAssigned }: BatchRowProps) {
+export function BatchRow({ batchDate, positions, onRefetch, onRefetchAssigned, batchIndex = 0 }: BatchRowProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const totalPremium = positions.reduce((sum, p) => sum + p.totalPremium, 0);
@@ -29,37 +30,76 @@ export function BatchRow({ batchDate, positions, onRefetch, onRefetchAssigned }:
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  // Generate gradient hue based on batch index for color variation
+  const hueRotation = (batchIndex * 45) % 360;
+  const gradientClass = `hue-rotate-[${hueRotation}deg]`;
+  
+  // Determine if this batch was profitable
+  const isProfitable = totalUnrealizedPnL >= 0;
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger asChild>
-        <div className="flex items-center justify-between p-4 hover:bg-muted/50 cursor-pointer transition-colors border-b">
-          <div className="flex items-center gap-4 flex-1">
-            <ChevronRight className={cn(
-              "h-5 w-5 text-muted-foreground transition-transform duration-200",
-              isOpen && "rotate-90"
-            )} />
+        <div className={cn(
+          "relative flex items-center justify-between p-5 cursor-pointer transition-all duration-300 border-b border-border/50",
+          "bg-gradient-to-r from-card/80 via-card to-card/80",
+          "hover:from-accent/20 hover:via-accent/10 hover:to-accent/20",
+          "hover:shadow-lg hover:scale-[1.01] hover:border-accent/30",
+          isOpen && "bg-accent/10 shadow-md scale-[1.01] border-accent/50"
+        )}
+        style={{
+          backgroundImage: `linear-gradient(to right, hsl(var(--card) / 0.8), hsl(var(--accent) / 0.05), hsl(var(--card) / 0.8))`,
+        }}
+        >
+          {/* Accent Bar */}
+          <div className={cn(
+            "absolute left-0 top-0 bottom-0 w-1 transition-all duration-300",
+            isProfitable ? "bg-success" : "bg-destructive",
+            isOpen && "w-2"
+          )} />
+          
+          <div className="flex items-center gap-4 flex-1 ml-2">
+            <div className={cn(
+              "flex items-center justify-center w-8 h-8 rounded-lg bg-accent/30 transition-all duration-300",
+              isOpen && "bg-accent/50 scale-110"
+            )}>
+              <ChevronRight className={cn(
+                "h-4 w-4 text-accent-foreground transition-transform duration-200",
+                isOpen && "rotate-90"
+              )} />
+            </div>
             
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4">
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-6">
               <div>
-                <div className="text-sm text-muted-foreground">Batch Date</div>
-                <div className="font-semibold">{formatDate(batchDate)}</div>
+                <div className="text-xs text-muted-foreground/70 uppercase tracking-wide mb-1">Batch Date</div>
+                <div className="font-bold text-lg">{formatDate(batchDate)}</div>
               </div>
               
               <div>
-                <div className="text-sm text-muted-foreground">Positions</div>
-                <div className="font-semibold">{positions.length} position{positions.length !== 1 ? 's' : ''}</div>
-                <div className="text-xs text-muted-foreground">{contractsCount} contract{contractsCount !== 1 ? 's' : ''}</div>
+                <div className="text-xs text-muted-foreground/70 uppercase tracking-wide mb-1">Positions</div>
+                <div className="font-semibold text-lg">{positions.length} position{positions.length !== 1 ? 's' : ''}</div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary/50" />
+                  {contractsCount} contract{contractsCount !== 1 ? 's' : ''}
+                </div>
               </div>
               
               <div>
-                <div className="text-sm text-muted-foreground">Total Premium</div>
-                <div className="font-semibold">{formatCurrency(totalPremium)}</div>
+                <div className="text-xs text-muted-foreground/70 uppercase tracking-wide mb-1">Total Premium</div>
+                <div className="font-bold text-lg text-primary">{formatCurrency(totalPremium)}</div>
               </div>
               
               <div>
-                <div className="text-sm text-muted-foreground">Unrealized P/L</div>
+                <div className="text-xs text-muted-foreground/70 uppercase tracking-wide mb-1 flex items-center gap-1">
+                  Unrealized P/L
+                  {isProfitable ? (
+                    <TrendingUp className="h-3 w-3 text-success" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3 text-destructive" />
+                  )}
+                </div>
                 <div className={cn(
-                  "font-semibold",
+                  "font-bold text-lg flex items-center gap-2",
                   totalUnrealizedPnL >= 0 ? "text-success" : "text-destructive"
                 )}>
                   {formatCurrency(totalUnrealizedPnL)}
@@ -71,7 +111,7 @@ export function BatchRow({ batchDate, positions, onRefetch, onRefetchAssigned }:
       </CollapsibleTrigger>
       
       <CollapsibleContent className="transition-all data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-        <div className="p-4 bg-muted/20">
+        <div className="p-6 bg-accent/5 border-t border-accent/20">
           <PositionsTable 
             positions={positions}
             onRefetch={onRefetch}

@@ -43,13 +43,14 @@ export function HistoryExpiredBatches({ positions, onRefetch, onRefetchAssigned 
       <h2 className="text-xl font-semibold mb-4">History (Expired Positions)</h2>
       <Card className="rounded-2xl overflow-hidden">
         <CardContent className="p-0">
-          {batches.map(([batchDate, batchPositions]) => (
+          {batches.map(([batchDate, batchPositions], index) => (
             <BatchRow
               key={batchDate}
               batchDate={batchDate}
               positions={batchPositions}
               onRefetch={onRefetch}
               onRefetchAssigned={onRefetchAssigned}
+              batchIndex={index}
             />
           ))}
         </CardContent>
