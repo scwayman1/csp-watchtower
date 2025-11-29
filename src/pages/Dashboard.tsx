@@ -167,8 +167,12 @@ const Dashboard = () => {
   const atRiskCount = activePositions.filter(p => p.pctAboveStrike < 5).length;
   const cashSecured = activePositions.reduce((sum, p) => sum + (p.strikePrice * 100 * p.contracts), 0);
   
-  // 4. Total Portfolio Value = Cash + Other Holdings + Assigned Shares + Active Positions Unrealized P/L
-  const totalPortfolioValue = (settings.cash_balance || 0) + (settings.other_holdings_value || 0) + assignedSharesMarketValue + totalUnrealizedPnL;
+  // 4. Total Portfolio Value
+  // If other_holdings_value represents total broker account, show it as baseline
+  // Otherwise calculate: Cash + Other Holdings + Assigned Shares + Active Positions Unrealized P/L
+  const totalPortfolioValue = (settings.other_holdings_value || 0) > 0 
+    ? (settings.other_holdings_value || 0) 
+    : (settings.cash_balance || 0) + assignedSharesMarketValue + totalUnrealizedPnL;
   
   // Find next expiration (use active positions only)
   const sortedByExp = [...activePositions].sort((a, b) => a.daysToExp - b.daysToExp);
@@ -291,9 +295,9 @@ const Dashboard = () => {
         {/* Portfolio Summary Cards */}
         <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <StatCard
-            title="Total Portfolio Value"
+            title="Total Broker Account"
             value={`$${totalPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            subtitle="Cash + holdings + shares + P/L"
+            subtitle={`Assigned: $${assignedSharesMarketValue.toLocaleString()} | Reserved: $${cashSecured.toLocaleString()}`}
             icon={TrendingUp}
           />
           <StatCard

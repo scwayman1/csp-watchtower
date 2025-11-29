@@ -53,16 +53,18 @@ export function PortfolioIngestion({ onParsed }: PortfolioIngestionProps) {
     setParsing(true);
     try {
       const lines = portfolioText.split('\n');
+      let totalAccountValue = 0;
       let cashBalance = 0;
       let otherHoldingsValue = 0;
       let skippedCount = 0;
       let processedLines = 0;
+      let foundTotalLine = false;
 
       console.log('Starting portfolio parse...', { totalLines: lines.length, trackedSymbols: Array.from(trackedSymbols) });
 
       for (const line of lines) {
-        // Skip empty lines and headers
-        if (!line.trim() || line.includes('Symbol') || line.includes('Account value')) continue;
+        // Skip empty lines
+        if (!line.trim()) continue;
 
         // Look for lines with dollar amounts (format: $X,XXX.XX or $X.XX)
         const valueMatch = line.match(/\$([0-9,]+\.[0-9]{2})/);
@@ -70,6 +72,14 @@ export function PortfolioIngestion({ onParsed }: PortfolioIngestionProps) {
 
         const value = parseFloat(valueMatch[1].replace(/,/g, ''));
         processedLines++;
+
+        // Check if this looks like a total account value line (first line or contains "Account value")
+        if (!foundTotalLine && (line.includes('Account value') || line.includes('Total') || (processedLines === 1 && value > 100000))) {
+          totalAccountValue = value;
+          foundTotalLine = true;
+          console.log('Found total account value:', value, line.substring(0, 50));
+          continue;
+        }
 
         // Skip if it's an option position (contains "PUT" or "CALL")
         if (line.includes('PUT') || line.includes('CALL')) {
@@ -103,7 +113,14 @@ export function PortfolioIngestion({ onParsed }: PortfolioIngestionProps) {
         }
       }
 
-      console.log('Parse complete:', { cashBalance, otherHoldingsValue, processedLines, skippedCount });
+      // If we found a total account value, use it as other_holdings_value
+      // The dashboard will reconcile it against tracked positions
+      if (foundTotalLine && totalAccountValue > 0) {
+        otherHoldingsValue = totalAccountValue;
+        console.log('Using total account value as baseline:', totalAccountValue);
+      }
+
+      console.log('Parse complete:', { totalAccountValue, cashBalance, otherHoldingsValue, processedLines, skippedCount });
 
       if (cashBalance === 0 && otherHoldingsValue === 0) {
         toast({
@@ -118,7 +135,7 @@ export function PortfolioIngestion({ onParsed }: PortfolioIngestionProps) {
       
       toast({
         title: "Portfolio parsed successfully",
-        description: `Cash: $${cashBalance.toLocaleString()} | Other Holdings: $${otherHoldingsValue.toLocaleString()} | Skipped: ${skippedCount} items`,
+        description: `Total Account: $${(totalAccountValue || otherHoldingsValue).toLocaleString()} | Dashboard will show tracked vs. untracked breakdown`,
       });
       
       setPortfolioText("");
@@ -144,18 +161,22 @@ export function PortfolioIngestion({ onParsed }: PortfolioIngestionProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         <Textarea
-          placeholder="Paste your broker portfolio here (e.g., from Fidelity account summary)
-Example:
-FDRXX FIDELITY GOVERNMENT CASH RESERVES $1.00 670,497.410 0.00% $670,497.41
-OWSCX 1WS CREDIT INCOME FUND INSTL $19.52 2,545.507 0.10% $49,688.29
-AMZN AMAZON.COM INC $233.22 200.000 1.77% $46,644.00"
+          placeholder="Paste your broker portfolio here - you can paste just the total account value or the full breakdown:
+
+Example 1 (Just total):
+Account value $838,014.43
+
+Example 2 (Full breakdown):
+FDRXX FIDELITY GOVERNMENT CASH RESERVES $1.00 670,497.410 $670,497.41
+OWSCX 1WS CREDIT INCOME FUND INSTL $19.52 2,545.507 $49,688.29
+AMZN AMAZON.COM INC $233.22 200.000 $46,644.00"
           value={portfolioText}
           onChange={(e) => setPortfolioText(e.target.value)}
           className="min-h-[200px] font-mono text-sm"
         />
         <div className="flex justify-between items-center">
           <p className="text-xs text-muted-foreground">
-            Automatically extracts cash balance and other holdings. Ignores options and tracked shares.
+            Automatically extracts total account value or itemized cash/holdings. Tracked positions shown separately on dashboard.
           </p>
           <Button 
             onClick={parsePortfolio} 
