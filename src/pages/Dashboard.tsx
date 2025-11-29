@@ -142,16 +142,33 @@ const Dashboard = () => {
     }
   };
   
-  // Calculate portfolio stats (use active + expired positions, plus assigned premiums)
+  // Calculate portfolio stats
+  // 1. Total Premiums: active + expired puts + assigned put premiums + covered call premiums
   const activePremiums = activePositions.reduce((sum, p) => sum + p.totalPremium, 0);
   const expiredPremiums = expiredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
-  const assignedPremiums = filteredAssignedPositions.reduce((sum, p) => sum + p.original_put_premium, 0);
-  const totalPremium = activePremiums + expiredPremiums + assignedPremiums;
+  const assignedPutPremiums = filteredAssignedPositions.reduce((sum, p) => sum + p.original_put_premium, 0);
+  const coveredCallPremiums = filteredAssignedPositions.reduce((sum, p) => sum + (p.total_call_premiums || 0), 0);
+  const totalPremium = activePremiums + expiredPremiums + assignedPutPremiums + coveredCallPremiums;
   
+  // 2. Assigned Shares Metrics
+  const assignedSharesCostBasis = filteredAssignedPositions.reduce((sum, p) => 
+    sum + (p.cost_basis * p.shares), 0
+  );
+  const assignedSharesMarketValue = filteredAssignedPositions.reduce((sum, p) => 
+    sum + ((p.current_price || p.assignment_price) * p.shares), 0
+  );
+  const assignedSharesUnrealizedPnL = filteredAssignedPositions.reduce((sum, p) => 
+    sum + (p.unrealized_pnl || 0), 0
+  );
+  
+  // 3. Active Positions Metrics
   const totalUnrealizedPnL = activePositions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
   const activeContracts = activePositions.reduce((sum, p) => sum + p.contracts, 0);
   const atRiskCount = activePositions.filter(p => p.pctAboveStrike < 5).length;
   const cashSecured = activePositions.reduce((sum, p) => sum + (p.strikePrice * 100 * p.contracts), 0);
+  
+  // 4. Total Portfolio Value = Premiums + Assigned Shares Market Value + Active Positions Unrealized P/L
+  const totalPortfolioValue = totalPremium + assignedSharesMarketValue + totalUnrealizedPnL;
   
   // Find next expiration (use active positions only)
   const sortedByExp = [...activePositions].sort((a, b) => a.daysToExp - b.daysToExp);
@@ -272,30 +289,36 @@ const Dashboard = () => {
         />
 
         {/* Portfolio Summary Cards */}
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <StatCard
+            title="Total Portfolio Value"
+            value={`$${totalPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            subtitle="Premiums + holdings + P/L"
+            icon={TrendingUp}
+          />
           <StatCard
             title="Total Premium Collected"
             value={`$${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            subtitle="Across all positions"
+            subtitle="Puts + covered calls"
             icon={DollarSign}
+          />
+          <StatCard
+            title="Assigned Shares Value"
+            value={`$${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+            subtitle={`Cost: $${assignedSharesCostBasis.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+            icon={FileText}
           />
           <StatCard
             title="Cash Secured"
             value={`$${cashSecured.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-            subtitle="Total capital reserved"
-            icon={TrendingUp}
+            subtitle="Active positions capital"
+            icon={Calendar}
           />
           <StatCard
             title="Active Contracts"
             value={activeContracts.toString()}
             subtitle={`${activePositions.length} positions`}
             icon={FileText}
-          />
-          <StatCard
-            title="Next Expiration"
-            value={nextExp ? `${nextExp.daysToExp} days` : "—"}
-            subtitle={nextExp?.expiration}
-            icon={Calendar}
           />
           <StatCard
             title="At-Risk Positions"
