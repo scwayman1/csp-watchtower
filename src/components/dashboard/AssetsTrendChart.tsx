@@ -1,39 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { TrendingUp } from "lucide-react";
+import { PortfolioSnapshot } from "@/hooks/usePortfolioHistory";
 
 interface AssetsTrendChartProps {
   currentValue: number;
+  history: PortfolioSnapshot[];
 }
 
-export function AssetsTrendChart({ currentValue }: AssetsTrendChartProps) {
-  // Generate sample trend data for last 30 days
-  // TODO: Replace with actual historical data from database
-  const generateTrendData = () => {
-    const data = [];
-    const today = new Date();
-    const baseValue = currentValue * 0.95; // Start 5% lower
-    
-    for (let i = 30; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      
-      // Generate realistic looking trend with some variance
-      const progress = (30 - i) / 30;
-      const variance = (Math.random() - 0.5) * 0.02; // ±1% random variance
-      const value = baseValue + (currentValue - baseValue) * progress + currentValue * variance;
-      
-      data.push({
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        value: Math.round(value),
-      });
-    }
-    
-    return data;
-  };
+export function AssetsTrendChart({ currentValue, history }: AssetsTrendChartProps) {
+  // Convert portfolio history to chart data
+  const data = history.length > 0 
+    ? history.map(snapshot => ({
+        date: new Date(snapshot.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        value: snapshot.portfolio_value,
+      }))
+    : [{ date: 'Now', value: currentValue }]; // Fallback if no history
 
-  const data = generateTrendData();
-  const percentChange = ((currentValue - data[0].value) / data[0].value) * 100;
+  const startValue = data.length > 0 ? data[0].value : currentValue;
+  const percentChange = startValue > 0 ? ((currentValue - startValue) / startValue) * 100 : 0;
 
   return (
     <Card className="col-span-1 md:col-span-2 lg:col-span-3">
