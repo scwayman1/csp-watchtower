@@ -143,12 +143,13 @@ const Dashboard = () => {
   };
   
   // Calculate portfolio stats
-  // 1. Total Premiums: active + expired puts + assigned put premiums + covered call premiums
+  // 1. Total Premiums: active + expired puts + covered call premiums
+  // NOTE: Do NOT include assignedPutPremiums because those premiums are already in expiredPremiums
+  // (assigned positions are expired positions that went ITM)
   const activePremiums = activePositions.reduce((sum, p) => sum + p.totalPremium, 0);
   const expiredPremiums = expiredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
-  const assignedPutPremiums = filteredAssignedPositions.reduce((sum, p) => sum + p.original_put_premium, 0);
   const coveredCallPremiums = filteredAssignedPositions.reduce((sum, p) => sum + (p.total_call_premiums || 0), 0);
-  const totalPremium = activePremiums + expiredPremiums + assignedPutPremiums + coveredCallPremiums;
+  const totalPremium = activePremiums + expiredPremiums + coveredCallPremiums;
   
   // Debug logging for premium calculation
   console.log('Premium Breakdown:', {
@@ -156,10 +157,9 @@ const Dashboard = () => {
     activeCount: activePositions.length,
     expiredPremiums: expiredPremiums.toFixed(2),
     expiredCount: expiredPositions.length,
-    assignedPutPremiums: assignedPutPremiums.toFixed(2),
-    assignedCount: filteredAssignedPositions.length,
     coveredCallPremiums: coveredCallPremiums.toFixed(2),
-    totalPremium: totalPremium.toFixed(2)
+    totalPremium: totalPremium.toFixed(2),
+    note: 'assignedPutPremiums NOT included (already in expiredPremiums)'
   });
   
   // 2. Assigned Shares Metrics
