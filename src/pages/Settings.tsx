@@ -240,7 +240,7 @@ const Settings = () => {
         />
 
         {/* Statement Reconciliation */}
-        <StatementReconciliation />
+        <StatementReconciliation onBaselineUpdate={loadSettings} />
 
         {/* Portfolio Value Tracking */}
         <Card>

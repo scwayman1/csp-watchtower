@@ -58,5 +58,23 @@ export function useSettings(userId: string | undefined) {
     fetchSettings();
   }, [userId]);
 
-  return { settings, loading };
+  const updateSettings = async (updates: Partial<UserSettings>) => {
+    if (!userId) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .update(updates)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      setSettings(prev => ({ ...prev, ...updates }));
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      throw error;
+    }
+  };
+
+  return { settings, loading, updateSettings };
 }
