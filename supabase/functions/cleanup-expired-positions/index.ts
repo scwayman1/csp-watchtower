@@ -23,16 +23,26 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    // Decode the JWT directly to get the user id. The platform
+    // already verified this token because verify_jwt = true.
+    const token = authHeader.replace('Bearer ', '').trim();
+    let userId: string | null = null;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1] || ''));
+      userId = payload.sub || payload.user_id || null;
+    } catch (e) {
+      console.error('Failed to parse JWT payload', e);
+    }
 
-    console.log('Cleaning up expired positions for user:', user.id);
+    if (!userId) throw new Error('Not authenticated');
 
-    // Delete all existing expired positions
+    console.log('Cleaning up expired positions for user:', userId);
+
+    // Delete all existing expired positions for this user
     const { error: deleteError } = await supabase
       .from('positions')
       .delete()
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('is_active', false);
 
     if (deleteError) {
@@ -58,7 +68,7 @@ serve(async (req) => {
     ];
 
     const positionsToInsert = correctPositions.map(pos => ({
-      user_id: user.id,
+      user_id: userId,
       symbol: pos.symbol,
       strike_price: pos.strike_price,
       expiration: pos.expiration,
