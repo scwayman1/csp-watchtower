@@ -23,6 +23,8 @@ const Settings = () => {
   const [warningThreshold, setWarningThreshold] = useState("5");
   const [probabilityModel, setProbabilityModel] = useState("delta");
   const [volSensitivity, setVolSensitivity] = useState("0.15");
+  const [cashBalance, setCashBalance] = useState("0");
+  const [otherHoldingsValue, setOtherHoldingsValue] = useState("0");
 
   useEffect(() => {
     if (user) {
@@ -47,6 +49,8 @@ const Settings = () => {
         setWarningThreshold(String(data.warning_threshold || 5));
         setProbabilityModel(data.probability_model || "delta");
         setVolSensitivity(String(data.volatility_sensitivity || 0.15));
+        setCashBalance(String(data.cash_balance || 0));
+        setOtherHoldingsValue(String(data.other_holdings_value || 0));
       }
     } catch (error: any) {
       console.error('Error loading settings:', error);
@@ -68,6 +72,8 @@ const Settings = () => {
         warning_threshold: parseFloat(warningThreshold),
         probability_model: probabilityModel,
         volatility_sensitivity: parseFloat(volSensitivity),
+        cash_balance: parseFloat(cashBalance),
+        other_holdings_value: parseFloat(otherHoldingsValue),
       };
 
       const { error } = await supabase
@@ -218,6 +224,46 @@ const Settings = () => {
               />
               <p className="text-xs text-muted-foreground">
                 Used in heuristic and Black-Scholes calculations (default: 0.15)
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Portfolio Value Tracking */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Portfolio Value Tracking</CardTitle>
+            <CardDescription>
+              Set your current cash balance and other holdings to track total portfolio value
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="cash-balance">Cash Balance (including money market)</Label>
+              <Input 
+                id="cash-balance" 
+                type="number" 
+                value={cashBalance} 
+                onChange={(e) => setCashBalance(e.target.value)}
+                step="0.01"
+                placeholder="e.g., 722294.82 (includes FDRXX)"
+              />
+              <p className="text-xs text-muted-foreground">
+                Your available cash including money market funds like FDRXX
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="other-holdings">Other Holdings Value</Label>
+              <Input 
+                id="other-holdings" 
+                type="number" 
+                value={otherHoldingsValue} 
+                onChange={(e) => setOtherHoldingsValue(e.target.value)}
+                step="0.01"
+                placeholder="e.g., 124936.02 (OWSCX, CEDIX, etc.)"
+              />
+              <p className="text-xs text-muted-foreground">
+                Total value of mutual funds, bonds, and other holdings not tracked as positions
               </p>
             </div>
           </CardContent>

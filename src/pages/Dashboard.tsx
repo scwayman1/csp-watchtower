@@ -167,8 +167,8 @@ const Dashboard = () => {
   const atRiskCount = activePositions.filter(p => p.pctAboveStrike < 5).length;
   const cashSecured = activePositions.reduce((sum, p) => sum + (p.strikePrice * 100 * p.contracts), 0);
   
-  // 4. Total Portfolio Value = Premiums + Assigned Shares Market Value + Active Positions Unrealized P/L
-  const totalPortfolioValue = totalPremium + assignedSharesMarketValue + totalUnrealizedPnL;
+  // 4. Total Portfolio Value = Cash + Other Holdings + Assigned Shares + Active Positions Unrealized P/L
+  const totalPortfolioValue = (settings.cash_balance || 0) + (settings.other_holdings_value || 0) + assignedSharesMarketValue + totalUnrealizedPnL;
   
   // Find next expiration (use active positions only)
   const sortedByExp = [...activePositions].sort((a, b) => a.daysToExp - b.daysToExp);
@@ -293,7 +293,7 @@ const Dashboard = () => {
           <StatCard
             title="Total Portfolio Value"
             value={`$${totalPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            subtitle="Premiums + holdings + P/L"
+            subtitle="Cash + holdings + shares + P/L"
             icon={TrendingUp}
           />
           <StatCard

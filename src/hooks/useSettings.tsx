@@ -8,6 +8,8 @@ interface UserSettings {
   market_data_provider: string;
   refresh_rate_seconds: number;
   volatility_sensitivity: number;
+  cash_balance: number;
+  other_holdings_value: number;
 }
 
 export function useSettings(userId: string | undefined) {
@@ -18,6 +20,8 @@ export function useSettings(userId: string | undefined) {
     market_data_provider: 'yahoo',
     refresh_rate_seconds: 60,
     volatility_sensitivity: 0.15,
+    cash_balance: 0,
+    other_holdings_value: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -40,6 +44,8 @@ export function useSettings(userId: string | undefined) {
             market_data_provider: data.market_data_provider || 'yahoo',
             refresh_rate_seconds: data.refresh_rate_seconds || 60,
             volatility_sensitivity: data.volatility_sensitivity || 0.15,
+            cash_balance: data.cash_balance || 0,
+            other_holdings_value: data.other_holdings_value || 0,
           });
         }
       } catch (error) {
