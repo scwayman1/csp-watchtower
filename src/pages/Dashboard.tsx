@@ -323,12 +323,24 @@ const Dashboard = () => {
             <CardTitle className="text-lg">Portfolio Command Panel</CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
               <CommandPanelCard
-                label="Net Worth"
-                value={`$${(totalPortfolioValue / 1000).toFixed(1)}K`}
-                trend={{ value: "2.3%", isPositive: true }}
-                icon={TrendingUp}
+                label="Total Premium"
+                value={`$${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                subtitle="All puts + calls collected"
+                icon={DollarSign}
+              />
+              <CommandPanelCard
+                label="Assigned Capital"
+                value={`$${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                subtitle={`Cost: $${assignedSharesCostBasis.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                icon={FileText}
+              />
+              <CommandPanelCard
+                label="Cash Secured"
+                value={`$${cashSecured.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                subtitle={`${activeContracts} active contracts`}
+                icon={Calendar}
               />
               <CommandPanelCard
                 label="Available Cash"
@@ -337,14 +349,9 @@ const Dashboard = () => {
                 icon={DollarSign}
               />
               <CommandPanelCard
-                label="Daily P/L"
+                label="Unrealized P/L"
                 value={`$${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                 trend={{ value: `${totalUnrealizedPnL >= 0 ? '+' : ''}${totalUnrealizedPnL.toFixed(0)}`, isPositive: totalUnrealizedPnL >= 0 }}
-              />
-              <CommandPanelCard
-                label="Theta / Day"
-                value={`$${(totalPremium / 30).toFixed(0)}`}
-                subtitle="Est. daily decay"
               />
               <div className="col-span-1">
                 <Card className="h-full">
@@ -358,18 +365,12 @@ const Dashboard = () => {
                   </CardContent>
                 </Card>
               </div>
-              <div className="col-span-1">
-                <Card className="h-full">
-                  <CardContent className="p-0">
-                    <RadialGauge 
-                      value={cycleCompletions} 
-                      max={100} 
-                      label="Cycle Completions"
-                      unit="%"
-                    />
-                  </CardContent>
-                </Card>
-              </div>
+              <CommandPanelCard
+                label="At-Risk"
+                value={atRiskCount.toString()}
+                subtitle="< 5% above strike"
+                icon={AlertTriangle}
+              />
             </div>
           </CardContent>
         </Card>
