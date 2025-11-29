@@ -19,6 +19,7 @@ export interface AssignedPosition {
   assignment_date: string;
   assignment_price: number;
   original_put_premium: number;
+  original_position_id?: string | null;
   cost_basis: number;
   is_active: boolean;
   current_price?: number;
@@ -92,6 +93,7 @@ export function useAssignedPositions() {
           assignment_date: pos.assignment_date,
           assignment_price: parseFloat(String(pos.assignment_price)),
           original_put_premium: parseFloat(String(pos.original_put_premium)),
+          original_position_id: pos.original_position_id,
           cost_basis: parseFloat(String(pos.cost_basis)),
           is_active: pos.is_active,
           current_price: currentPrice,
