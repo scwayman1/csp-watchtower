@@ -349,7 +349,7 @@ const Dashboard = () => {
         />
 
         {/* Portfolio Command Panel */}
-        <Card className="overflow-hidden">
+        <Card id="dashboard" className="scroll-mt-6 overflow-hidden">
           <CardHeader className="border-b border-border">
             <CardTitle className="text-lg">Portfolio Command Panel</CardTitle>
           </CardHeader>
@@ -428,7 +428,9 @@ const Dashboard = () => {
         />
 
         {/* Performance Analytics */}
-        <PerformanceMetrics positions={activePositions} />
+        <div id="analytics" className="scroll-mt-6">
+          <PerformanceMetrics positions={activePositions} />
+        </div>
 
         {/* AI Performance Tracking */}
         <AIPerformanceTracker />
@@ -437,7 +439,7 @@ const Dashboard = () => {
         <ExpirationCalendar positions={activePositions} />
 
         {/* Active Positions Matrix */}
-        <Card>
+        <Card id="positions" className="scroll-mt-6">
           <CardHeader className="border-b border-border">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Active Positions Matrix</CardTitle>
@@ -469,7 +471,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Assigned Positions Zone */}
-        <Card>
+        <Card id="assignments" className="scroll-mt-6">
           <CardHeader className="border-b border-border">
             <CardTitle className="text-lg">Assigned Positions Zone</CardTitle>
           </CardHeader>
@@ -480,7 +482,7 @@ const Dashboard = () => {
 
         {/* History Zone */}
         {expiredPositions.length > 0 && (
-          <Card>
+          <Card id="history" className="scroll-mt-6">
             <CardHeader className="border-b border-border">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">History Zone</CardTitle>

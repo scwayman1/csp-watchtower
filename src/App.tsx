@@ -8,8 +8,8 @@ import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import AcceptInvite from "./pages/AcceptInvite";
 import NotFound from "./pages/NotFound";
-import { NavLink } from "./components/NavLink";
-import { TerminalSidebar } from "./components/TerminalSidebar";
+import { AppSidebar } from "./components/AppSidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 const queryClient = new QueryClient();
 
@@ -25,16 +25,21 @@ const App = () => (
           <Route
             path="/*"
             element={
-              <div className="flex min-h-screen w-full bg-background">
-                <TerminalSidebar />
-                <main className="flex-1 overflow-x-hidden">
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </main>
-              </div>
+              <SidebarProvider>
+                <div className="flex min-h-screen w-full bg-background">
+                  <AppSidebar />
+                  <main className="flex-1 overflow-x-hidden">
+                    <div className="sticky top-0 z-10 h-12 flex items-center border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                      <SidebarTrigger className="ml-4" />
+                    </div>
+                    <Routes>
+                      <Route path="/" element={<Dashboard />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </main>
+                </div>
+              </SidebarProvider>
             }
           />
         </Routes>
