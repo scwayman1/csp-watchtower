@@ -129,10 +129,10 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
           )} />
           
           {/* Decorative themed icons in background */}
-          <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
-            <div className="absolute top-2 right-10 text-4xl">{theme.icon}</div>
-            <div className="absolute bottom-2 right-32 text-3xl">{theme.icon}</div>
-            <div className="absolute top-1/2 right-1/4 text-2xl">{theme.icon}</div>
+          <div className="absolute inset-0 overflow-hidden opacity-30 pointer-events-none">
+            <div className="absolute top-2 right-10 text-5xl">{theme.icon}</div>
+            <div className="absolute bottom-2 right-32 text-4xl">{theme.icon}</div>
+            <div className="absolute top-1/2 right-1/4 text-3xl">{theme.icon}</div>
           </div>
           
           <div className="flex items-center gap-4 flex-1 ml-2 relative z-10">
