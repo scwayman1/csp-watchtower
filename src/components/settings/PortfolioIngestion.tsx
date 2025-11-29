@@ -55,6 +55,10 @@ export function PortfolioIngestion({ onParsed }: PortfolioIngestionProps) {
       const lines = portfolioText.split('\n');
       let cashBalance = 0;
       let otherHoldingsValue = 0;
+      let skippedCount = 0;
+      let processedLines = 0;
+
+      console.log('Starting portfolio parse...', { totalLines: lines.length, trackedSymbols: Array.from(trackedSymbols) });
 
       for (const line of lines) {
         // Skip empty lines and headers
@@ -65,15 +69,21 @@ export function PortfolioIngestion({ onParsed }: PortfolioIngestionProps) {
         if (!valueMatch) continue;
 
         const value = parseFloat(valueMatch[1].replace(/,/g, ''));
+        processedLines++;
 
         // Skip if it's an option position (contains "PUT" or "CALL")
-        if (line.includes('PUT') || line.includes('CALL')) continue;
+        if (line.includes('PUT') || line.includes('CALL')) {
+          console.log('Skipping option:', line.substring(0, 50));
+          skippedCount++;
+          continue;
+        }
 
         // Check if it's a money market fund (FDRXX or similar cash-like instruments)
         if (line.includes('FDRXX') || 
             line.includes('CASH RESERVES') || 
             line.includes('MONEY MARKET') ||
             line.includes('TREASURY')) {
+          console.log('Found cash:', value, line.substring(0, 50));
           cashBalance += value;
         } 
         // Check if it's a symbol we're already tracking in positions or assigned_positions
@@ -83,19 +93,22 @@ export function PortfolioIngestion({ onParsed }: PortfolioIngestionProps) {
           );
           
           if (isTracked) {
-            // Skip - already tracked in positions or assigned_positions tables
+            console.log('Skipping tracked symbol:', line.substring(0, 50));
+            skippedCount++;
             continue;
           }
           
-          // Everything else is "other holdings" (mutual funds, bonds, etc.)
+          console.log('Found other holding:', value, line.substring(0, 50));
           otherHoldingsValue += value;
         }
       }
 
+      console.log('Parse complete:', { cashBalance, otherHoldingsValue, processedLines, skippedCount });
+
       if (cashBalance === 0 && otherHoldingsValue === 0) {
         toast({
           title: "No portfolio data found",
-          description: "Please paste your broker's portfolio summary with dollar amounts.",
+          description: `Processed ${processedLines} lines but found no cash or holdings. Check format: lines should contain dollar amounts like $1,234.56`,
           variant: "destructive",
         });
         return;
@@ -105,11 +118,12 @@ export function PortfolioIngestion({ onParsed }: PortfolioIngestionProps) {
       
       toast({
         title: "Portfolio parsed successfully",
-        description: `Cash: $${cashBalance.toLocaleString()} | Other Holdings: $${otherHoldingsValue.toLocaleString()}`,
+        description: `Cash: $${cashBalance.toLocaleString()} | Other Holdings: $${otherHoldingsValue.toLocaleString()} | Skipped: ${skippedCount} items`,
       });
       
       setPortfolioText("");
     } catch (error: any) {
+      console.error('Parsing error:', error);
       toast({
         title: "Parsing failed",
         description: error.message || "Could not parse portfolio data",
