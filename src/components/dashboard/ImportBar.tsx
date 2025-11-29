@@ -8,6 +8,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import * as pdfjsLib from 'pdfjs-dist';
 
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
+
 export function ImportBar() {
   const [orderText, setOrderText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,9 +45,6 @@ export function ImportBar() {
         });
         
         try {
-          // Set worker source for PDF.js
-          pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-          
           // Read file as array buffer
           const arrayBuffer = await file.arrayBuffer();
           
