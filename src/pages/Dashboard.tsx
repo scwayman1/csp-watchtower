@@ -4,6 +4,7 @@ import { ImportBar } from "@/components/dashboard/ImportBar";
 import { FiltersToolbar } from "@/components/dashboard/FiltersToolbar";
 import { PositionsTable } from "@/components/dashboard/PositionsTable";
 import { AssignedPositionsTable } from "@/components/dashboard/AssignedPositionsTable";
+import { HistoryExpiredBatches } from "@/components/dashboard/HistoryExpiredBatches";
 import { TimePeriodFilter, TimePeriod } from "@/components/dashboard/TimePeriodFilter";
 import { PerformanceMetrics } from "@/components/dashboard/PerformanceMetrics";
 import { ExpirationCalendar } from "@/components/dashboard/ExpirationCalendar";
@@ -350,14 +351,11 @@ const Dashboard = () => {
 
         {/* History - Expired Positions */}
         {expiredPositions.length > 0 && (
-          <div>
-            <h2 className="text-xl font-semibold mb-4">History (Expired Positions)</h2>
-            <PositionsTable 
-              positions={expiredPositions} 
-              onRefetch={refetch}
-              onRefetchAssigned={refetchAssigned}
-            />
-          </div>
+          <HistoryExpiredBatches 
+            positions={expiredPositions} 
+            onRefetch={refetch}
+            onRefetchAssigned={refetchAssigned}
+          />
         )}
 
         {/* Learning Center */}
