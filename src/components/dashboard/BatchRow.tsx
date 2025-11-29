@@ -14,6 +14,7 @@ const getBatchTheme = (dateString: string) => {
       gradient: "from-orange-500/20 via-amber-500/10 to-orange-600/20",
       accentBar: "bg-gradient-to-b from-orange-500 to-amber-600",
       icon: "🦃",
+      icons: ["🦃", "🌽", "🎃", "🍂"],
       iconBg: "bg-orange-500/30",
       iconBgHover: "bg-orange-500/50",
       textAccent: "text-orange-400"
@@ -22,6 +23,7 @@ const getBatchTheme = (dateString: string) => {
       gradient: "from-blue-500/20 via-cyan-500/10 to-blue-600/20",
       accentBar: "bg-gradient-to-b from-blue-400 to-cyan-500",
       icon: "❄️",
+      icons: ["❄️", "⛄", "🎄", "🎁"],
       iconBg: "bg-blue-500/30",
       iconBgHover: "bg-blue-500/50",
       textAccent: "text-blue-400"
@@ -30,6 +32,7 @@ const getBatchTheme = (dateString: string) => {
       gradient: "from-pink-500/20 via-rose-500/10 to-pink-600/20",
       accentBar: "bg-gradient-to-b from-pink-400 to-rose-500",
       icon: "🌸",
+      icons: ["🌸", "🌷", "🦋", "🌼"],
       iconBg: "bg-pink-500/30",
       iconBgHover: "bg-pink-500/50",
       textAccent: "text-pink-400"
@@ -38,6 +41,7 @@ const getBatchTheme = (dateString: string) => {
       gradient: "from-yellow-500/20 via-amber-500/10 to-yellow-600/20",
       accentBar: "bg-gradient-to-b from-yellow-400 to-amber-500",
       icon: "☀️",
+      icons: ["☀️", "🏖️", "🌊", "🍉"],
       iconBg: "bg-yellow-500/30",
       iconBgHover: "bg-yellow-500/50",
       textAccent: "text-yellow-400"
@@ -46,6 +50,7 @@ const getBatchTheme = (dateString: string) => {
       gradient: "from-red-500/20 via-orange-500/10 to-red-600/20",
       accentBar: "bg-gradient-to-b from-red-400 to-orange-500",
       icon: "🍂",
+      icons: ["🍂", "🍁", "🎃", "🌰"],
       iconBg: "bg-red-500/30",
       iconBgHover: "bg-red-500/50",
       textAccent: "text-red-400"
@@ -130,9 +135,11 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
           
           {/* Decorative themed icons in background */}
           <div className="absolute inset-0 overflow-hidden opacity-30 pointer-events-none">
-            <div className="absolute top-2 right-10 text-5xl">{theme.icon}</div>
-            <div className="absolute bottom-2 right-32 text-4xl">{theme.icon}</div>
-            <div className="absolute top-1/2 right-1/4 text-3xl">{theme.icon}</div>
+            <div className="absolute top-2 right-10 text-5xl">{theme.icons[0]}</div>
+            <div className="absolute bottom-2 right-32 text-4xl">{theme.icons[1]}</div>
+            <div className="absolute top-1/2 right-1/4 text-3xl">{theme.icons[2]}</div>
+            <div className="absolute top-4 right-1/2 text-4xl">{theme.icons[3]}</div>
+            <div className="absolute bottom-4 right-16 text-3xl">{theme.icons[0]}</div>
           </div>
           
           <div className="flex items-center gap-4 flex-1 ml-2 relative z-10">
