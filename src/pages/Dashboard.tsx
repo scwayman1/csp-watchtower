@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { CommandPanelCard } from "@/components/dashboard/CommandPanelCard";
 import { RadialGauge } from "@/components/dashboard/RadialGauge";
 import { AssetsTrendChart } from "@/components/dashboard/AssetsTrendChart";
@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
 import { useAssignedPositions } from "@/hooks/useAssignedPositions";
 import { useSettings } from "@/hooks/useSettings";
+import { usePortfolioHistory } from "@/hooks/usePortfolioHistory";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -33,6 +34,7 @@ const Dashboard = () => {
   const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions();
   const { assignedPositions, loading: assignedLoading, refetch: refetchAssigned } = useAssignedPositions();
   const { settings } = useSettings(user?.id);
+  const { history: portfolioHistory, recordSnapshot } = usePortfolioHistory(user?.id);
   const { toast } = useToast();
   const [refreshing, setRefreshing] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
@@ -203,6 +205,31 @@ const Dashboard = () => {
     ? (settings.other_holdings_value || 0) 
     : (settings.cash_balance || 0) + assignedSharesMarketValue + totalUnrealizedPnL;
   
+  // Record portfolio snapshot when key metrics change
+  useEffect(() => {
+    if (!user?.id || authLoading || positionsLoading || assignedLoading) return;
+    
+    const recordPortfolioSnapshot = async () => {
+      try {
+        await recordSnapshot({
+          portfolio_value: totalPortfolioValue,
+          cash_balance: settings?.cash_balance || 0,
+          positions_value: totalUnrealizedPnL,
+          assigned_shares_value: assignedSharesMarketValue,
+          total_premiums_collected: totalPremium,
+          net_position_pnl: totalUnrealizedPnL,
+          event_type: 'snapshot',
+          event_description: 'Automated portfolio snapshot',
+        });
+      } catch (error) {
+        console.error('Failed to record portfolio snapshot:', error);
+      }
+    };
+
+    // Record snapshot on significant changes
+    recordPortfolioSnapshot();
+  }, [user?.id, totalPortfolioValue, totalPremium, assignedSharesMarketValue, totalUnrealizedPnL]);
+  
   // Find next expiration (use active positions only)
   const sortedByExp = [...activePositions].sort((a, b) => a.daysToExp - b.daysToExp);
   const nextExp = sortedByExp[0];
@@ -338,6 +365,13 @@ const Dashboard = () => {
                 icon={DollarSign}
               />
               <CommandPanelCard
+                label="Net Position P/L"
+                value={`$${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                subtitle="Unrealized gains/losses"
+                icon={TrendingUp}
+                trend={{ value: `${totalUnrealizedPnL >= 0 ? '+' : ''}${totalUnrealizedPnL.toFixed(0)}`, isPositive: totalUnrealizedPnL >= 0 }}
+              />
+              <CommandPanelCard
                 label="Assigned Capital"
                 value={`$${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                 subtitle={`Cost: $${assignedSharesCostBasis.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
@@ -354,11 +388,6 @@ const Dashboard = () => {
                 value={`$${((settings.cash_balance || 0) / 1000).toFixed(1)}K`}
                 subtitle="Liquid capital"
                 icon={DollarSign}
-              />
-              <CommandPanelCard
-                label="Unrealized P/L"
-                value={`$${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-                trend={{ value: `${totalUnrealizedPnL >= 0 ? '+' : ''}${totalUnrealizedPnL.toFixed(0)}`, isPositive: totalUnrealizedPnL >= 0 }}
               />
               <div className="col-span-1">
                 <Card className="h-full">
@@ -380,7 +409,7 @@ const Dashboard = () => {
               />
               
               {/* Assets Trend Chart - spans multiple columns */}
-              <AssetsTrendChart currentValue={totalPortfolioValue} />
+              <AssetsTrendChart currentValue={totalPortfolioValue} history={portfolioHistory} />
             </div>
           </CardContent>
         </Card>

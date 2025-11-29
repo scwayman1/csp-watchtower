@@ -444,6 +444,48 @@ export type Database = {
           },
         ]
       }
+      portfolio_history: {
+        Row: {
+          assigned_shares_value: number
+          cash_balance: number
+          created_at: string
+          event_description: string | null
+          event_type: string
+          id: string
+          net_position_pnl: number
+          portfolio_value: number
+          positions_value: number
+          total_premiums_collected: number
+          user_id: string
+        }
+        Insert: {
+          assigned_shares_value: number
+          cash_balance: number
+          created_at?: string
+          event_description?: string | null
+          event_type: string
+          id?: string
+          net_position_pnl?: number
+          portfolio_value: number
+          positions_value: number
+          total_premiums_collected?: number
+          user_id: string
+        }
+        Update: {
+          assigned_shares_value?: number
+          cash_balance?: number
+          created_at?: string
+          event_description?: string | null
+          event_type?: string
+          id?: string
+          net_position_pnl?: number
+          portfolio_value?: number
+          positions_value?: number
+          total_premiums_collected?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       position_shares: {
         Row: {
           accepted_at: string | null
