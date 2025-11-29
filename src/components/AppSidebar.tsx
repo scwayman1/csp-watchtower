@@ -11,6 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -48,6 +49,11 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border transition-all duration-300">
       <SidebarContent>
+        {/* Collapse Trigger */}
+        <div className="p-2 border-b border-sidebar-border flex items-center justify-end">
+          <SidebarTrigger className="hover:bg-sidebar-accent" />
+        </div>
+
         {/* Logo / Brand */}
         <div className="p-4 border-b border-sidebar-border">
           {!isCollapsed ? (
