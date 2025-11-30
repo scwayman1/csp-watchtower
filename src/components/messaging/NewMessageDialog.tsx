@@ -34,6 +34,7 @@ const messageSchema = z.object({
 type Client = {
   id: string;
   name: string;
+  invite_status: string | null;
 };
 
 export function NewMessageDialog() {
@@ -58,9 +59,8 @@ export function NewMessageDialog() {
 
     const { data, error } = await supabase
       .from("clients")
-      .select("id, name")
+      .select("id, name, invite_status")
       .eq("advisor_id", user.id)
-      .eq("invite_status", "ACCEPTED")
       .order("name");
 
     if (error) {
@@ -160,6 +160,9 @@ export function NewMessageDialog() {
                   clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
+                      {client.invite_status === 'PENDING' && (
+                        <span className="text-xs text-muted-foreground ml-2">(Pending)</span>
+                      )}
                     </SelectItem>
                   ))
                 )}
