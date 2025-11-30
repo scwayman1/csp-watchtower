@@ -33,49 +33,101 @@ export function useMessaging() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from("threads")
-      .select("*")
-      .eq("advisor_id", user.id)
-      .order("last_message_at", { ascending: false });
+    // Check if user is advisor or client
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id);
+
+    const isAdvisor = roles?.some(r => r.role === 'advisor');
+
+    let threadsQuery;
+    if (isAdvisor) {
+      // Advisor: fetch threads where they are the advisor
+      threadsQuery = supabase
+        .from("threads")
+        .select("*")
+        .eq("advisor_id", user.id)
+        .order("last_message_at", { ascending: false });
+    } else {
+      // Client: fetch threads where they are linked as client
+      const { data: clientData } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!clientData) {
+        setThreads([]);
+        setLoading(false);
+        return;
+      }
+
+      threadsQuery = supabase
+        .from("threads")
+        .select("*")
+        .eq("client_id", clientData.id)
+        .order("last_message_at", { ascending: false });
+    }
+
+    const { data, error } = await threadsQuery;
 
     if (error) {
       console.error("Error fetching threads:", error);
       return;
     }
 
-    // Fetch client names separately
+    // Fetch client names or advisor names depending on role
     if (data && data.length > 0) {
-      const clientIds = [...new Set(data.map(t => t.client_id))];
-      const { data: clients } = await supabase
-        .from("clients")
-        .select("id, name")
-        .in("id", clientIds);
+      if (isAdvisor) {
+        const clientIds = [...new Set(data.map(t => t.client_id))] as string[];
+        const { data: clients } = await supabase
+          .from("clients")
+          .select("id, name")
+          .in("id", clientIds);
 
-      const clientMap = new Map(clients?.map(c => [c.id, c.name]) || []);
-      
-      // Fetch unread counts for each thread
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+        const clientMap = new Map(clients?.map(c => [c.id, c.name]) || []);
+        
+        // Fetch unread counts for each thread
+        const threadsWithNamesAndCounts = await Promise.all(
+          data.map(async (thread) => {
+            const { count } = await supabase
+              .from("messages")
+              .select("*", { count: 'exact', head: true })
+              .eq("thread_id", thread.id)
+              .eq("recipient_id", user.id)
+              .is("read_at", null);
 
-      const threadsWithNamesAndCounts = await Promise.all(
-        data.map(async (thread) => {
-          const { count } = await supabase
-            .from("messages")
-            .select("*", { count: 'exact', head: true })
-            .eq("thread_id", thread.id)
-            .eq("recipient_id", user.id)
-            .is("read_at", null);
+            return {
+              ...thread,
+              client_name: clientMap.get(thread.client_id) || "Unknown Client",
+              unread_count: count || 0
+            };
+          })
+        );
 
-          return {
-            ...thread,
-            client_name: clientMap.get(thread.client_id) || "Unknown Client",
-            unread_count: count || 0
-          };
-        })
-      );
+        setThreads(threadsWithNamesAndCounts);
+      } else {
+        // For clients, show "Advisor" as the name
+        const threadsWithNamesAndCounts = await Promise.all(
+          data.map(async (thread) => {
+            const { count } = await supabase
+              .from("messages")
+              .select("*", { count: 'exact', head: true })
+              .eq("thread_id", thread.id)
+              .eq("recipient_id", user.id)
+              .is("read_at", null);
 
-      setThreads(threadsWithNamesAndCounts);
+            return {
+              ...thread,
+              client_name: "Your Advisor",
+              unread_count: count || 0
+            };
+          })
+        );
+
+        setThreads(threadsWithNamesAndCounts);
+      }
     } else {
       setThreads([]);
     }
