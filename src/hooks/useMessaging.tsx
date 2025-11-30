@@ -156,12 +156,33 @@ export function useMessaging() {
     const thread = threads.find(t => t.id === threadId);
     if (!thread) return;
 
+    // Determine recipient based on who is sending
+    let recipientUserId: string;
+    
+    if (user.id === thread.advisor_id) {
+      // Advisor sending to client - get client's user_id
+      const { data: client } = await supabase
+        .from("clients")
+        .select("user_id")
+        .eq("id", thread.client_id)
+        .maybeSingle();
+      
+      if (!client?.user_id) {
+        console.error("Client user_id not found");
+        return;
+      }
+      recipientUserId = client.user_id;
+    } else {
+      // Client sending to advisor
+      recipientUserId = thread.advisor_id;
+    }
+
     const { error } = await supabase
       .from("messages")
       .insert({
         thread_id: threadId,
         sender_id: user.id,
-        recipient_id: thread.client_id,
+        recipient_id: recipientUserId,
         content
       });
 
@@ -176,34 +197,13 @@ export function useMessaging() {
       .update({ last_message_at: new Date().toISOString() })
       .eq("id", threadId);
 
-    // Trigger push notification to the client user (if linked)
+    // Trigger push notification
     try {
-      let recipientUserId: string | null = null;
-
-      const { data: client, error: clientError } = await supabase
-        .from("clients")
-        .select("user_id")
-        .eq("id", thread.client_id)
-        .maybeSingle();
-
-      if (clientError) {
-        console.error("Error fetching client for push notification:", clientError);
-      }
-
-      if (client?.user_id) {
-        recipientUserId = client.user_id;
-      }
-
-      if (!recipientUserId) {
-        console.log("No linked client user_id for thread; skipping push notification");
-        return;
-      }
-
       await supabase.functions.invoke('send-push-notification', {
         body: {
           userId: recipientUserId,
           title: 'New Message',
-          body: 'New message from your advisor',
+          body: user.id === thread.advisor_id ? 'New message from your advisor' : 'New message from client',
           data: { threadId, messageContent: content }
         }
       });
