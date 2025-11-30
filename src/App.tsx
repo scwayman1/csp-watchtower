@@ -18,6 +18,8 @@ import AdvisorDashboard from "./pages/advisor/AdvisorDashboard";
 import ClientsPage from "./pages/advisor/ClientsPage";
 import CycleSheetPage from "./pages/advisor/CycleSheetPage";
 import OrdersPage from "./pages/advisor/OrdersPage";
+import Messages from "./pages/Messages";
+import MessagesPage from "./pages/advisor/MessagesPage";
 
 const queryClient = new QueryClient();
 
@@ -45,12 +47,14 @@ const AppContent = () => {
                 <Route path="/advisor/cyclesheet" element={<CycleSheetPage />} />
                 <Route path="/advisor/trades" element={<div className="p-6">Model Trades (Coming Soon)</div>} />
                 <Route path="/advisor/orders" element={<OrdersPage />} />
+                <Route path="/advisor/messages" element={<MessagesPage />} />
                 <Route path="/advisor/settings" element={<Settings />} />
                 <Route path="*" element={<AdvisorDashboard />} />
               </>
             ) : (
               <>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/messages" element={<Messages />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </>

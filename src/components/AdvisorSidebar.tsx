@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileSpreadsheet, TrendingUp, Activity, Settings } from "lucide-react";
+import { LayoutDashboard, Users, FileSpreadsheet, TrendingUp, Activity, MessageSquare, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -37,6 +37,11 @@ const advisorMenuItems = [
     title: "Orders & Activity",
     url: "/advisor/orders",
     icon: Activity,
+  },
+  {
+    title: "Messages",
+    url: "/advisor/messages",
+    icon: MessageSquare,
   },
   {
     title: "Settings",
