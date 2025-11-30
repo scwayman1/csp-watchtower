@@ -10,11 +10,15 @@ interface CommandPanelCardProps {
     value: string;
     isPositive: boolean;
   };
+  onClick?: () => void;
 }
 
-export function CommandPanelCard({ label, value, subtitle, icon: Icon, trend }: CommandPanelCardProps) {
+export function CommandPanelCard({ label, value, subtitle, icon: Icon, trend, onClick }: CommandPanelCardProps) {
   return (
-    <Card className="overflow-hidden">
+    <Card 
+      className={`overflow-hidden ${onClick ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
+      onClick={onClick}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-2">
           <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>

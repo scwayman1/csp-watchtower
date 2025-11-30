@@ -9,6 +9,7 @@ interface StatCardProps {
   icon?: LucideIcon;
   badgeVariant?: "success" | "warning" | "destructive" | "default";
   badgeLabel?: string;
+  onClick?: () => void;
 }
 
 export function StatCard({ 
@@ -17,10 +18,14 @@ export function StatCard({
   subtitle, 
   icon: Icon,
   badgeVariant,
-  badgeLabel 
+  badgeLabel,
+  onClick 
 }: StatCardProps) {
   return (
-    <Card>
+    <Card 
+      className={onClick ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}
+      onClick={onClick}
+    >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xs sm:text-sm font-medium">{title}</CardTitle>
         {Icon && <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />}
