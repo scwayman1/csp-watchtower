@@ -784,6 +784,51 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          investment_experience: string | null
+          investment_goals: string | null
+          preferred_strategies: string[] | null
+          risk_tolerance: string | null
+          updated_at: string
+          user_id: string
+          years_trading: number | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          investment_experience?: string | null
+          investment_goals?: string | null
+          preferred_strategies?: string[] | null
+          risk_tolerance?: string | null
+          updated_at?: string
+          user_id: string
+          years_trading?: number | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          investment_experience?: string | null
+          investment_goals?: string | null
+          preferred_strategies?: string[] | null
+          risk_tolerance?: string | null
+          updated_at?: string
+          user_id?: string
+          years_trading?: number | null
+        }
+        Relationships: []
+      }
       simulator_portfolio_history: {
         Row: {
           assigned_shares_value: number
