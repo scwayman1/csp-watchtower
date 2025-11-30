@@ -78,8 +78,10 @@ export function AdvisorSidebar() {
                       activeClassName="bg-accent text-accent-foreground font-medium"
                     >
                       <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                      {item.title === "Messages" && <UnreadBadge />}
+                      <span className="flex items-center gap-2">
+                        {item.title}
+                        {item.title === "Messages" && <UnreadBadge />}
+                      </span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
