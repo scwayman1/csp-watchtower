@@ -15,6 +15,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { UnreadBadge } from "@/components/messaging/UnreadBadge";
 
 const dashboardSections = [
   { title: "Overview", id: "dashboard", icon: LayoutDashboard },
@@ -141,7 +142,12 @@ export function AppSidebar() {
                     activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                   >
                     <MessageSquare className="h-4 w-4" />
-                    {!isCollapsed && <span>Messages</span>}
+                    {!isCollapsed && (
+                      <>
+                        <span>Messages</span>
+                        <UnreadBadge />
+                      </>
+                    )}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

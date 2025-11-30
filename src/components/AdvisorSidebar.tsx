@@ -11,6 +11,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
 } from "@/components/ui/sidebar";
+import { UnreadBadge } from "@/components/messaging/UnreadBadge";
 
 const advisorMenuItems = [
   {
@@ -67,7 +68,7 @@ export function AdvisorSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {advisorMenuItems.map((item) => (
+               {advisorMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -78,6 +79,7 @@ export function AdvisorSidebar() {
                     >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
+                      {item.title === "Messages" && <UnreadBadge />}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

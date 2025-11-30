@@ -14,6 +14,7 @@ export function useMessaging() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
 
   useEffect(() => {
     fetchThreads();
@@ -23,6 +24,7 @@ export function useMessaging() {
   useEffect(() => {
     if (selectedThreadId) {
       fetchMessages(selectedThreadId);
+      markThreadAsRead(selectedThreadId);
       subscribeToMessages(selectedThreadId);
     }
   }, [selectedThreadId]);
@@ -52,12 +54,28 @@ export function useMessaging() {
 
       const clientMap = new Map(clients?.map(c => [c.id, c.name]) || []);
       
-      const threadsWithNames = data.map(thread => ({
-        ...thread,
-        client_name: clientMap.get(thread.client_id) || "Unknown Client"
-      }));
+      // Fetch unread counts for each thread
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      setThreads(threadsWithNames);
+      const threadsWithNamesAndCounts = await Promise.all(
+        data.map(async (thread) => {
+          const { count } = await supabase
+            .from("messages")
+            .select("*", { count: 'exact', head: true })
+            .eq("thread_id", thread.id)
+            .eq("recipient_id", user.id)
+            .is("read_at", null);
+
+          return {
+            ...thread,
+            client_name: clientMap.get(thread.client_id) || "Unknown Client",
+            unread_count: count || 0
+          };
+        })
+      );
+
+      setThreads(threadsWithNamesAndCounts);
     } else {
       setThreads([]);
     }
@@ -199,6 +217,7 @@ export function useMessaging() {
         },
         () => {
           fetchMessages(threadId);
+          fetchThreads(); // Refresh unread counts
         }
       )
       .subscribe();
@@ -208,13 +227,39 @@ export function useMessaging() {
     };
   };
 
+  const markThreadAsRead = async (threadId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("thread_id", threadId)
+      .eq("recipient_id", user.id)
+      .is("read_at", null);
+
+    // Refresh threads to update unread counts
+    fetchThreads();
+  };
+
+  const filteredThreads = threads.filter(thread => {
+    if (filter === 'unread') return (thread.unread_count || 0) > 0;
+    if (filter === 'read') return (thread.unread_count || 0) === 0;
+    return true;
+  });
+
+  const totalUnreadCount = threads.reduce((sum, thread) => sum + (thread.unread_count || 0), 0);
+
   return {
-    threads,
+    threads: filteredThreads,
     messages,
     selectedThreadId,
     setSelectedThreadId,
     loading,
     sendMessage,
-    createThread
+    createThread,
+    filter,
+    setFilter,
+    totalUnreadCount
   };
 }

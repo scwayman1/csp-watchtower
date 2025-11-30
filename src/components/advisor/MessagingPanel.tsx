@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MessageSquare, Send } from "lucide-react";
+import { MessageSquare, Send, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,11 @@ import { useMessaging } from "@/hooks/useMessaging";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { NotificationToggle } from "@/components/messaging/NotificationToggle";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function MessagingPanel() {
-  const { threads, messages, selectedThreadId, setSelectedThreadId, sendMessage } = useMessaging();
+  const { threads, messages, selectedThreadId, setSelectedThreadId, sendMessage, filter, setFilter } = useMessaging();
   const [messageInput, setMessageInput] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string>("");
 
@@ -40,8 +42,16 @@ export function MessagingPanel() {
           </div>
           <NotificationToggle />
         </div>
+
+        <Tabs value={filter} onValueChange={(value) => setFilter(value as 'all' | 'unread' | 'read')} className="mb-4">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="unread">Unread</TabsTrigger>
+            <TabsTrigger value="read">Read</TabsTrigger>
+          </TabsList>
+        </Tabs>
         
-        <ScrollArea className="h-[520px]">
+        <ScrollArea className="h-[460px]">
           <div className="space-y-2">
             {threads.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
@@ -52,18 +62,27 @@ export function MessagingPanel() {
                 <button
                   key={thread.id}
                   onClick={() => setSelectedThreadId(thread.id)}
-                  className={`w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors ${
+                  className={`w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors relative ${
                     selectedThreadId === thread.id ? "bg-muted" : ""
                   }`}
                 >
-                  <div className="font-medium text-sm">{thread.client_name}</div>
-                  {thread.subject && (
-                    <div className="text-xs text-muted-foreground truncate">
-                      {thread.subject}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">{thread.client_name}</div>
+                      {thread.subject && (
+                        <div className="text-xs text-muted-foreground truncate">
+                          {thread.subject}
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {formatDistanceToNow(new Date(thread.last_message_at), { addSuffix: true })}
+                      </div>
                     </div>
-                  )}
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {formatDistanceToNow(new Date(thread.last_message_at), { addSuffix: true })}
+                    {(thread.unread_count || 0) > 0 && (
+                      <Badge variant="destructive" className="ml-2 h-5 min-w-5 flex items-center justify-center px-1.5">
+                        {thread.unread_count}
+                      </Badge>
+                    )}
                   </div>
                 </button>
               ))
