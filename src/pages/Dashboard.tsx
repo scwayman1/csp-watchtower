@@ -12,6 +12,7 @@ import { PerformanceMetrics } from "@/components/dashboard/PerformanceMetrics";
 import { ExpirationCalendar } from "@/components/dashboard/ExpirationCalendar";
 import { AIPerformanceTracker } from "@/components/dashboard/AIPerformanceTracker";
 import { LearningCenter } from "@/components/dashboard/LearningCenter";
+import { AssignedCapitalDialog } from "@/components/dashboard/AssignedCapitalDialog";
 import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
@@ -39,6 +40,7 @@ const Dashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
+  const [assignedCapitalDialogOpen, setAssignedCapitalDialogOpen] = useState(false);
   
   const hasSharedPositions = sharedOwners && sharedOwners.size > 0;
   const ownPositions = positions.filter(p => !sharedOwners?.has(p.id));
@@ -379,6 +381,7 @@ const Dashboard = () => {
                 value={`$${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                 subtitle={`Cost: $${assignedSharesCostBasis.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                 icon={FileText}
+                onClick={() => setAssignedCapitalDialogOpen(true)}
               />
               <CommandPanelCard
                 label="Cash Secured"
@@ -502,6 +505,14 @@ const Dashboard = () => {
         {/* Learning Center */}
         <LearningCenter />
       </div>
+
+      {/* Assigned Capital Dialog */}
+      <AssignedCapitalDialog
+        open={assignedCapitalDialogOpen}
+        onOpenChange={setAssignedCapitalDialogOpen}
+        assignedPositions={filteredAssignedPositions}
+        totalAssignedCapital={assignedSharesMarketValue}
+      />
     </div>
   );
 };
