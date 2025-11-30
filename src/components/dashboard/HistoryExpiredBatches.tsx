@@ -16,6 +16,7 @@ interface AssignedPositionData {
   shares: number;
   original_put_premium: number;
   original_position_id: string | null;
+  assignment_price: number;
 }
 
 interface OriginalPositionData {
@@ -50,7 +51,7 @@ export function HistoryExpiredBatches({ positions, onRefetch, onRefetchAssigned 
       // Fetch assigned positions
       const { data: assignedData } = await supabase
         .from('assigned_positions')
-        .select('id, symbol, shares, original_put_premium, original_position_id')
+        .select('id, symbol, shares, original_put_premium, original_position_id, assignment_price')
         .eq('user_id', user.id);
 
       if (assignedData) {
