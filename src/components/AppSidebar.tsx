@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Target, Building2, BarChart3, History, Settings, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Target, Building2, BarChart3, History, MessageSquare, Settings, ChevronDown } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -129,10 +129,22 @@ export function AppSidebar() {
           )}
         </SidebarGroup>
 
-        {/* Settings (Always Visible) */}
+        {/* Messages & Settings (Always Visible) */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Messages">
+                  <NavLink
+                    to="/messages"
+                    className="flex items-center gap-2"
+                    activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    {!isCollapsed && <span>Messages</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Settings">
                   <NavLink
