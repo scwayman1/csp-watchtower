@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 export type AppRole = "investor" | "advisor" | "admin";
 
 export function useUserRole() {
+  const navigate = useNavigate();
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeRole, setActiveRole] = useState<AppRole>("investor");
@@ -58,22 +60,18 @@ export function useUserRole() {
         if (currentPath.startsWith("/advisor")) {
           // If on advisor settings, go to investor settings
           if (currentPath === "/advisor/settings") {
-            window.location.href = "/settings";
+            navigate("/settings");
           } else {
             // Otherwise go to investor dashboard
-            window.location.href = "/";
+            navigate("/");
           }
-        } else {
-          window.location.reload();
         }
       } else if (role === "advisor" || role === "admin") {
         // Switching to advisor - redirect to advisor routes
         if (currentPath === "/settings") {
-          window.location.href = "/advisor/settings";
+          navigate("/advisor/settings");
         } else if (!currentPath.startsWith("/advisor")) {
-          window.location.href = "/advisor";
-        } else {
-          window.location.reload();
+          navigate("/advisor");
         }
       }
     }
