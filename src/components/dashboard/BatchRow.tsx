@@ -226,9 +226,96 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
           theme.gradient,
           "backdrop-blur-sm"
         )}>
+          {/* Expired Positions Section */}
+          {positions.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-px flex-1 bg-success/30" />
+                <span className="text-xs font-semibold text-success uppercase tracking-wider px-2">
+                  Expired Positions (Kept Premium)
+                </span>
+                <div className="h-px flex-1 bg-success/30" />
+              </div>
+              <div className="rounded-lg border border-success/30 bg-success/5 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-success/20 bg-success/10">
+                        <th className="text-left p-3 text-xs font-semibold text-success uppercase tracking-wider">Symbol</th>
+                        <th className="text-right p-3 text-xs font-semibold text-success uppercase tracking-wider">Contracts</th>
+                        <th className="text-right p-3 text-xs font-semibold text-success uppercase tracking-wider">Strike</th>
+                        <th className="text-right p-3 text-xs font-semibold text-success uppercase tracking-wider">Premium/Contract</th>
+                        <th className="text-right p-3 text-xs font-semibold text-success uppercase tracking-wider">Total Premium</th>
+                        <th className="text-right p-3 text-xs font-semibold text-success uppercase tracking-wider">Final Underlying</th>
+                        <th className="text-right p-3 text-xs font-semibold text-success uppercase tracking-wider">% Above Strike</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {positions.map((pos) => {
+                        const pctAbove = ((pos.underlyingPrice - pos.strikePrice) / pos.strikePrice) * 100;
+                        return (
+                          <tr key={pos.id} className="border-b border-success/10 hover:bg-success/10 transition-colors">
+                            <td className="p-3">
+                              <span className="font-semibold text-foreground">{pos.symbol}</span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className="font-semibold text-foreground">{pos.contracts}</span>
+                            </td>
+                            <td className="p-3 text-right text-muted-foreground">
+                              {formatCurrency(pos.strikePrice)}
+                            </td>
+                            <td className="p-3 text-right text-muted-foreground">
+                              {formatCurrency(pos.premiumPerContract)}
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className="font-semibold text-success">
+                                {formatCurrency(pos.totalPremium)}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className="font-medium text-foreground">
+                                {formatCurrency(pos.underlyingPrice)}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className={cn(
+                                "font-semibold",
+                                pctAbove >= 10 ? "text-success" : pctAbove >= 5 ? "text-warning" : "text-muted-foreground"
+                              )}>
+                                +{pctAbove.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-success/30 bg-success/10">
+                        <td className="p-3 text-xs font-semibold text-success uppercase">Total</td>
+                        <td className="p-3 text-right font-bold text-foreground">
+                          {contractsCount}
+                        </td>
+                        <td className="p-3"></td>
+                        <td className="p-3"></td>
+                        <td className="p-3 text-right font-bold text-success">
+                          {formatCurrency(expiredPremium)}
+                        </td>
+                        <td className="p-3"></td>
+                        <td className="p-3"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 italic">
+                These positions expired out-of-the-money. Full premium was kept.
+              </p>
+            </div>
+          )}
+          
           {/* Assigned Positions Section */}
           {assignedPositions.length > 0 && (
-            <div className="mb-6">
+            <div>
               <div className="flex items-center gap-2 mb-3">
                 <div className="h-px flex-1 bg-warning/30" />
                 <span className="text-xs font-semibold text-warning uppercase tracking-wider px-2">
@@ -308,26 +395,8 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2 italic">
-                These assigned positions are also shown in the Assigned Positions table above for current tracking.
+                These positions went ITM and were assigned. Now tracked in the Assigned Positions table above.
               </p>
-            </div>
-          )}
-          
-          {/* Expired Positions Section */}
-          {positions.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="h-px flex-1 bg-border/50" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
-                  Expired Positions
-                </span>
-                <div className="h-px flex-1 bg-border/50" />
-              </div>
-              <PositionsTable 
-                positions={positions}
-                onRefetch={onRefetch}
-                onRefetchAssigned={onRefetchAssigned}
-              />
             </div>
           )}
         </div>
