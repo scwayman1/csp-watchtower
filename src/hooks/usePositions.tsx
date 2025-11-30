@@ -17,7 +17,6 @@ export function usePositions() {
       const { data: positionsData, error: positionsError } = await supabase
         .from('positions')
         .select('*')
-        .eq('is_active', true)
         .order('expiration', { ascending: true });
 
       if (positionsError) throw positionsError;
