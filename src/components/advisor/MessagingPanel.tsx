@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MessageSquare, Send, Plus } from "lucide-react";
+import { MessageSquare, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,15 @@ import { formatDistanceToNow } from "date-fns";
 import { NotificationToggle } from "@/components/messaging/NotificationToggle";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { NewMessageDialog } from "@/components/messaging/NewMessageDialog";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export function MessagingPanel() {
   const { threads, messages, selectedThreadId, setSelectedThreadId, sendMessage, filter, setFilter } = useMessaging();
+  const { activeRole } = useUserRole();
   const [messageInput, setMessageInput] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -25,8 +29,19 @@ export function MessagingPanel() {
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !selectedThreadId) return;
     
-    await sendMessage(selectedThreadId, messageInput);
-    setMessageInput("");
+    // Validate message length
+    const trimmedMessage = messageInput.trim();
+    if (trimmedMessage.length > 5000) {
+      return;
+    }
+
+    setSending(true);
+    try {
+      await sendMessage(selectedThreadId, trimmedMessage);
+      setMessageInput("");
+    } finally {
+      setSending(false);
+    }
   };
 
   const selectedThread = threads.find(t => t.id === selectedThreadId);
@@ -40,7 +55,10 @@ export function MessagingPanel() {
             <MessageSquare className="h-5 w-5 text-primary" />
             <h3 className="font-semibold">Messages</h3>
           </div>
-          <NotificationToggle />
+          <div className="flex items-center gap-2">
+            {activeRole === 'advisor' && <NewMessageDialog />}
+            <NotificationToggle />
+          </div>
         </div>
 
         <Tabs value={filter} onValueChange={(value) => setFilter(value as 'all' | 'unread' | 'read')} className="mb-4">
@@ -142,8 +160,10 @@ export function MessagingPanel() {
                     handleSendMessage();
                   }
                 }}
+                maxLength={5000}
+                disabled={sending}
               />
-              <Button onClick={handleSendMessage} size="icon">
+              <Button onClick={handleSendMessage} size="icon" disabled={sending || !messageInput.trim()}>
                 <Send className="h-4 w-4" />
               </Button>
             </div>
