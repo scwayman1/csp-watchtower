@@ -95,6 +95,20 @@ export function useMessaging() {
       .from("threads")
       .update({ last_message_at: new Date().toISOString() })
       .eq("id", threadId);
+
+    // Trigger push notification
+    try {
+      await supabase.functions.invoke('send-push-notification', {
+        body: {
+          userId: thread.client_id,
+          title: 'New Message',
+          body: `New message from your advisor`,
+          data: { threadId, messageContent: content }
+        }
+      });
+    } catch (error) {
+      console.error("Error sending push notification:", error);
+    }
   };
 
   const createThread = async (clientId: string, subject?: string) => {
