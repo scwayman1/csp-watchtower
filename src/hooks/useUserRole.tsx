@@ -60,6 +60,7 @@ export function useUserRole() {
     loading,
     switchRole,
     hasRole,
+    fetchUserRoles,
     isAdvisor: activeRole === "advisor" || activeRole === "admin",
     isInvestor: activeRole === "investor",
   };
