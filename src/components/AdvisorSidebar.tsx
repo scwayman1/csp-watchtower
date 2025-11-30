@@ -67,6 +67,7 @@ export function AdvisorSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
+                      end={item.url === "/advisor"}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent/50 transition-colors"
                       activeClassName="bg-accent text-accent-foreground font-medium"
                     >
