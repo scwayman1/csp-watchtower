@@ -27,16 +27,11 @@ export function RoleManager() {
       if (!user) throw new Error("Not authenticated");
 
       // Call edge function to bootstrap admin (bypasses RLS)
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bootstrap-admin`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user_id: user.id }),
+      const { data, error } = await supabase.functions.invoke('bootstrap-admin', {
+        body: { user_id: user.id },
       });
 
-      if (!response.ok) throw new Error('Failed to bootstrap admin');
+      if (error) throw error;
 
       toast({
         title: "Success!",
