@@ -235,6 +235,9 @@ export type Database = {
           created_at: string | null
           email: string | null
           id: string
+          invite_status: string | null
+          invite_token: string | null
+          invited_at: string | null
           name: string
           notes: string | null
           open_csp_count: number | null
@@ -251,6 +254,9 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          invite_status?: string | null
+          invite_token?: string | null
+          invited_at?: string | null
           name: string
           notes?: string | null
           open_csp_count?: number | null
@@ -267,6 +273,9 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          invite_status?: string | null
+          invite_token?: string | null
+          invited_at?: string | null
           name?: string
           notes?: string | null
           open_csp_count?: number | null

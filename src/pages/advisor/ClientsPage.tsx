@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -12,143 +11,330 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-
-interface Client {
-  id: string;
-  name: string;
-  email: string | null;
-  segment: string | null;
-  portfolio_value: number;
-  available_cash: number;
-  premium_ytd: number;
-  open_csp_count: number;
-  risk_level: string | null;
-}
+import { UserPlus, Mail, TrendingUp, DollarSign } from "lucide-react";
+import { toast } from "sonner";
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  const queryClient = useQueryClient();
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [newClient, setNewClient] = useState({
+    name: "",
+    email: "",
+    risk_level: "MODERATE",
+    segment: "",
+    notes: "",
+  });
 
-  useEffect(() => {
-    fetchClients();
-  }, []);
-
-  const fetchClients = async () => {
-    try {
+  // Fetch clients
+  const { data: clients, isLoading } = useQuery({
+    queryKey: ["advisor-clients"],
+    queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase
         .from("clients")
         .select("*")
         .eq("advisor_id", user.id)
-        .order("name");
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setClients(data || []);
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-    } finally {
-      setLoading(false);
+      return data;
+    },
+  });
+
+  // Create client and send invitation
+  const createClientMutation = useMutation({
+    mutationFn: async (clientData: typeof newClient) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Fetch advisor profile for name
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Create client record
+      const { data: client, error: clientError } = await supabase
+        .from("clients")
+        .insert({
+          advisor_id: user.id,
+          name: clientData.name,
+          email: clientData.email,
+          risk_level: clientData.risk_level,
+          segment: clientData.segment || null,
+          notes: clientData.notes || null,
+          invite_status: "PENDING",
+        })
+        .select()
+        .single();
+
+      if (clientError) throw clientError;
+
+      // Send invitation email
+      const { error: inviteError } = await supabase.functions.invoke("send-client-invite", {
+        body: {
+          clientId: client.id,
+          clientName: clientData.name,
+          clientEmail: clientData.email,
+          advisorName: profile?.full_name || "Your Advisor",
+        },
+      });
+
+      if (inviteError) {
+        console.error("Error sending invitation:", inviteError);
+        toast.error("Client created but invitation email failed to send");
+      }
+
+      return client;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["advisor-clients"] });
+      setIsInviteDialogOpen(false);
+      setNewClient({
+        name: "",
+        email: "",
+        risk_level: "MODERATE",
+        segment: "",
+        notes: "",
+      });
+      toast.success("Client invited successfully! They will receive an email.");
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to invite client: ${error.message}`);
+    },
+  });
+
+  const handleInviteClient = () => {
+    if (!newClient.name || !newClient.email) {
+      toast.error("Name and email are required");
+      return;
     }
+    createClientMutation.mutate(newClient);
   };
 
-  const filteredClients = clients.filter((client) =>
-    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Resend invitation
+  const resendInviteMutation = useMutation({
+    mutationFn: async (client: any) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
-  const getRiskBadgeVariant = (risk: string | null) => {
-    switch (risk) {
-      case "LOW": return "default";
-      case "MEDIUM": return "secondary";
-      case "HIGH": return "destructive";
-      default: return "outline";
-    }
-  };
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", user.id)
+        .single();
 
-  if (loading) {
+      const { error } = await supabase.functions.invoke("send-client-invite", {
+        body: {
+          clientId: client.id,
+          clientName: client.name,
+          clientEmail: client.email,
+          advisorName: profile?.full_name || "Your Advisor",
+        },
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Invitation resent successfully!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to resend invitation: ${error.message}`);
+    },
+  });
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "success" | "secondary"> = {
+      PENDING: "secondary",
+      ACCEPTED: "success",
+      EXPIRED: "default",
+    };
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-muted rounded w-48"></div>
-          <div className="h-64 bg-muted rounded-lg"></div>
-        </div>
-      </div>
+      <Badge variant={variants[status] || "default"}>
+        {status}
+      </Badge>
     );
-  }
+  };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Clients</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your client accounts
-          </p>
+          <p className="text-muted-foreground">Manage your client relationships</p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Client
-        </Button>
+        <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <UserPlus className="h-4 w-4" />
+              Invite Client
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Invite New Client</DialogTitle>
+              <DialogDescription>
+                Send an invitation to a new client to join The Wheel Terminal
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Client Name *</Label>
+                <Input
+                  id="name"
+                  placeholder="John Doe"
+                  value={newClient.name}
+                  onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="john@example.com"
+                  value={newClient.email}
+                  onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="risk_level">Risk Level</Label>
+                <Select
+                  value={newClient.risk_level}
+                  onValueChange={(value) => setNewClient({ ...newClient, risk_level: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CONSERVATIVE">Conservative</SelectItem>
+                    <SelectItem value="MODERATE">Moderate</SelectItem>
+                    <SelectItem value="AGGRESSIVE">Aggressive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="segment">Segment (Optional)</Label>
+                <Input
+                  id="segment"
+                  placeholder="e.g., High Net Worth, Retirement"
+                  value={newClient.segment}
+                  onChange={(e) => setNewClient({ ...newClient, segment: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Any additional notes about this client..."
+                  value={newClient.notes}
+                  onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsInviteDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleInviteClient}
+                disabled={createClientMutation.isPending}
+              >
+                {createClientMutation.isPending ? "Sending..." : "Send Invitation"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      <Card className="bg-card/50 border-border/50">
+      <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Client List</CardTitle>
-            <div className="relative w-64">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search clients..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-          </div>
+          <CardTitle>Client List</CardTitle>
+          <CardDescription>
+            All clients and their invitation status
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {filteredClients.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No clients found</p>
-              <Button className="mt-4" variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Your First Client
-              </Button>
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading clients...</div>
+          ) : !clients || clients.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No clients yet. Invite your first client to get started.
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Segment</TableHead>
-                  <TableHead>Portfolio Value</TableHead>
-                  <TableHead>Available Cash</TableHead>
-                  <TableHead>Premium YTD</TableHead>
-                  <TableHead>Open CSPs</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Risk Level</TableHead>
+                  <TableHead>Portfolio Value</TableHead>
+                  <TableHead>Premium YTD</TableHead>
+                  <TableHead>Open Positions</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.map((client) => (
-                  <TableRow key={client.id} className="cursor-pointer hover:bg-accent/50">
+                {clients.map((client) => (
+                  <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.name}</TableCell>
+                    <TableCell>{client.email}</TableCell>
+                    <TableCell>{getStatusBadge(client.invite_status || "PENDING")}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{client.segment || "N/A"}</Badge>
+                      <Badge variant="outline">{client.risk_level || "N/A"}</Badge>
                     </TableCell>
-                    <TableCell>${client.portfolio_value.toLocaleString()}</TableCell>
-                    <TableCell>${client.available_cash.toLocaleString()}</TableCell>
-                    <TableCell className="text-green-500">
-                      ${client.premium_ytd.toLocaleString()}
-                    </TableCell>
-                    <TableCell>{client.open_csp_count}</TableCell>
                     <TableCell>
-                      <Badge variant={getRiskBadgeVariant(client.risk_level)}>
-                        {client.risk_level || "N/A"}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="h-3 w-3 text-muted-foreground" />
+                        {client.portfolio_value?.toLocaleString() || "0"}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-success">
+                        <TrendingUp className="h-3 w-3" />
+                        ${client.premium_ytd?.toLocaleString() || "0"}
+                      </div>
+                    </TableCell>
+                    <TableCell>{client.open_csp_count || 0}</TableCell>
+                    <TableCell>
+                      {client.invite_status === "PENDING" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => resendInviteMutation.mutate(client)}
+                          disabled={resendInviteMutation.isPending}
+                        >
+                          <Mail className="h-4 w-4 mr-1" />
+                          Resend
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
