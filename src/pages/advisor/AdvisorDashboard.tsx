@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, TrendingUp, DollarSign, Activity } from "lucide-react";
+import { ProfileViewer } from "@/components/advisor/ProfileViewer";
 
 interface AdvisorStats {
   totalClients: number;
@@ -155,6 +156,8 @@ export default function AdvisorDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      <ProfileViewer />
     </div>
   );
 }
