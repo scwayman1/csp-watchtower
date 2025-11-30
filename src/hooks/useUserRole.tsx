@@ -49,8 +49,33 @@ export function useUserRole() {
     if (roles.includes(role)) {
       setActiveRole(role);
       localStorage.setItem("activeRole", role);
-      // Reload to update all components
-      window.location.reload();
+      
+      // Navigate to appropriate route based on new role
+      const currentPath = window.location.pathname;
+      
+      if (role === "investor") {
+        // Switching to investor - redirect to investor routes
+        if (currentPath.startsWith("/advisor")) {
+          // If on advisor settings, go to investor settings
+          if (currentPath === "/advisor/settings") {
+            window.location.href = "/settings";
+          } else {
+            // Otherwise go to investor dashboard
+            window.location.href = "/";
+          }
+        } else {
+          window.location.reload();
+        }
+      } else if (role === "advisor" || role === "admin") {
+        // Switching to advisor - redirect to advisor routes
+        if (currentPath === "/settings") {
+          window.location.href = "/advisor/settings";
+        } else if (!currentPath.startsWith("/advisor")) {
+          window.location.href = "/advisor";
+        } else {
+          window.location.reload();
+        }
+      }
     }
   };
 
