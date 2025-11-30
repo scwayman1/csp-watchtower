@@ -16,6 +16,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import AdvisorDashboard from "./pages/advisor/AdvisorDashboard";
 import ClientsPage from "./pages/advisor/ClientsPage";
 import CycleSheetPage from "./pages/advisor/CycleSheetPage";
+import OrdersPage from "./pages/advisor/OrdersPage";
 
 const queryClient = new QueryClient();
 
@@ -42,7 +43,7 @@ const AppContent = () => {
                 <Route path="/advisor/clients" element={<ClientsPage />} />
                 <Route path="/advisor/cyclesheet" element={<CycleSheetPage />} />
                 <Route path="/advisor/trades" element={<div className="p-6">Model Trades (Coming Soon)</div>} />
-                <Route path="/advisor/orders" element={<div className="p-6">Orders & Activity (Coming Soon)</div>} />
+                <Route path="/advisor/orders" element={<OrdersPage />} />
                 <Route path="/advisor/settings" element={<Settings />} />
                 <Route path="*" element={<AdvisorDashboard />} />
               </>
