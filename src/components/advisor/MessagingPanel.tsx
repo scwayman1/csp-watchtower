@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMessaging } from "@/hooks/useMessaging";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
+import { NotificationToggle } from "@/components/messaging/NotificationToggle";
 
 export function MessagingPanel() {
   const { threads, messages, selectedThreadId, setSelectedThreadId, sendMessage } = useMessaging();
@@ -32,9 +33,12 @@ export function MessagingPanel() {
     <div className="grid grid-cols-12 gap-4 h-[600px]">
       {/* Threads List */}
       <Card className="col-span-4 p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <MessageSquare className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold">Messages</h3>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Messages</h3>
+          </div>
+          <NotificationToggle />
         </div>
         
         <ScrollArea className="h-[520px]">
