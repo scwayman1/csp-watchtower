@@ -7,8 +7,17 @@ type Thread = Tables<"threads"> & {
   client_name?: string;
 };
 
-type Message = Tables<"messages"> & {
+export interface Attachment {
+  id: string;
+  filename: string;
+  filepath: string;
+  size: number;
+  type: string;
+}
+
+type Message = Omit<Tables<"messages">, "attachments"> & {
   reactions?: MessageReaction[];
+  attachments?: Attachment[];
 };
 
 type MessageReaction = Tables<"message_reactions">;
@@ -170,75 +179,100 @@ export function useMessaging() {
       .select("*")
       .in("message_id", messageIds);
 
-    // Attach reactions to messages
-    const messagesWithReactions = messagesData.map(message => ({
+    // Attach reactions to messages and parse attachments
+    const messagesWithReactions: Message[] = messagesData.map(message => ({
       ...message,
-      reactions: reactionsData?.filter(r => r.message_id === message.id) || []
+      reactions: reactionsData?.filter(r => r.message_id === message.id) || [],
+      attachments: (message.attachments as unknown as Attachment[]) || []
     }));
 
     setMessages(messagesWithReactions);
   };
 
-  const sendMessage = async (threadId: string, content: string) => {
+  const sendMessage = async (threadId: string, content: string, files?: File[]) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const thread = threads.find(t => t.id === threadId);
     if (!thread) return;
 
-    // Determine recipient based on who is sending
-    let recipientUserId: string;
-    
-    if (user.id === thread.advisor_id) {
-      // Advisor sending to client - get client's user_id
-      const { data: client } = await supabase
-        .from("clients")
-        .select("user_id")
-        .eq("id", thread.client_id)
-        .maybeSingle();
-      
-      if (!client?.user_id) {
-        console.error("Client user_id not found");
-        return;
-      }
-      recipientUserId = client.user_id;
-    } else {
-      // Client sending to advisor
-      recipientUserId = thread.advisor_id;
-    }
-
-    const { error } = await supabase
-      .from("messages")
-      .insert({
-        thread_id: threadId,
-        sender_id: user.id,
-        recipient_id: recipientUserId,
-        content
-      });
-
-    if (error) {
-      console.error("Error sending message:", error);
-      return;
-    }
-
-    // Update thread's last_message_at
-    await supabase
-      .from("threads")
-      .update({ last_message_at: new Date().toISOString() })
-      .eq("id", threadId);
-
-    // Trigger push notification
     try {
+      let attachments: Attachment[] = [];
+
+      // Upload files if provided
+      if (files && files.length > 0) {
+        const uploadPromises = files.map(async (file) => {
+          const fileExt = file.name.split(".").pop();
+          const fileName = `${threadId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from("message-attachments")
+            .upload(fileName, file);
+
+          if (uploadError) throw uploadError;
+
+          return {
+            id: fileName,
+            filename: file.name,
+            filepath: fileName,
+            size: file.size,
+            type: file.type,
+          };
+        });
+
+        attachments = await Promise.all(uploadPromises);
+      }
+
+      // Determine recipient based on who is sending
+      let recipientUserId: string;
+      
+      if (user.id === thread.advisor_id) {
+        // Advisor sending to client - get client's user_id
+        const { data: client } = await supabase
+          .from("clients")
+          .select("user_id")
+          .eq("id", thread.client_id)
+          .maybeSingle();
+        
+        if (!client?.user_id) {
+          console.error("Client user_id not found");
+          return;
+        }
+        recipientUserId = client.user_id;
+      } else {
+        // Client sending to advisor
+        recipientUserId = thread.advisor_id;
+      }
+
+      const { error } = await supabase
+        .from("messages")
+        .insert({
+          thread_id: threadId,
+          sender_id: user.id,
+          recipient_id: recipientUserId,
+          content,
+          attachments: attachments as any
+        });
+
+      if (error) throw error;
+
+      // Update thread's last_message_at
+      await supabase
+        .from("threads")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("id", threadId);
+
+      // Trigger push notification
       await supabase.functions.invoke('send-push-notification', {
         body: {
           userId: recipientUserId,
           title: 'New Message',
-          body: user.id === thread.advisor_id ? 'New message from your advisor' : 'New message from client',
+          body: content || 'Sent an attachment',
           data: { threadId, messageContent: content }
         }
       });
     } catch (error) {
-      console.error("Error sending push notification:", error);
+      console.error("Error sending message:", error);
     }
   };
 

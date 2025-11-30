@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, Send, Clock, CheckCheck, Search, MoreVertical, Smile, ThumbsUp, Heart, Flame, PartyPopper, Eye } from "lucide-react";
+import { MessageSquare, Send, Clock, CheckCheck, Search, MoreVertical, Smile, ThumbsUp, Heart, Flame, PartyPopper, Eye, Paperclip, FileText, Image as ImageIcon, Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,8 +22,10 @@ export function MessagingPanel() {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -42,7 +44,7 @@ export function MessagingPanel() {
   }, [selectedThreadId]);
 
   const handleSendMessage = async () => {
-    if (!messageInput.trim() || !selectedThreadId) return;
+    if ((!messageInput.trim() && selectedFiles.length === 0) || !selectedThreadId) return;
     
     // Validate message length
     const trimmedMessage = messageInput.trim();
@@ -52,11 +54,51 @@ export function MessagingPanel() {
 
     setSending(true);
     try {
-      await sendMessage(selectedThreadId, trimmedMessage);
+      await sendMessage(selectedThreadId, trimmedMessage, selectedFiles);
       setMessageInput("");
+      setSelectedFiles([]);
     } finally {
       setSending(false);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSelectedFiles(prev => [...prev, ...Array.from(e.target.files || [])]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const downloadAttachment = async (filepath: string, filename: string) => {
+    const { data, error } = await supabase.storage
+      .from("message-attachments")
+      .download(filepath);
+
+    if (error) {
+      console.error("Error downloading file:", error);
+      return;
+    }
+
+    const url = URL.createObjectURL(data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const getFileIcon = (type: string) => {
+    if (type.startsWith("image/")) return <ImageIcon className="h-4 w-4" />;
+    return <FileText className="h-4 w-4" />;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
   const selectedThread = threads.find(t => t.id === selectedThreadId);
@@ -275,6 +317,39 @@ export function MessagingPanel() {
                             }`}
                           >
                             <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
+                            
+                            {/* Attachments */}
+                            {message.attachments && message.attachments.length > 0 && (
+                              <div className="mt-2 space-y-2">
+                                {message.attachments.map((attachment, idx) => (
+                                  <div
+                                    key={idx}
+                                    className={`flex items-center gap-2 p-2 rounded-lg ${
+                                      isSentByMe ? "bg-primary-foreground/10" : "bg-background/50"
+                                    } border ${isSentByMe ? "border-primary-foreground/20" : "border-border/50"}`}
+                                  >
+                                    {getFileIcon(attachment.type)}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-medium truncate">
+                                        {attachment.filename}
+                                      </p>
+                                      <p className={`text-xs ${isSentByMe ? "text-primary-foreground/50" : "text-muted-foreground"}`}>
+                                        {formatFileSize(attachment.size)}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => downloadAttachment(attachment.filepath, attachment.filename)}
+                                      className={`h-7 w-7 ${isSentByMe ? "hover:bg-primary-foreground/10" : "hover:bg-muted"}`}
+                                    >
+                                      <Download className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
                             <div className={`flex items-center gap-1.5 mt-2 ${
                               isSentByMe ? "text-primary-foreground/60" : "text-muted-foreground/70"
                             }`}>
@@ -354,7 +429,52 @@ export function MessagingPanel() {
             </ScrollArea>
 
             <div className="border-t border-border/50 p-4 bg-background/80 backdrop-blur-sm">
+              {/* Selected Files Preview */}
+              {selectedFiles.length > 0 && (
+                <div className="mb-3 space-y-2">
+                  {selectedFiles.map((file, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border border-border/50"
+                    >
+                      {getFileIcon(file.type)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeFile(idx)}
+                        className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="flex gap-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  accept="image/*,.pdf,.doc,.docx,.txt"
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={sending}
+                  className="h-10 w-10 rounded-xl shadow-sm hover:bg-accent"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
                 <Input
                   ref={inputRef}
                   placeholder="Type your message..."
@@ -373,7 +493,7 @@ export function MessagingPanel() {
                 <Button 
                   onClick={handleSendMessage} 
                   size="icon" 
-                  disabled={sending || !messageInput.trim()}
+                  disabled={sending || (!messageInput.trim() && selectedFiles.length === 0)}
                   className="h-10 w-10 rounded-xl shadow-sm transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
                 >
                   <Send className="h-4 w-4" />
