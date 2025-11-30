@@ -9,6 +9,7 @@ interface AdvisorStats {
   activeClients: number;
   totalAUM: number;
   activeCycles: number;
+  totalPremiumYTD?: number;
 }
 
 export default function AdvisorDashboard() {
@@ -45,6 +46,7 @@ export default function AdvisorDashboard() {
       const totalClients = clients?.length || 0;
       const activeClients = clients?.filter(c => c.open_csp_count > 0).length || 0;
       const totalAUM = clients?.reduce((sum, c) => sum + (c.portfolio_value || 0), 0) || 0;
+      const totalPremiumYTD = clients?.reduce((sum, c) => sum + (c.premium_ytd || 0), 0) || 0;
       const activeCycles = cycles?.length || 0;
 
       setStats({
@@ -52,6 +54,7 @@ export default function AdvisorDashboard() {
         activeClients,
         totalAUM,
         activeCycles,
+        totalPremiumYTD,
       });
     } catch (error) {
       console.error("Error fetching advisor stats:", error);
@@ -81,9 +84,9 @@ export default function AdvisorDashboard() {
     },
     {
       title: "Client Premium YTD",
-      value: "$0",
+      value: `$${(stats.totalPremiumYTD || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: TrendingUp,
-      description: "Coming soon",
+      description: "Total premiums collected",
     },
   ];
 
