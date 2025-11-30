@@ -33,10 +33,7 @@ export function useMessaging() {
 
     const { data, error } = await supabase
       .from("threads")
-      .select(`
-        *,
-        clients!threads_client_id_fkey (name)
-      `)
+      .select("*")
       .eq("advisor_id", user.id)
       .order("last_message_at", { ascending: false });
 
@@ -45,12 +42,25 @@ export function useMessaging() {
       return;
     }
 
-    const threadsWithNames = data?.map(thread => ({
-      ...thread,
-      client_name: (thread.clients as any)?.name || "Unknown Client"
-    })) || [];
+    // Fetch client names separately
+    if (data && data.length > 0) {
+      const clientIds = [...new Set(data.map(t => t.client_id))];
+      const { data: clients } = await supabase
+        .from("clients")
+        .select("id, name")
+        .in("id", clientIds);
 
-    setThreads(threadsWithNames);
+      const clientMap = new Map(clients?.map(c => [c.id, c.name]) || []);
+      
+      const threadsWithNames = data.map(thread => ({
+        ...thread,
+        client_name: clientMap.get(thread.client_id) || "Unknown Client"
+      }));
+
+      setThreads(threadsWithNames);
+    } else {
+      setThreads([]);
+    }
     setLoading(false);
   };
 
