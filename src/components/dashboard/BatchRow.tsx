@@ -75,6 +75,7 @@ interface AssignedPositionData {
   shares: number;
   original_put_premium: number;
   original_position_id: string | null;
+  assignment_price: number;
 }
 
 interface BatchRowProps {
@@ -225,27 +226,9 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
           theme.gradient,
           "backdrop-blur-sm"
         )}>
-          {/* Expired Positions Section */}
-          {positions.length > 0 && (
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="h-px flex-1 bg-border/50" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
-                  Expired Positions
-                </span>
-                <div className="h-px flex-1 bg-border/50" />
-              </div>
-              <PositionsTable 
-                positions={positions}
-                onRefetch={onRefetch}
-                onRefetchAssigned={onRefetchAssigned}
-              />
-            </div>
-          )}
-          
           {/* Assigned Positions Section */}
           {assignedPositions.length > 0 && (
-            <div>
+            <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
                 <div className="h-px flex-1 bg-warning/30" />
                 <span className="text-xs font-semibold text-warning uppercase tracking-wider px-2">
@@ -259,51 +242,92 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
                     <thead>
                       <tr className="border-b border-warning/20 bg-warning/10">
                         <th className="text-left p-3 text-xs font-semibold text-warning uppercase tracking-wider">Symbol</th>
-                        <th className="text-right p-3 text-xs font-semibold text-warning uppercase tracking-wider">Shares</th>
                         <th className="text-right p-3 text-xs font-semibold text-warning uppercase tracking-wider">Contracts</th>
-                        <th className="text-right p-3 text-xs font-semibold text-warning uppercase tracking-wider">Original Put Premium</th>
+                        <th className="text-right p-3 text-xs font-semibold text-warning uppercase tracking-wider">Shares</th>
+                        <th className="text-right p-3 text-xs font-semibold text-warning uppercase tracking-wider">Strike</th>
+                        <th className="text-right p-3 text-xs font-semibold text-warning uppercase tracking-wider">Assignment $</th>
+                        <th className="text-right p-3 text-xs font-semibold text-warning uppercase tracking-wider">Put Premium</th>
+                        <th className="text-right p-3 text-xs font-semibold text-warning uppercase tracking-wider">Premium/Contract</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {assignedPositions.map((ap) => (
-                        <tr key={ap.id} className="border-b border-warning/10 hover:bg-warning/10 transition-colors">
-                          <td className="p-3">
-                            <span className="font-semibold text-foreground">{ap.symbol}</span>
-                          </td>
-                          <td className="p-3 text-right text-muted-foreground">
-                            {ap.shares.toLocaleString()}
-                          </td>
-                          <td className="p-3 text-right text-muted-foreground">
-                            {Math.floor(ap.shares / 100)}
-                          </td>
-                          <td className="p-3 text-right">
-                            <span className="font-semibold text-warning">
-                              {formatCurrency(ap.original_put_premium)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {assignedPositions.map((ap) => {
+                        const contracts = Math.floor(ap.shares / 100);
+                        const premiumPerContract = contracts > 0 ? ap.original_put_premium / contracts : 0;
+                        return (
+                          <tr key={ap.id} className="border-b border-warning/10 hover:bg-warning/10 transition-colors">
+                            <td className="p-3">
+                              <span className="font-semibold text-foreground">{ap.symbol}</span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className="font-semibold text-foreground">{contracts}</span>
+                            </td>
+                            <td className="p-3 text-right text-muted-foreground">
+                              {ap.shares.toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right text-muted-foreground">
+                              {formatCurrency(ap.assignment_price)}
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className="font-medium text-foreground">
+                                {formatCurrency(ap.assignment_price * ap.shares)}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className="font-semibold text-success">
+                                {formatCurrency(ap.original_put_premium)}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right text-muted-foreground">
+                              {formatCurrency(premiumPerContract)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-warning/30 bg-warning/10">
                         <td className="p-3 text-xs font-semibold text-warning uppercase">Total</td>
                         <td className="p-3 text-right font-bold text-foreground">
-                          {assignedPositions.reduce((sum, ap) => sum + ap.shares, 0).toLocaleString()}
-                        </td>
-                        <td className="p-3 text-right font-bold text-foreground">
                           {assignedContractsCount}
                         </td>
-                        <td className="p-3 text-right font-bold text-warning">
+                        <td className="p-3 text-right font-bold text-foreground">
+                          {assignedPositions.reduce((sum, ap) => sum + ap.shares, 0).toLocaleString()}
+                        </td>
+                        <td className="p-3"></td>
+                        <td className="p-3 text-right font-bold text-foreground">
+                          {formatCurrency(assignedPositions.reduce((sum, ap) => sum + (ap.assignment_price * ap.shares), 0))}
+                        </td>
+                        <td className="p-3 text-right font-bold text-success">
                           {formatCurrency(assignedPremium)}
                         </td>
+                        <td className="p-3"></td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2 italic">
-                Note: These positions are also shown in the Assigned Positions table above for current tracking.
+                These assigned positions are also shown in the Assigned Positions table above for current tracking.
               </p>
+            </div>
+          )}
+          
+          {/* Expired Positions Section */}
+          {positions.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-px flex-1 bg-border/50" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
+                  Expired Positions
+                </span>
+                <div className="h-px flex-1 bg-border/50" />
+              </div>
+              <PositionsTable 
+                positions={positions}
+                onRefetch={onRefetch}
+                onRefetchAssigned={onRefetchAssigned}
+              />
             </div>
           )}
         </div>
