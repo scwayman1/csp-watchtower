@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, Send, Clock, CheckCheck, Search, MoreVertical } from "lucide-react";
+import { MessageSquare, Send, Clock, CheckCheck, Search, MoreVertical, Smile, ThumbsUp, Heart, Flame, PartyPopper, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,12 +15,13 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export function MessagingPanel() {
-  const { threads, messages, selectedThreadId, setSelectedThreadId, sendMessage, filter, setFilter } = useMessaging();
+  const { threads, messages, selectedThreadId, setSelectedThreadId, sendMessage, filter, setFilter, addReaction, removeReaction } = useMessaging();
   const { activeRole } = useUserRole();
   const [messageInput, setMessageInput] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -83,6 +84,42 @@ export function MessagingPanel() {
   const filteredThreads = threads.filter((thread) =>
     thread.client_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const reactionIcons = {
+    thumbs_up: ThumbsUp,
+    heart: Heart,
+    fire: Flame,
+    celebrate: PartyPopper,
+    eyes: Eye,
+  };
+
+  const handleReaction = async (messageId: string, reaction: string) => {
+    const message = messages.find(m => m.id === messageId);
+    const userReaction = message?.reactions?.find(
+      r => r.user_id === currentUserId && r.reaction === reaction
+    );
+
+    if (userReaction) {
+      await removeReaction(messageId, reaction);
+    } else {
+      await addReaction(messageId, reaction);
+    }
+    setShowReactionPicker(null);
+  };
+
+  const getReactionCounts = (reactions: any[] = []) => {
+    const counts = new Map<string, { count: number; hasReacted: boolean }>();
+    
+    reactions.forEach((r) => {
+      const current = counts.get(r.reaction) || { count: 0, hasReacted: false };
+      counts.set(r.reaction, {
+        count: current.count + 1,
+        hasReacted: current.hasReacted || r.user_id === currentUserId
+      });
+    });
+    
+    return counts;
+  };
 
   return (
     <div className="grid grid-cols-12 gap-6 h-[calc(100vh-12rem)]">
@@ -211,6 +248,8 @@ export function MessagingPanel() {
                   const isSentByMe = message.sender_id === currentUserId;
                   const showAvatar = index === 0 || messages[index - 1].sender_id !== message.sender_id;
                   
+                  const reactionCounts = getReactionCounts(message.reactions);
+                  
                   return (
                     <div
                       key={message.id}
@@ -226,25 +265,79 @@ export function MessagingPanel() {
                           </AvatarFallback>
                         </Avatar>
                       )}
-                      <div
-                        className={`max-w-[70%] rounded-2xl px-4 py-3 shadow-sm ${
-                          isSentByMe
-                            ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground rounded-br-md"
-                            : "bg-muted/80 border border-border/50 rounded-bl-md"
-                        }`}
-                      >
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
-                        <div className={`flex items-center gap-1.5 mt-2 ${
-                          isSentByMe ? "text-primary-foreground/60" : "text-muted-foreground/70"
-                        }`}>
-                          <Clock className="h-3 w-3" />
-                          <span className="text-xs">
-                            {formatMessageTime(message.created_at)}
-                          </span>
-                          {isSentByMe && message.read_at && (
-                            <CheckCheck className="h-3.5 w-3.5 ml-1" />
+                      <div className="flex flex-col gap-1 max-w-[70%]">
+                        <div className="relative group">
+                          <div
+                            className={`rounded-2xl px-4 py-3 shadow-sm ${
+                              isSentByMe
+                                ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground rounded-br-md"
+                                : "bg-muted/80 border border-border/50 rounded-bl-md"
+                            }`}
+                          >
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
+                            <div className={`flex items-center gap-1.5 mt-2 ${
+                              isSentByMe ? "text-primary-foreground/60" : "text-muted-foreground/70"
+                            }`}>
+                              <Clock className="h-3 w-3" />
+                              <span className="text-xs">
+                                {formatMessageTime(message.created_at)}
+                              </span>
+                              {isSentByMe && message.read_at && (
+                                <CheckCheck className="h-3.5 w-3.5 ml-1" />
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Reaction Picker Button */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`absolute ${isSentByMe ? '-left-8' : '-right-8'} top-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm border border-border/50 shadow-sm hover:bg-accent`}
+                            onClick={() => setShowReactionPicker(showReactionPicker === message.id ? null : message.id)}
+                          >
+                            <Smile className="h-3.5 w-3.5" />
+                          </Button>
+
+                          {/* Reaction Picker */}
+                          {showReactionPicker === message.id && (
+                            <div className={`absolute ${isSentByMe ? 'right-0' : 'left-0'} top-full mt-1 bg-background/95 backdrop-blur-sm border border-border/50 rounded-xl shadow-lg p-2 flex gap-1 z-10 animate-in fade-in slide-in-from-top-2 duration-200`}>
+                              {Object.entries(reactionIcons).map(([key, Icon]) => (
+                                <Button
+                                  key={key}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-accent transition-colors"
+                                  onClick={() => handleReaction(message.id, key)}
+                                >
+                                  <Icon className="h-4 w-4" />
+                                </Button>
+                              ))}
+                            </div>
                           )}
                         </div>
+
+                        {/* Display Reactions */}
+                        {reactionCounts.size > 0 && (
+                          <div className={`flex gap-1 flex-wrap ${isSentByMe ? 'justify-end' : 'justify-start'}`}>
+                            {Array.from(reactionCounts.entries()).map(([reaction, { count, hasReacted }]) => {
+                              const Icon = reactionIcons[reaction as keyof typeof reactionIcons];
+                              return (
+                                <button
+                                  key={reaction}
+                                  onClick={() => handleReaction(message.id, reaction)}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all hover:scale-105 ${
+                                    hasReacted
+                                      ? 'bg-primary/20 border border-primary/50 text-primary'
+                                      : 'bg-muted/50 border border-border/30 text-muted-foreground hover:bg-muted'
+                                  }`}
+                                >
+                                  <Icon className="h-3 w-3" />
+                                  <span className="font-medium">{count}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                       {isSentByMe && (
                         <Avatar className={`h-8 w-8 border border-border shadow-sm ${showAvatar ? 'opacity-100' : 'opacity-0'}`}>

@@ -7,7 +7,11 @@ type Thread = Tables<"threads"> & {
   client_name?: string;
 };
 
-type Message = Tables<"messages">;
+type Message = Tables<"messages"> & {
+  reactions?: MessageReaction[];
+};
+
+type MessageReaction = Tables<"message_reactions">;
 
 export function useMessaging() {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -143,7 +147,7 @@ export function useMessaging() {
   };
 
   const fetchMessages = async (threadId: string) => {
-    const { data, error } = await supabase
+    const { data: messagesData, error } = await supabase
       .from("messages")
       .select("*")
       .eq("thread_id", threadId)
@@ -154,7 +158,25 @@ export function useMessaging() {
       return;
     }
 
-    setMessages(data || []);
+    if (!messagesData) {
+      setMessages([]);
+      return;
+    }
+
+    // Fetch reactions for all messages
+    const messageIds = messagesData.map(m => m.id);
+    const { data: reactionsData } = await supabase
+      .from("message_reactions")
+      .select("*")
+      .in("message_id", messageIds);
+
+    // Attach reactions to messages
+    const messagesWithReactions = messagesData.map(message => ({
+      ...message,
+      reactions: reactionsData?.filter(r => r.message_id === message.id) || []
+    }));
+
+    setMessages(messagesWithReactions);
   };
 
   const sendMessage = async (threadId: string, content: string) => {
@@ -291,6 +313,17 @@ export function useMessaging() {
           fetchThreads(); // Refresh unread counts
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "message_reactions"
+        },
+        () => {
+          fetchMessages(threadId); // Refresh reactions
+        }
+      )
       .subscribe();
 
     return () => {
@@ -334,6 +367,39 @@ export function useMessaging() {
 
   const totalUnreadCount = threads.reduce((sum, thread) => sum + (thread.unread_count || 0), 0);
 
+  const addReaction = async (messageId: string, reaction: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("message_reactions")
+      .insert({
+        message_id: messageId,
+        user_id: user.id,
+        reaction
+      });
+
+    if (error) {
+      console.error("Error adding reaction:", error);
+    }
+  };
+
+  const removeReaction = async (messageId: string, reaction: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("message_reactions")
+      .delete()
+      .eq("message_id", messageId)
+      .eq("user_id", user.id)
+      .eq("reaction", reaction);
+
+    if (error) {
+      console.error("Error removing reaction:", error);
+    }
+  };
+
   return {
     threads: filteredThreads,
     messages,
@@ -344,6 +410,8 @@ export function useMessaging() {
     createThread,
     filter,
     setFilter,
-    totalUnreadCount
+    totalUnreadCount,
+    addReaction,
+    removeReaction
   };
 }
