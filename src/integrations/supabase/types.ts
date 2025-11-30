@@ -553,6 +553,39 @@ export type Database = {
         }
         Relationships: []
       }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          read_at: string | null
+          recipient_id: string
+          sender_id: string
+          thread_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          recipient_id: string
+          sender_id: string
+          thread_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          recipient_id?: string
+          sender_id?: string
+          thread_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       model_trades: {
         Row: {
           advisor_id: string
@@ -898,6 +931,36 @@ export type Database = {
           starting_capital?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      threads: {
+        Row: {
+          advisor_id: string
+          client_id: string
+          created_at: string
+          id: string
+          last_message_at: string
+          subject: string | null
+          updated_at: string
+        }
+        Insert: {
+          advisor_id: string
+          client_id: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Update: {
+          advisor_id?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          subject?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, TrendingUp, DollarSign, Activity } from "lucide-react";
 import { ProfileViewer } from "@/components/advisor/ProfileViewer";
+import { MessagingPanel } from "@/components/advisor/MessagingPanel";
 
 interface AdvisorStats {
   totalClients: number;
@@ -172,6 +173,15 @@ export default function AdvisorDashboard() {
       </Card>
 
       <ProfileViewer />
+
+      <Card className="bg-card/50 border-border/50">
+        <CardHeader>
+          <CardTitle>Client Messages</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MessagingPanel />
+        </CardContent>
+      </Card>
     </div>
   );
 }
