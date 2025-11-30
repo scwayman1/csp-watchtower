@@ -45,13 +45,9 @@ export function usePushNotifications() {
     try {
       // Check current permission state
       if (Notification.permission === 'denied') {
-        const browser = navigator.userAgent.includes('Chrome') ? 'Chrome' : 
-                       navigator.userAgent.includes('Firefox') ? 'Firefox' : 
-                       navigator.userAgent.includes('Safari') ? 'Safari' : 'your browser';
-        
         toast({
           title: "Notifications Blocked",
-          description: `Go to ${browser} settings → Site Settings → Notifications and allow notifications for this site. Then refresh and try again.`,
+          description: "Click the lock icon in your browser's address bar, then find Notifications and change it to 'Allow'. Refresh the page after.",
           variant: "destructive",
           duration: 10000,
         });
@@ -59,7 +55,7 @@ export function usePushNotifications() {
         return;
       }
 
-      // Request notification permission
+      // Request notification permission - this shows Chrome's native "Allow" dialog
       const permission = await Notification.requestPermission();
       
       if (permission !== 'granted') {
