@@ -106,13 +106,34 @@ export function useMessaging() {
       .update({ last_message_at: new Date().toISOString() })
       .eq("id", threadId);
 
-    // Trigger push notification
+    // Trigger push notification to the client user (if linked)
     try {
+      let recipientUserId: string | null = null;
+
+      const { data: client, error: clientError } = await supabase
+        .from("clients")
+        .select("user_id")
+        .eq("id", thread.client_id)
+        .maybeSingle();
+
+      if (clientError) {
+        console.error("Error fetching client for push notification:", clientError);
+      }
+
+      if (client?.user_id) {
+        recipientUserId = client.user_id;
+      }
+
+      if (!recipientUserId) {
+        console.log("No linked client user_id for thread; skipping push notification");
+        return;
+      }
+
       await supabase.functions.invoke('send-push-notification', {
         body: {
-          userId: thread.client_id,
+          userId: recipientUserId,
           title: 'New Message',
-          body: `New message from your advisor`,
+          body: 'New message from your advisor',
           data: { threadId, messageContent: content }
         }
       });
