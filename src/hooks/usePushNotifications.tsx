@@ -43,13 +43,26 @@ export function usePushNotifications() {
     setIsLoading(true);
 
     try {
+      // Check current permission state
+      if (Notification.permission === 'denied') {
+        toast({
+          title: "Notifications Blocked",
+          description: "Please enable notifications in your browser settings, then refresh and try again",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Request notification permission
       const permission = await Notification.requestPermission();
       
       if (permission !== 'granted') {
         toast({
-          title: "Permission Denied",
-          description: "Please enable notifications to receive messages",
+          title: "Permission Required",
+          description: permission === 'denied' 
+            ? "Notifications are blocked. Check your browser settings to enable them."
+            : "Notification permission was not granted. Please try again.",
           variant: "destructive",
         });
         setIsLoading(false);
