@@ -49,6 +49,8 @@ export function useUserRole() {
     if (roles.includes(role)) {
       setActiveRole(role);
       localStorage.setItem("activeRole", role);
+      // Reload to update all components
+      window.location.reload();
     }
   };
 
