@@ -28,8 +28,12 @@ export function useMessaging() {
   useEffect(() => {
     if (selectedThreadId) {
       fetchMessages(selectedThreadId);
-      markThreadAsRead(selectedThreadId);
+      // Delay marking as read slightly to ensure messages are loaded first
+      const timer = setTimeout(() => {
+        markThreadAsRead(selectedThreadId);
+      }, 300);
       subscribeToMessages(selectedThreadId);
+      return () => clearTimeout(timer);
     }
   }, [selectedThreadId]);
 
@@ -298,15 +302,28 @@ export function useMessaging() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    await supabase
+    // First check if there are actually any unread messages for this user in this thread
+    const { count } = await supabase
       .from("messages")
-      .update({ read_at: new Date().toISOString() })
+      .select("*", { count: 'exact', head: true })
       .eq("thread_id", threadId)
       .eq("recipient_id", user.id)
       .is("read_at", null);
 
-    // Refresh threads to update unread counts
-    fetchThreads();
+    // Only update if there are unread messages where user is the recipient
+    if (count && count > 0) {
+      const { error } = await supabase
+        .from("messages")
+        .update({ read_at: new Date().toISOString() })
+        .eq("thread_id", threadId)
+        .eq("recipient_id", user.id)
+        .is("read_at", null);
+
+      if (!error) {
+        // Refresh threads to update unread counts
+        fetchThreads();
+      }
+    }
   };
 
   const filteredThreads = threads.filter(thread => {
