@@ -9,14 +9,17 @@ import { PortfolioIngestion } from "@/components/settings/PortfolioIngestion";
 import { StatementReconciliation } from "@/components/dashboard/StatementReconciliation";
 import { RoleManager } from "@/components/RoleManager";
 import { ProfileSection } from "@/components/settings/ProfileSection";
+import { AdvisorProfileSection } from "@/components/settings/AdvisorProfileSection";
 import { Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const Settings = () => {
   const { user } = useAuth();
+  const { activeRole } = useUserRole();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -126,8 +129,9 @@ const Settings = () => {
         {/* Role Management */}
         <RoleManager />
 
-        {/* Investor Profile */}
-        {user && <ProfileSection userId={user.id} />}
+        {/* Profile Section - Conditional based on active role */}
+        {user && activeRole === 'advisor' && <AdvisorProfileSection userId={user.id} />}
+        {user && activeRole !== 'advisor' && <ProfileSection userId={user.id} />}
 
         {/* Market Data Configuration */}
         <Card>
