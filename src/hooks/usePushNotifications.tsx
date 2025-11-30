@@ -74,13 +74,11 @@ export function usePushNotifications() {
       const registration = await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
 
-      // Subscribe to push notifications
-      // Note: You need a VAPID public key for production
+      // Subscribe to push notifications with VAPID public key
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(
-          // This is a placeholder - in production, you'd use your own VAPID key
-          'BEl62iUYgUivxIkv69yViEuiBIa-Ib37J8mrYGkkk0V_J5-3A8J0bHoJ_7u7vQ3Q3F0aU-wG7WZP7gFR-7PoMZE'
+          'BL4Ce-e57TSFPVbrtHDO1gqEHsYHIczjGdomub11lb4eRY1bGJNK-vrvyjclx0MOfTpazOsM4sj7nnUkzhod88Q'
         )
       });
 
