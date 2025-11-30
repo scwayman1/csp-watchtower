@@ -18,7 +18,11 @@ export function useMessaging() {
 
   useEffect(() => {
     fetchThreads();
-    subscribeToThreads();
+    const unsubscribe = subscribeToThreads();
+
+    return () => {
+      unsubscribe?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -237,13 +241,24 @@ export function useMessaging() {
 
   const subscribeToThreads = () => {
     const channel = supabase
-      .channel("threads-changes")
+      .channel("threads-and-messages")
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "threads"
+          table: "threads",
+        },
+        () => {
+          fetchThreads();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
         },
         () => {
           fetchThreads();
