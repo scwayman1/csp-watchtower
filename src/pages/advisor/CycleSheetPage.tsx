@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { AllocationMatrix } from "@/components/advisor/AllocationMatrix";
+import { CreateCycleDialog } from "@/components/advisor/CreateCycleDialog";
+import { AddModelTradeDialog } from "@/components/advisor/AddModelTradeDialog";
 import {
   Table,
   TableBody,
@@ -38,6 +40,8 @@ export default function CycleSheetPage() {
   const [modelTrades, setModelTrades] = useState<ModelTrade[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAllocationMatrix, setShowAllocationMatrix] = useState(false);
+  const [showCreateCycle, setShowCreateCycle] = useState(false);
+  const [showAddTrade, setShowAddTrade] = useState(false);
 
   useEffect(() => {
     fetchCycles();
@@ -116,7 +120,7 @@ export default function CycleSheetPage() {
             Manage option cycles and model trades
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setShowCreateCycle(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New Cycle
         </Button>
@@ -126,7 +130,7 @@ export default function CycleSheetPage() {
         <Card className="bg-card/50 border-border/50">
           <CardContent className="text-center py-12">
             <p className="text-muted-foreground">No cycles found</p>
-            <Button className="mt-4" variant="outline">
+            <Button className="mt-4" variant="outline" onClick={() => setShowCreateCycle(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Create Your First Cycle
             </Button>
@@ -163,7 +167,7 @@ export default function CycleSheetPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle>Model Trades</CardTitle>
                   <div className="flex gap-2">
-                    <Button variant="outline">
+                    <Button variant="outline" onClick={() => setShowAddTrade(true)}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Trade
                     </Button>
@@ -180,7 +184,7 @@ export default function CycleSheetPage() {
                 {modelTrades.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground">No model trades in this cycle</p>
-                    <Button className="mt-4" variant="outline">
+                    <Button className="mt-4" variant="outline" onClick={() => setShowAddTrade(true)}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add First Trade
                     </Button>
@@ -237,6 +241,27 @@ export default function CycleSheetPage() {
             setShowAllocationMatrix(false);
             fetchModelTrades(selectedCycle);
           }}
+        />
+      )}
+
+      <CreateCycleDialog
+        open={showCreateCycle}
+        onClose={() => setShowCreateCycle(false)}
+        onSuccess={() => {
+          setShowCreateCycle(false);
+          fetchCycles();
+        }}
+      />
+
+      {selectedCycle && (
+        <AddModelTradeDialog
+          open={showAddTrade}
+          onClose={() => setShowAddTrade(false)}
+          onSuccess={() => {
+            setShowAddTrade(false);
+            fetchModelTrades(selectedCycle);
+          }}
+          cycleId={selectedCycle}
         />
       )}
     </div>
