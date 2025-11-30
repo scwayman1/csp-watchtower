@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, TrendingUp, DollarSign, Activity } from "lucide-react";
@@ -13,6 +14,7 @@ interface AdvisorStats {
 }
 
 export default function AdvisorDashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<AdvisorStats>({
     totalClients: 0,
     activeClients: 0,
@@ -144,15 +146,24 @@ export default function AdvisorDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left">
+            <button 
+              onClick={() => navigate('/advisor/cycle-sheet')}
+              className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left"
+            >
               <h3 className="font-semibold mb-1">Create New Cycle</h3>
               <p className="text-sm text-muted-foreground">Start a new trading cycle</p>
             </button>
-            <button className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left">
+            <button 
+              onClick={() => navigate('/advisor/clients')}
+              className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left"
+            >
               <h3 className="font-semibold mb-1">Add Client</h3>
               <p className="text-sm text-muted-foreground">Onboard a new client</p>
             </button>
-            <button className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left">
+            <button 
+              onClick={() => navigate('/advisor/cycle-sheet')}
+              className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left"
+            >
               <h3 className="font-semibold mb-1">Upload CycleSheet</h3>
               <p className="text-sm text-muted-foreground">Import trades from spreadsheet</p>
             </button>
