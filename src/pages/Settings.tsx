@@ -7,6 +7,7 @@ import { ShareManagement } from "@/components/settings/ShareManagement";
 import { AuditTrail } from "@/components/settings/AuditTrail";
 import { PortfolioIngestion } from "@/components/settings/PortfolioIngestion";
 import { StatementReconciliation } from "@/components/dashboard/StatementReconciliation";
+import { RoleManager } from "@/components/RoleManager";
 import { Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
@@ -120,6 +121,9 @@ const Settings = () => {
             </p>
           </div>
         </div>
+
+        {/* Role Management */}
+        <RoleManager />
 
         {/* Market Data Configuration */}
         <Card>
