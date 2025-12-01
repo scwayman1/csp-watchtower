@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Plus, Shield, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import type { AssignedPosition } from "@/hooks/useAssignedPositions";
 import { SellCallDialog } from "./SellCallDialog";
-import { CoveredCallImportBar } from "./CoveredCallImportBar";
 import {
   Tooltip,
   TooltipContent,
@@ -48,9 +47,6 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
 
   return (
     <div className="space-y-4">
-      {/* Bulk Import Bar */}
-      <CoveredCallImportBar onSuccess={onRefetch} />
-      
       <div className="overflow-x-auto border border-border rounded-lg">
         <Table className="min-w-[1000px]">
         <TableHeader>
