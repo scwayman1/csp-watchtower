@@ -172,33 +172,92 @@ export default function OrdersPage() {
 
       if (parseError) throw parseError;
 
-      const positions = parseResult.positions || [parseResult];
+      const puts = parseResult.puts || [];
+      const calls = parseResult.calls || [];
 
-      // Insert all positions with the selected client's user_id
-      const positionsToInsert = positions.map((p: any) => ({
-        user_id: selectedClient.user_id,
-        raw_order_text: parseResult.raw_order_text || orderText,
-        source: 'ADVISOR_ALLOCATION',
-        ...p,
-      }));
+      let insertedPuts = 0;
+      let insertedCalls = 0;
+
+      // Insert PUTs into positions table
+      if (puts.length > 0) {
+        const positionsToInsert = puts.map((p: any) => ({
+          user_id: selectedClient.user_id,
+          raw_order_text: parseResult.raw_order_text || orderText,
+          source: 'ADVISOR_ALLOCATION',
+          ...p,
+        }));
+
+        const { error: insertError } = await supabase
+          .from('positions')
+          .insert(positionsToInsert);
+
+        if (insertError) throw insertError;
+        insertedPuts = puts.length;
+      }
+
+      // Insert CALLs into covered_calls table
+      if (calls.length > 0) {
+        // Fetch assigned positions for the selected client
+        const { data: assignedPositions, error: assignedError } = await supabase
+          .from('assigned_positions')
+          .select('id, symbol')
+          .eq('user_id', selectedClient.user_id)
+          .eq('is_active', true);
+
+        if (assignedError) throw assignedError;
+
+        const callsToInsert = [];
+        const unmatchedCalls = [];
+
+        for (const call of calls) {
+          const matchingPosition = assignedPositions?.find(
+            ap => ap.symbol === call.symbol
+          );
+
+          if (matchingPosition) {
+            callsToInsert.push({
+              assigned_position_id: matchingPosition.id,
+              strike_price: call.strike_price,
+              expiration: call.expiration,
+              contracts: call.contracts,
+              premium_per_contract: call.premium_per_contract,
+            });
+          } else {
+            unmatchedCalls.push(call.symbol);
+          }
+        }
+
+        if (callsToInsert.length > 0) {
+          const { error: callInsertError } = await supabase
+            .from('covered_calls')
+            .insert(callsToInsert);
+
+          if (callInsertError) throw callInsertError;
+          insertedCalls = callsToInsert.length;
+        }
+
+        if (unmatchedCalls.length > 0) {
+          toast({
+            title: "Some calls couldn't be matched",
+            description: `${unmatchedCalls.length} call(s) for ${unmatchedCalls.join(', ')} have no matching assigned positions for ${selectedClient.name}.`,
+            variant: "destructive",
+          });
+        }
+      }
 
       // Fetch market data for all unique symbols
-      const uniqueSymbols = [...new Set(positions.map((p: any) => p.symbol))];
-      await Promise.all(
-        uniqueSymbols.map(symbol =>
-          supabase.functions.invoke('fetch-market-data', { body: { symbol } })
-        )
-      );
-
-      const { error: insertError } = await supabase
-        .from('positions')
-        .insert(positionsToInsert);
-
-      if (insertError) throw insertError;
+      const allSymbols = [...new Set([...puts.map((p: any) => p.symbol), ...calls.map((c: any) => c.symbol)])];
+      if (allSymbols.length > 0) {
+        await Promise.all(
+          allSymbols.map(symbol =>
+            supabase.functions.invoke('fetch-market-data', { body: { symbol } })
+          )
+        );
+      }
 
       toast({
         title: "Orders imported successfully",
-        description: `${positions.length} position${positions.length > 1 ? 's' : ''} added to ${selectedClient.name}'s account.`,
+        description: `${insertedPuts} PUT${insertedPuts !== 1 ? 's' : ''} and ${insertedCalls} CALL${insertedCalls !== 1 ? 's' : ''} added to ${selectedClient.name}'s account.`,
       });
       setOrderText("");
       setFileName("");
