@@ -374,6 +374,33 @@ export type Database = {
         }
         Relationships: []
       }
+      household_members: {
+        Row: {
+          created_at: string | null
+          id: string
+          member_user_id: string
+          primary_user_id: string
+          relationship: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          member_user_id: string
+          primary_user_id: string
+          relationship?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          member_user_id?: string
+          primary_user_id?: string
+          relationship?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       learning_assigned_positions: {
         Row: {
           assignment_date: string
@@ -1117,6 +1144,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_household_member: {
+        Args: { _target_user_id: string; _user_id: string }
         Returns: boolean
       }
     }
