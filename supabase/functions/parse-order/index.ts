@@ -124,7 +124,45 @@ serve(async (req) => {
         }
       }
 
-      // Format 4: Generic OCC-style symbol blocks like "QQQ251128P605   1   6.4200"
+      // Format 4: Clean List format with OCC symbol and separate Contracts/Premium lines
+      // Example: DDOG251226C172.5\nCALL — Datadog...\nContracts: -2\nPremium: $2.45
+      if (positions.length === 0 && calls.length === 0) {
+        const cleanListBlocks = orderText.split(/(?=^[A-Z]+\d{6}[PC]\d+)/gm).filter(b => b.trim());
+        
+        for (const block of cleanListBlocks) {
+          const occMatch = block.match(/^([A-Z]+)(\d{6})([PC])(\d+(?:\.\d+)?)/);
+          if (occMatch) {
+            const [, symbol, dateStr, optionType, strike] = occMatch;
+            
+            // Extract contracts (look for "Contracts: -2" or "Contracts: 2")
+            const contractsMatch = block.match(/Contracts:\s*-?(\d+)/i);
+            // Extract premium (look for "Premium: $2.45" or "Premium: 2.45")
+            const premiumMatch = block.match(/Premium:\s*\$?(\d+(?:\.\d+)?)/i);
+            
+            if (contractsMatch && premiumMatch) {
+              const year = '20' + dateStr.substring(0, 2);
+              const month = dateStr.substring(2, 4);
+              const day = dateStr.substring(4, 6);
+              
+              const parsedOption = {
+                symbol,
+                strike,
+                exp: `${year}-${month}-${day}`,
+                premium: premiumMatch[1],
+                contracts: contractsMatch[1],
+              };
+              
+              if (optionType === 'P') {
+                positions.push(parsedOption);
+              } else {
+                calls.push(parsedOption);
+              }
+            }
+          }
+        }
+      }
+      
+      // Format 5: Generic OCC-style symbol blocks like "QQQ251128P605   1   6.4200"
       if (positions.length === 0 && calls.length === 0) {
         const genericPutPattern = /([A-Z]{1,6})(\d{6})P(\d+(?:\.\d+)?)[\s]+(\d+)[\s]+(\d+(?:\.\d+)?)/g;
         const genericCallPattern = /([A-Z]{1,6})(\d{6})C(\d+(?:\.\d+)?)[\s]+(\d+)[\s]+(\d+(?:\.\d+)?)/g;
