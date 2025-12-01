@@ -13,6 +13,7 @@ import { ExpirationCalendar } from "@/components/dashboard/ExpirationCalendar";
 import { AIPerformanceTracker } from "@/components/dashboard/AIPerformanceTracker";
 import { LearningCenter } from "@/components/dashboard/LearningCenter";
 import { AssignedCapitalDialog } from "@/components/dashboard/AssignedCapitalDialog";
+import { ActivePositionsBatchHeader } from "@/components/dashboard/ActivePositionsBatchHeader";
 import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
@@ -442,36 +443,40 @@ const Dashboard = () => {
         <ExpirationCalendar positions={activePositions} />
 
         {/* Active Positions Matrix */}
-        <Card id="positions" className="scroll-mt-6">
-          <CardHeader className="border-b border-border">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Active Positions Matrix</CardTitle>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center border border-border rounded-lg p-1">
-                  <button className="px-3 py-1 text-xs rounded bg-primary text-primary-foreground">All</button>
-                  <button className="px-3 py-1 text-xs rounded text-muted-foreground hover:bg-muted">By DTE</button>
-                  <button className="px-3 py-1 text-xs rounded text-muted-foreground hover:bg-muted">By Risk</button>
+        <div id="positions" className="scroll-mt-6 space-y-0">
+          <ActivePositionsBatchHeader positions={activePositions} />
+          
+          <Card>
+            <CardHeader className="border-b border-border">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Active Positions Matrix</CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center border border-border rounded-lg p-1">
+                    <button className="px-3 py-1 text-xs rounded bg-primary text-primary-foreground">All</button>
+                    <button className="px-3 py-1 text-xs rounded text-muted-foreground hover:bg-muted">By DTE</button>
+                    <button className="px-3 py-1 text-xs rounded text-muted-foreground hover:bg-muted">By Risk</button>
+                  </div>
+                  <Button variant="outline" size="sm" className="text-xs">
+                    AI Insight
+                  </Button>
                 </div>
-                <Button variant="outline" size="sm" className="text-xs">
-                  AI Insight
-                </Button>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {activePositions.length === 0 ? (
-              <div className="p-6 text-center text-muted-foreground">
-                No active positions found for the selected time period.
-              </div>
-            ) : (
-              <PositionsTable 
-                positions={activePositions} 
-                onRefetch={refetch}
-                onRefetchAssigned={refetchAssigned}
-              />
-            )}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="p-0">
+              {activePositions.length === 0 ? (
+                <div className="p-6 text-center text-muted-foreground">
+                  No active positions found for the selected time period.
+                </div>
+              ) : (
+                <PositionsTable 
+                  positions={activePositions} 
+                  onRefetch={refetch}
+                  onRefetchAssigned={refetchAssigned}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Assigned Positions Zone */}
         <Card id="assignments" className="scroll-mt-6">
