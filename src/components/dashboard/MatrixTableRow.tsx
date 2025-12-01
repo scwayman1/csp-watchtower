@@ -52,18 +52,15 @@ export function MatrixTableRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className="font-mono text-sm">
-        <div className="flex flex-col">
-          <span className="font-semibold">{formatCurrency(position.underlyingPrice)}</span>
-          <span className="text-xs text-muted-foreground">Current</span>
-        </div>
-      </TableCell>
-      <TableCell className="font-mono text-xs">
-        <div className="flex items-center gap-1">
-          {getTrendIcon()}
-          <span className={position.dayChangePct && position.dayChangePct > 0 ? "text-success" : position.dayChangePct && position.dayChangePct < 0 ? "text-destructive" : ""}>
-            {position.dayChangePct ? `${position.dayChangePct >= 0 ? '+' : ''}${position.dayChangePct.toFixed(1)}%` : '-'}
-          </span>
+      <TableCell className="font-mono">
+        <div className="flex flex-col gap-0.5">
+          <span className="font-semibold text-sm">{formatCurrency(position.underlyingPrice)}</span>
+          <div className="flex items-center gap-1">
+            {getTrendIcon()}
+            <span className={`text-xs ${position.dayChangePct && position.dayChangePct > 0 ? "text-success" : position.dayChangePct && position.dayChangePct < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+              {position.dayChangePct ? `${position.dayChangePct >= 0 ? '+' : ''}${position.dayChangePct.toFixed(1)}%` : '-'}
+            </span>
+          </div>
         </div>
       </TableCell>
       <TableCell className="font-mono text-sm font-semibold">
