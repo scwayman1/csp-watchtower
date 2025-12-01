@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Plus, Shield, TrendingUp } from "lucide-react";
+import { Plus, Shield, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import type { AssignedPosition } from "@/hooks/useAssignedPositions";
 import { SellCallDialog } from "./SellCallDialog";
 import { CoveredCallImportBar } from "./CoveredCallImportBar";
@@ -38,6 +38,12 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
     const expDate = new Date(Number(year), Number(month) - 1, Number(day));
     const diffTime = expDate.getTime() - today.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const getTrendIcon = (dayChangePct?: number) => {
+    if (!dayChangePct) return <Minus className="w-3 h-3 text-muted-foreground" />;
+    if (dayChangePct > 0) return <TrendingUp className="w-3 h-3 text-success" />;
+    return <TrendingDown className="w-3 h-3 text-destructive" />;
   };
 
   return (
@@ -130,7 +136,19 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
                   <TableCell className="text-sm">{formatDate(position.assignment_date)}</TableCell>
                   <TableCell>{formatCurrency(position.assignment_price)}</TableCell>
                   <TableCell className="font-medium">{formatCurrency(position.cost_basis)}</TableCell>
-                  <TableCell>{formatCurrency(position.current_price || 0)}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium cursor-pointer hover:text-primary transition-colors">
+                        {formatCurrency(position.current_price || 0)}
+                      </span>
+                      <div className="flex items-center gap-1 text-xs">
+                        {getTrendIcon(position.day_change_pct)}
+                        <span className={position.day_change_pct && position.day_change_pct > 0 ? "text-success" : position.day_change_pct && position.day_change_pct < 0 ? "text-destructive" : "text-muted-foreground"}>
+                          {position.day_change_pct ? `${position.day_change_pct >= 0 ? '+' : ''}${position.day_change_pct.toFixed(1)}%` : '-'}
+                        </span>
+                      </div>
+                    </div>
+                  </TableCell>
                   <TableCell className={position.unrealized_pnl && position.unrealized_pnl >= 0 ? "text-success font-semibold" : "text-destructive font-semibold"}>
                     {formatCurrency(position.unrealized_pnl || 0)}
                   </TableCell>
