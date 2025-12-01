@@ -163,9 +163,26 @@ export function useAssignedPositions() {
       )
       .subscribe();
 
+    // Subscribe to market data changes for real-time price updates
+    const marketDataChannel = supabase
+      .channel('market-data-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'market_data',
+        },
+        () => {
+          fetchAssignedPositions();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(assignedChannel);
       supabase.removeChannel(callsChannel);
+      supabase.removeChannel(marketDataChannel);
     };
   }, []);
 
