@@ -23,6 +23,7 @@ export interface AssignedPosition {
   cost_basis: number;
   is_active: boolean;
   current_price?: number;
+  day_change_pct?: number;
   unrealized_pnl?: number;
   total_call_premiums?: number;
   net_position?: number;
@@ -63,16 +64,18 @@ export function useAssignedPositions() {
       const symbols = [...new Set(positionsData.map(p => p.symbol))];
       const { data: marketData } = await supabase
         .from('market_data')
-        .select('symbol, underlying_price')
+        .select('symbol, underlying_price, day_change_pct')
         .in('symbol', symbols);
 
       const marketDataMap = new Map(
-        marketData?.map(m => [m.symbol, m.underlying_price]) || []
+        marketData?.map(m => [m.symbol, { price: m.underlying_price, changePct: m.day_change_pct }]) || []
       );
 
       // Enrich positions with market data and call premiums
       const enrichedPositions = positionsData.map(pos => {
-        const currentPrice = marketDataMap.get(pos.symbol) || pos.assignment_price;
+        const marketInfo = marketDataMap.get(pos.symbol);
+        const currentPrice = marketInfo?.price || pos.assignment_price;
+        const dayChangePct = marketInfo?.changePct || 0;
         const positionValue = currentPrice * pos.shares;
         const totalInvested = pos.cost_basis * pos.shares;
         const unrealizedPnl = positionValue - totalInvested;
@@ -97,6 +100,7 @@ export function useAssignedPositions() {
           cost_basis: parseFloat(String(pos.cost_basis)),
           is_active: pos.is_active,
           current_price: currentPrice,
+          day_change_pct: dayChangePct,
           unrealized_pnl: unrealizedPnl,
           total_call_premiums: totalCallPremiums,
           net_position: netPosition,
