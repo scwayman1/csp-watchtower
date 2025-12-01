@@ -44,6 +44,20 @@ export function MatrixTableRow({
 
   return (
     <TableRow className={`transition-all border-b border-border/50 ${getRiskBackgroundClass()}`}>
+      <TableCell className="font-semibold">
+        <div className="flex flex-col">
+          <span className="text-base">{position.symbol}</span>
+          <span className="text-xs text-muted-foreground">
+            {new Date(position.expiration).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
+        </div>
+      </TableCell>
+      <TableCell className="font-mono text-sm">
+        <div className="flex flex-col">
+          <span className="font-semibold">{formatCurrency(position.underlyingPrice)}</span>
+          <span className="text-xs text-muted-foreground">Current</span>
+        </div>
+      </TableCell>
       <TableCell className="font-mono text-xs">
         <div className="flex items-center gap-1">
           {getTrendIcon()}
@@ -52,19 +66,12 @@ export function MatrixTableRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className="font-semibold">
-        <div className="flex flex-col">
-          <span>{position.symbol}</span>
-          <span className="text-xs text-muted-foreground">
-            CSP ${position.strikePrice} {new Date(position.expiration).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-          </span>
-        </div>
+      <TableCell className="font-mono text-sm font-semibold">
+        {formatCurrency(position.strikePrice)}
       </TableCell>
       <TableCell className={getPremiumColorClass(position.id)}>
         {formatCurrency(position.premiumPerContract)}
       </TableCell>
-      <TableCell className="text-sm">-</TableCell>
-      <TableCell className="text-sm">-</TableCell>
       <TableCell className="text-sm font-medium">{position.daysToExp}</TableCell>
       <TableCell>
         <Badge variant={risk.variant} className="text-xs">{risk.label}</Badge>
