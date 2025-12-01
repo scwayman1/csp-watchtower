@@ -17,7 +17,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get all active positions to find symbols we need prices for
+    // Get all active positions and assigned positions to find symbols we need prices for
     const { data: positions, error: positionsError } = await supabase
       .from('positions')
       .select('symbol')
@@ -25,11 +25,21 @@ serve(async (req) => {
 
     if (positionsError) throw positionsError;
 
-    const symbols = [...new Set(positions?.map(p => p.symbol) || [])];
+    const { data: assignedPositions, error: assignedError } = await supabase
+      .from('assigned_positions')
+      .select('symbol')
+      .eq('is_active', true);
+
+    if (assignedError) throw assignedError;
+
+    const symbolsSet = new Set<string>();
+    (positions || []).forEach((p: { symbol: string }) => symbolsSet.add(p.symbol));
+    (assignedPositions || []).forEach((p: { symbol: string }) => symbolsSet.add(p.symbol));
+    const symbols = [...symbolsSet];
     
     if (symbols.length === 0) {
       return new Response(
-        JSON.stringify({ message: 'No active positions to update' }),
+        JSON.stringify({ message: 'No active symbols to update' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
