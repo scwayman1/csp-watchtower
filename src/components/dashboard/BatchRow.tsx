@@ -200,7 +200,7 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
               
               <div>
                 <div className="text-xs text-muted-foreground/70 uppercase tracking-wide mb-1 flex items-center gap-1">
-                  Unrealized P/L
+                  Realized Premium
                   {isProfitable ? (
                     <TrendingUp className="h-3 w-3 text-success" />
                   ) : (
