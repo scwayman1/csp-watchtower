@@ -52,7 +52,7 @@ export function MatrixTableRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className="font-mono">
+      <TableCell className="font-mono cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => window.open(`https://finance.yahoo.com/quote/${position.symbol}`, '_blank')}>
         <div className="flex flex-col gap-0.5">
           <span className="font-semibold text-sm">{formatCurrency(position.underlyingPrice)}</span>
           <div className="flex items-center gap-1">
