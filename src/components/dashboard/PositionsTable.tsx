@@ -108,8 +108,7 @@ export function PositionsTable({ positions, onRefetch, onRefetchAssigned }: Posi
             <TableHeader>
               <TableRow className="border-b border-border hover:bg-transparent">
                 <TableHead className="w-[100px]">Ticker</TableHead>
-                <TableHead className="w-[100px]">Underlying</TableHead>
-                <TableHead className="w-[80px]">Trend</TableHead>
+                <TableHead className="w-[120px]">Underlying</TableHead>
                 <TableHead className="w-[90px]">Strike</TableHead>
                 <TableHead className="w-[100px]">Premium</TableHead>
                 <TableHead className="w-[60px]">DTE</TableHead>
