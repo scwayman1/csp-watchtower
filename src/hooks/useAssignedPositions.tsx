@@ -179,10 +179,28 @@ export function useAssignedPositions() {
       )
       .subscribe();
 
+    // Set up market data refresh interval (same as active positions)
+    const refreshMarketData = async () => {
+      try {
+        await supabase.functions.invoke('refresh-market-data');
+        // Refetch positions after market data is refreshed
+        await fetchAssignedPositions();
+      } catch (error) {
+        console.error('Error refreshing market data for assigned positions:', error);
+      }
+    };
+
+    // Initial refresh
+    refreshMarketData();
+
+    // Refresh every 60 seconds
+    const intervalId = setInterval(refreshMarketData, 60000);
+
     return () => {
       supabase.removeChannel(assignedChannel);
       supabase.removeChannel(callsChannel);
       supabase.removeChannel(marketDataChannel);
+      clearInterval(intervalId);
     };
   }, []);
 
