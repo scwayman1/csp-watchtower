@@ -132,13 +132,13 @@ serve(async (req) => {
     const underlyingPrice = quoteData.c; // Current price
     console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
-    // Step 2: Fetch options from Finnhub (limit to 2 total expirations max)
-    const expirationDates = getNextExpirations(1, 1); // 1 weekly + 1 monthly as hints
+    // Step 2: Fetch options from Finnhub (limit to 6 total expirations max)
+    const expirationDates = getNextExpirations(3, 2); // 3 weekly + 2 monthly as hints
     console.log(`Fetching options for ${symbol} (dates are hints to Finnhub)`);
     
     const optionsByExpiration: Record<string, any[]> = {};
     const seenExpirations = new Set<string>();
-    const MAX_EXPIRATIONS = 2; // Limit to prevent CPU timeout
+    const MAX_EXPIRATIONS = 6; // Limit to prevent CPU timeout
     const STRIKE_RANGE_PCT = 0.20; // Only fetch strikes within ±20% of underlying price
     
     // Fetch options - Finnhub returns actual expirations available
@@ -168,57 +168,60 @@ serve(async (req) => {
 
         const results: any[] = [];
         
-        // Process only the first expiration from each fetch to limit CPU usage
-        const expirationData = optionsData.data[0];
-        if (!expirationData) {
-          return [];
-        }
+        // Process up to 3 expirations from each fetch to provide more options
+        const expirationsToProcess = optionsData.data.slice(0, 3);
         
-        const actualExpDate = expirationData.expirationDate;
-        
-        // Skip if we've already processed this expiration or hit limit
-        if (seenExpirations.has(actualExpDate) || seenExpirations.size >= MAX_EXPIRATIONS) {
-          return [];
-        }
-        seenExpirations.add(actualExpDate);
-        
-        if (!expirationData.options || !expirationData.options[optionType]) {
-          return [];
-        }
-        
-        console.log(`Processing ${optionType} options for expiration ${actualExpDate}`);
-        
-        // Filter and map Finnhub options to our format
-        // Only process strikes within ±20% of underlying to reduce CPU usage
-        const minStrike = underlyingPrice * (1 - STRIKE_RANGE_PCT);
-        const maxStrike = underlyingPrice * (1 + STRIKE_RANGE_PCT);
-        
-        const options = expirationData.options[optionType]
-          .filter((opt: any) => {
-            const strike = opt.strike || 0;
-            return strike > 0 && strike >= minStrike && strike <= maxStrike;
-          })
-          .map((opt: any) => ({
-            strike: opt.strike,
-            bid: opt.bid || 0,
-            ask: opt.ask || 0,
-            mid: opt.bid && opt.ask ? (opt.bid + opt.ask) / 2 : opt.lastTradePrice || 0,
-            volume: opt.volume || 0,
-            openInterest: opt.openInterest || 0,
-            impliedVolatility: opt.impliedVolatility || expirationData.impliedVolatility || 0,
-            delta: opt.delta || 0,
-            inTheMoney: optionType === 'PUT' 
-              ? (opt.inTheMoney === "TRUE" || opt.strike > underlyingPrice)
-              : (opt.inTheMoney === "TRUE" || opt.strike < underlyingPrice),
-            lastPrice: opt.lastTradePrice || 0
-          }))
-          .sort((a: any, b: any) => b.strike - a.strike); // Sort by strike descending
-        
-        if (options.length > 0) {
-          // Use actual expiration date from Finnhub
-          const timestamp = new Date(actualExpDate).getTime() / 1000;
-          console.log(`Found ${options.length} ${optionType} options for ${actualExpDate}`);
-          results.push({ timestamp: timestamp.toString(), options });
+        for (const expirationData of expirationsToProcess) {
+          if (!expirationData) {
+            continue;
+          }
+          
+          const actualExpDate = expirationData.expirationDate;
+          
+          // Skip if we've already processed this expiration or hit limit
+          if (seenExpirations.has(actualExpDate) || seenExpirations.size >= MAX_EXPIRATIONS) {
+            continue;
+          }
+          seenExpirations.add(actualExpDate);
+          
+          if (!expirationData.options || !expirationData.options[optionType]) {
+            continue;
+          }
+          
+          console.log(`Processing ${optionType} options for expiration ${actualExpDate}`);
+          
+          // Filter and map Finnhub options to our format
+          // Only process strikes within ±20% of underlying to reduce CPU usage
+          const minStrike = underlyingPrice * (1 - STRIKE_RANGE_PCT);
+          const maxStrike = underlyingPrice * (1 + STRIKE_RANGE_PCT);
+          
+          const options = expirationData.options[optionType]
+            .filter((opt: any) => {
+              const strike = opt.strike || 0;
+              return strike > 0 && strike >= minStrike && strike <= maxStrike;
+            })
+            .map((opt: any) => ({
+              strike: opt.strike,
+              bid: opt.bid || 0,
+              ask: opt.ask || 0,
+              mid: opt.bid && opt.ask ? (opt.bid + opt.ask) / 2 : opt.lastTradePrice || 0,
+              volume: opt.volume || 0,
+              openInterest: opt.openInterest || 0,
+              impliedVolatility: opt.impliedVolatility || expirationData.impliedVolatility || 0,
+              delta: opt.delta || 0,
+              inTheMoney: optionType === 'PUT' 
+                ? (opt.inTheMoney === "TRUE" || opt.strike > underlyingPrice)
+                : (opt.inTheMoney === "TRUE" || opt.strike < underlyingPrice),
+              lastPrice: opt.lastTradePrice || 0
+            }))
+            .sort((a: any, b: any) => b.strike - a.strike); // Sort by strike descending
+          
+          if (options.length > 0) {
+            // Use actual expiration date from Finnhub
+            const timestamp = new Date(actualExpDate).getTime() / 1000;
+            console.log(`Found ${options.length} ${optionType} options for ${actualExpDate}`);
+            results.push({ timestamp: timestamp.toString(), options });
+          }
         }
         
         return results;
