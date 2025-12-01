@@ -114,12 +114,30 @@ export function ImportBar() {
 
     setLoading(true);
     try {
+      console.log('=== PARSE ORDER START ===');
+      console.log('Order text length:', orderText.length);
+      console.log('First 200 chars:', orderText.substring(0, 200));
+      
       // Parse order using edge function
       const { data: parseResult, error: parseError } = await supabase.functions.invoke('parse-order', {
         body: { orderText },
       });
 
-      if (parseError) throw parseError;
+      console.log('Parse result:', parseResult);
+      console.log('Parse error:', parseError);
+
+      if (parseError) {
+        console.error('Edge function error:', parseError);
+        throw parseError;
+      }
+      
+      if (!parseResult) {
+        throw new Error('No data returned from parse-order');
+      }
+      
+      if (parseResult.error) {
+        throw new Error(parseResult.error);
+      }
 
       const puts = parseResult.puts || [];
       const calls = parseResult.calls || [];
@@ -227,10 +245,25 @@ export function ImportBar() {
       setOrderText("");
       setFileName("");
     } catch (error: any) {
-      console.error('Parse error:', error);
+      console.error('=== PARSE ERROR ===');
+      console.error('Error object:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error stack:', error?.stack);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      
+      let errorMessage = 'Please check the format and try again.';
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.error) {
+        errorMessage = error.error;
+      }
+      
       toast({
         title: "Failed to parse order",
-        description: error.message || "Please check the format and try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
