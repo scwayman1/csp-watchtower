@@ -9,6 +9,7 @@ export function useUserRole() {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeRole, setActiveRole] = useState<AppRole>("investor");
+  const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     fetchUserRoles();
@@ -47,8 +48,13 @@ export function useUserRole() {
     }
   };
 
-  const switchRole = (role: AppRole) => {
+  const switchRole = async (role: AppRole) => {
     if (roles.includes(role)) {
+      setSwitching(true);
+      
+      // Small delay to prevent race conditions
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       setActiveRole(role);
       localStorage.setItem("activeRole", role);
       
@@ -60,20 +66,24 @@ export function useUserRole() {
         if (currentPath.startsWith("/advisor")) {
           // If on advisor settings, go to investor settings
           if (currentPath === "/advisor/settings") {
-            navigate("/settings");
+            navigate("/settings", { replace: true });
           } else {
             // Otherwise go to investor dashboard
-            navigate("/");
+            navigate("/", { replace: true });
           }
         }
       } else if (role === "advisor" || role === "admin") {
         // Switching to advisor - redirect to advisor routes
         if (currentPath === "/settings") {
-          navigate("/advisor/settings");
+          navigate("/advisor/settings", { replace: true });
         } else if (!currentPath.startsWith("/advisor")) {
-          navigate("/advisor");
+          navigate("/advisor", { replace: true });
         }
       }
+      
+      // Wait for navigation to complete
+      await new Promise(resolve => setTimeout(resolve, 200));
+      setSwitching(false);
     }
   };
 
@@ -83,6 +93,7 @@ export function useUserRole() {
     roles,
     activeRole,
     loading,
+    switching,
     switchRole,
     hasRole,
     fetchUserRoles,
