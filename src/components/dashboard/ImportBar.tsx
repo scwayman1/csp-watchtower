@@ -147,17 +147,22 @@ export function ImportBar() {
 
       // Insert CALLs into covered_calls table
       if (calls.length > 0) {
+        console.log('Parsed covered calls:', calls);
+        
         // First, fetch assigned positions to match against
         const { data: assignedPositions, error: assignedError } = await supabase
           .from('assigned_positions')
-          .select('id, symbol')
+          .select('id, symbol, shares')
           .eq('user_id', user.id)
           .eq('is_active', true);
 
         if (assignedError) throw assignedError;
 
+        console.log('Available assigned positions:', assignedPositions);
+
         const callsToInsert = [];
         const unmatchedCalls = [];
+        const matchDetails = [];
 
         for (const call of calls) {
           const matchingPosition = assignedPositions?.find(
@@ -172,24 +177,33 @@ export function ImportBar() {
               contracts: call.contracts,
               premium_per_contract: call.premium_per_contract,
             });
+            matchDetails.push(`✓ ${call.symbol}: Matched to ${matchingPosition.shares} shares`);
           } else {
             unmatchedCalls.push(call.symbol);
+            matchDetails.push(`✗ ${call.symbol}: No assigned position found`);
           }
         }
+
+        console.log('Call matching results:', matchDetails);
 
         if (callsToInsert.length > 0) {
           const { error: callInsertError } = await supabase
             .from('covered_calls')
             .insert(callsToInsert);
 
-          if (callInsertError) throw callInsertError;
+          if (callInsertError) {
+            console.error('Failed to insert covered calls:', callInsertError);
+            throw callInsertError;
+          }
           insertedCalls = callsToInsert.length;
+          console.log(`Successfully inserted ${insertedCalls} covered call(s)`);
         }
 
         if (unmatchedCalls.length > 0) {
+          const availableSymbols = assignedPositions?.map(ap => ap.symbol).join(', ') || 'none';
           toast({
             title: "Some calls couldn't be matched",
-            description: `${unmatchedCalls.length} call(s) for ${unmatchedCalls.join(', ')} have no matching assigned positions.`,
+            description: `${unmatchedCalls.length} call(s) for ${unmatchedCalls.join(', ')} have no matching assigned positions. Available: ${availableSymbols}`,
             variant: "destructive",
           });
         }
