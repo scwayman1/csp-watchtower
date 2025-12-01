@@ -82,6 +82,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
     return assignedPositions.map(ap => {
       const priceData = marketData[ap.symbol];
       const currentPrice = priceData?.price || 0;
+      const dayChangePct = priceData?.change_pct || 0;
       const marketValue = currentPrice * ap.shares;
       const unrealizedPnL = marketValue - ap.cost_basis + ap.original_put_premium;
       
@@ -93,6 +94,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
       return {
         ...ap,
         currentPrice,
+        dayChangePct,
         marketValue,
         unrealizedPnL,
         coveredCallPremiums,

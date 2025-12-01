@@ -3,12 +3,13 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { LearningAssignedPosition, LearningCoveredCall } from "@/hooks/useLearningAssignedPositions";
 
 interface AssignedPositionRowProps {
   position: LearningAssignedPosition & {
     currentPrice: number;
+    dayChangePct?: number;
     marketValue: number;
     unrealizedPnL: number;
     coveredCallPremiums: number;
@@ -22,6 +23,12 @@ export const AssignedPositionRow = ({ position, onSellCall }: AssignedPositionRo
   const activeCalls = position.covered_calls?.filter(call => call.is_active) || [];
   const sharesUnderCall = activeCalls.reduce((sum, call) => sum + (call.contracts * 100), 0);
   const freeShares = position.shares - sharesUnderCall;
+
+  const getTrendIcon = () => {
+    if (!position.dayChangePct) return <Minus className="w-3 h-3 text-muted-foreground" />;
+    if (position.dayChangePct > 0) return <TrendingUp className="w-3 h-3 text-success" />;
+    return <TrendingDown className="w-3 h-3 text-destructive" />;
+  };
   
   // Calculate potential gains if called away
   const calculateCallAwayGain = (call: LearningCoveredCall) => {
@@ -82,7 +89,17 @@ export const AssignedPositionRow = ({ position, onSellCall }: AssignedPositionRo
         </TableCell>
         <TableCell>
           {position.currentPrice > 0 ? (
-            <span className="font-medium">${position.currentPrice.toFixed(2)}</span>
+            <div className="flex flex-col gap-1">
+              <span className="font-medium cursor-pointer hover:text-primary transition-colors">
+                ${position.currentPrice.toFixed(2)}
+              </span>
+              <div className="flex items-center gap-1 text-xs">
+                {getTrendIcon()}
+                <span className={position.dayChangePct && position.dayChangePct > 0 ? "text-success" : position.dayChangePct && position.dayChangePct < 0 ? "text-destructive" : "text-muted-foreground"}>
+                  {position.dayChangePct ? `${position.dayChangePct >= 0 ? '+' : ''}${position.dayChangePct.toFixed(1)}%` : '-'}
+                </span>
+              </div>
+            </div>
           ) : (
             <span className="text-muted-foreground text-sm">-</span>
           )}
