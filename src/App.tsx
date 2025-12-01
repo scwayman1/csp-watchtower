@@ -24,10 +24,17 @@ import MessagesPage from "./pages/advisor/MessagesPage";
 const queryClient = new QueryClient();
 
 const AppContent = () => {
-  const { isAdvisor, loading } = useUserRole();
+  const { isAdvisor, loading, switching } = useUserRole();
 
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  if (loading || switching) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-sm text-muted-foreground">{switching ? "Switching roles..." : "Loading..."}</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -42,6 +49,7 @@ const AppContent = () => {
           <Routes>
             {isAdvisor ? (
               <>
+                <Route path="/" element={<AdvisorDashboard />} />
                 <Route path="/advisor" element={<AdvisorDashboard />} />
                 <Route path="/advisor/clients" element={<ClientsPage />} />
                 <Route path="/advisor/cyclesheet" element={<CycleSheetPage />} />
@@ -49,6 +57,7 @@ const AppContent = () => {
                 <Route path="/advisor/orders" element={<OrdersPage />} />
                 <Route path="/advisor/messages" element={<MessagesPage />} />
                 <Route path="/advisor/settings" element={<Settings />} />
+                <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<AdvisorDashboard />} />
               </>
             ) : (
@@ -56,6 +65,8 @@ const AppContent = () => {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/messages" element={<Messages />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/advisor" element={<Dashboard />} />
+                <Route path="/advisor/*" element={<Dashboard />} />
                 <Route path="*" element={<NotFound />} />
               </>
             )}
