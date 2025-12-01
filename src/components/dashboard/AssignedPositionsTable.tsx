@@ -138,9 +138,14 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
                   <TableCell className="font-medium">{formatCurrency(position.cost_basis)}</TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
-                      <span className="font-medium cursor-pointer hover:text-primary transition-colors">
+                      <a 
+                        href={`https://finance.yahoo.com/quote/${position.symbol}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium cursor-pointer hover:text-primary transition-colors"
+                      >
                         {formatCurrency(position.current_price || 0)}
-                      </span>
+                      </a>
                       <div className="flex items-center gap-1 text-xs">
                         {getTrendIcon(position.day_change_pct)}
                         <span className={position.day_change_pct && position.day_change_pct > 0 ? "text-success" : position.day_change_pct && position.day_change_pct < 0 ? "text-destructive" : "text-muted-foreground"}>
