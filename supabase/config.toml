@@ -21,6 +21,9 @@ verify_jwt = true
 [functions.reconcile-statement]
 verify_jwt = true
 
+[functions.send-client-invite]
+verify_jwt = false
+
 [functions.send-invite-email]
 verify_jwt = false
 
