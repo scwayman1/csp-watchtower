@@ -10,6 +10,7 @@ import { StatementReconciliation } from "@/components/dashboard/StatementReconci
 import { RoleManager } from "@/components/RoleManager";
 import { ProfileSection } from "@/components/settings/ProfileSection";
 import { AdvisorProfileSection } from "@/components/settings/AdvisorProfileSection";
+import { HouseholdManagement } from "@/components/settings/HouseholdManagement";
 import { Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -132,6 +133,9 @@ const Settings = () => {
         {/* Profile Section - Conditional based on active role */}
         {user && activeRole === 'advisor' && <AdvisorProfileSection userId={user.id} />}
         {user && activeRole !== 'advisor' && <ProfileSection userId={user.id} />}
+
+        {/* Household Management - Only for investors */}
+        {user && activeRole !== 'advisor' && <HouseholdManagement />}
 
         {/* Market Data Configuration */}
         <Card>
