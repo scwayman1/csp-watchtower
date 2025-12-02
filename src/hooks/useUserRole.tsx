@@ -48,36 +48,44 @@ export function useUserRole() {
     }
   };
 
-  const switchRole = async (role: AppRole) => {
-    if (roles.includes(role)) {
-      setSwitching(true);
-      
-      setActiveRole(role);
-      localStorage.setItem("activeRole", role);
-      
-      // Navigate to appropriate route based on new role
-      const currentPath = window.location.pathname;
-      
-      if (role === "investor") {
-        // Switching to investor - redirect to investor routes
-        if (currentPath.startsWith("/advisor")) {
-          if (currentPath === "/advisor/settings") {
-            navigate("/settings", { replace: true });
-          } else {
-            navigate("/", { replace: true });
-          }
-        }
-      } else if (role === "advisor" || role === "admin") {
-        // Switching to advisor - redirect to advisor routes
-        if (currentPath === "/settings") {
-          navigate("/advisor/settings", { replace: true });
-        } else if (!currentPath.startsWith("/advisor")) {
-          navigate("/advisor", { replace: true });
+  const switchRole = (role: AppRole) => {
+    console.log("switchRole called with:", role, "current activeRole:", activeRole);
+    
+    if (!roles.includes(role)) {
+      console.log("Role not in user's roles:", roles);
+      return;
+    }
+    
+    if (role === activeRole) {
+      console.log("Already on this role, skipping");
+      return;
+    }
+    
+    setSwitching(true);
+    setActiveRole(role);
+    localStorage.setItem("activeRole", role);
+    
+    // Navigate to appropriate route based on new role
+    const currentPath = window.location.pathname;
+    console.log("Current path:", currentPath, "switching to role:", role);
+    
+    if (role === "investor") {
+      if (currentPath.startsWith("/advisor")) {
+        if (currentPath === "/advisor/settings") {
+          navigate("/settings", { replace: true });
+        } else {
+          navigate("/", { replace: true });
         }
       }
-      
-      setSwitching(false);
+    } else if (role === "advisor" || role === "admin") {
+      if (currentPath === "/settings") {
+        navigate("/advisor/settings", { replace: true });
+      } else if (!currentPath.startsWith("/advisor")) {
+        navigate("/advisor", { replace: true });
+      }
     }
+    
+    setSwitching(false);
   };
 
   const hasRole = (role: AppRole) => roles.includes(role);
