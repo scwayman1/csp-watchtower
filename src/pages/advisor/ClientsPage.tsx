@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -31,10 +32,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Mail, TrendingUp, DollarSign } from "lucide-react";
+import { UserPlus, Mail, TrendingUp, DollarSign, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ClientsPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [newClient, setNewClient] = useState({
@@ -324,17 +326,29 @@ export default function ClientsPage() {
                     </TableCell>
                     <TableCell>{client.open_csp_count || 0}</TableCell>
                     <TableCell>
-                      {client.invite_status === "PENDING" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => resendInviteMutation.mutate(client)}
-                          disabled={resendInviteMutation.isPending}
-                        >
-                          <Mail className="h-4 w-4 mr-1" />
-                          Resend
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {client.invite_status === "ACCEPTED" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate(`/advisor?client=${client.id}`)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                        )}
+                        {client.invite_status === "PENDING" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => resendInviteMutation.mutate(client)}
+                            disabled={resendInviteMutation.isPending}
+                          >
+                            <Mail className="h-4 w-4 mr-1" />
+                            Resend
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
