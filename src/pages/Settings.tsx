@@ -134,8 +134,8 @@ const Settings = () => {
         {user && activeRole === 'advisor' && <AdvisorProfileSection userId={user.id} />}
         {user && activeRole !== 'advisor' && <ProfileSection userId={user.id} />}
 
-        {/* Household Management - Only for investors */}
-        {user && activeRole !== 'advisor' && <HouseholdManagement />}
+        {/* Household Management - Available to all users */}
+        {user && <HouseholdManagement />}
 
         {/* Market Data Configuration */}
         <Card>
