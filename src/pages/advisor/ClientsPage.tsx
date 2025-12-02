@@ -327,16 +327,14 @@ export default function ClientsPage() {
                     <TableCell>{client.open_csp_count || 0}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {client.invite_status === "ACCEPTED" && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/advisor?client=${client.id}`)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/advisor?client=${client.id}`)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
                         {client.invite_status === "PENDING" && (
                           <Button
                             variant="ghost"
