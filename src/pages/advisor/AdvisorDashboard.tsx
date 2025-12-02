@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, TrendingUp, DollarSign, Activity } from "lucide-react";
@@ -17,7 +17,10 @@ interface AdvisorStats {
 
 export default function AdvisorDashboard() {
   const navigate = useNavigate();
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(
+    searchParams.get("client")
+  );
   const [stats, setStats] = useState<AdvisorStats>({
     totalClients: 0,
     activeClients: 0,
@@ -25,6 +28,15 @@ export default function AdvisorDashboard() {
     activeCycles: 0,
   });
   const [loading, setLoading] = useState(true);
+
+  const handleClientSelect = (clientId: string | null) => {
+    setSelectedClientId(clientId);
+    if (clientId) {
+      setSearchParams({ client: clientId });
+    } else {
+      setSearchParams({});
+    }
+  };
 
   useEffect(() => {
     fetchAdvisorStats();
@@ -123,10 +135,10 @@ export default function AdvisorDashboard() {
               View client positions and performance
             </p>
           </div>
-          <ClientFilter
-            selectedClientId={selectedClientId}
-            onClientSelect={setSelectedClientId}
-          />
+        <ClientFilter
+          selectedClientId={selectedClientId}
+          onClientSelect={handleClientSelect}
+        />
         </div>
         <ClientDashboardView clientId={selectedClientId} />
       </div>
