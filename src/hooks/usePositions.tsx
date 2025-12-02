@@ -3,16 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { Position } from "@/components/dashboard/PositionsTable";
 
-export function usePositions() {
+export function usePositions(userId?: string) {
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [sharedOwners, setSharedOwners] = useState<Map<string, string>>(new Map());
 
   const fetchPositions = async () => {
     try {
-      // Get current user
+      // Get current user or use provided userId
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const effectiveUserId = userId || user?.id;
+      if (!effectiveUserId) return;
 
       const { data: positionsData, error: positionsError } = await supabase
         .from('positions')
@@ -28,10 +29,10 @@ export function usePositions() {
         return;
       }
 
-      // Track which positions are shared (not owned by current user)
+      // Track which positions are shared (not owned by effective user)
       const sharedOwnersMap = new Map<string, string>();
       positionsData.forEach(pos => {
-        if (pos.user_id !== user.id) {
+        if (pos.user_id !== effectiveUserId) {
           sharedOwnersMap.set(pos.id, pos.user_id);
         }
       });
@@ -64,7 +65,7 @@ export function usePositions() {
             body: { 
               position: pos, 
               underlyingPrice,
-              userId: user.id 
+              userId: effectiveUserId
             },
           });
 
