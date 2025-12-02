@@ -41,13 +41,7 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
 
       const { data, error } = await supabase
         .from("positions")
-        .select(`
-          *,
-          market_data (
-            underlying_price,
-            day_change_pct
-          )
-        `)
+        .select("*")
         .eq("user_id", client.user_id)
         .eq("is_active", true)
         .order("expiration");
@@ -191,11 +185,8 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
                 </TableHeader>
                 <TableBody>
                   {positions.map((position) => {
-                    const marketData = Array.isArray(position.market_data) 
-                      ? position.market_data[0] 
-                      : position.market_data;
                     const moneyness = getMoneyness(
-                      marketData?.underlying_price || null,
+                      null,
                       position.strike_price
                     );
                     return (
@@ -214,9 +205,7 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
                           <Badge variant={moneyness.variant}>{moneyness.label}</Badge>
                         </TableCell>
                         <TableCell>
-                          {marketData?.underlying_price 
-                            ? `$${marketData.underlying_price.toFixed(2)}`
-                            : "N/A"}
+                          N/A
                         </TableCell>
                       </TableRow>
                     );
@@ -255,18 +244,13 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
                   </TableHeader>
                   <TableBody>
                     {assignedPositions.map((position) => {
-                      const marketData = Array.isArray(position.market_data)
-                        ? position.market_data[0]
-                        : position.market_data;
                       return (
                         <TableRow key={position.id}>
                           <TableCell className="font-medium">{position.symbol}</TableCell>
                           <TableCell>{position.shares}</TableCell>
                           <TableCell>${position.assignment_price}</TableCell>
                           <TableCell>
-                            {marketData?.underlying_price
-                              ? `$${marketData.underlying_price.toFixed(2)}`
-                              : "N/A"}
+                            N/A
                           </TableCell>
                           <TableCell>${position.cost_basis.toFixed(2)}</TableCell>
                           <TableCell>
