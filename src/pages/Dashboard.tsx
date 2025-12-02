@@ -31,12 +31,18 @@ import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { startOfMonth, startOfYear, isAfter, isBefore, isWithinInterval } from "date-fns";
 
-const Dashboard = () => {
+interface DashboardProps {
+  viewAsUserId?: string;
+  isAdvisorView?: boolean;
+}
+
+const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {}) => {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions();
-  const { assignedPositions, loading: assignedLoading, refetch: refetchAssigned } = useAssignedPositions();
-  const { settings } = useSettings(user?.id);
-  const { history: portfolioHistory, recordSnapshot } = usePortfolioHistory(user?.id);
+  const effectiveUserId = viewAsUserId || user?.id;
+  const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions(effectiveUserId);
+  const { assignedPositions, loading: assignedLoading, refetch: refetchAssigned } = useAssignedPositions(effectiveUserId);
+  const { settings } = useSettings(effectiveUserId);
+  const { history: portfolioHistory, recordSnapshot } = usePortfolioHistory(effectiveUserId);
   const { toast } = useToast();
   const [refreshing, setRefreshing] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
@@ -211,9 +217,9 @@ const Dashboard = () => {
   // 5. Available Cash = Total Assets - Assigned Capital
   const availableCash = totalPortfolioValue - assignedSharesMarketValue;
   
-  // Record portfolio snapshot when key metrics change
+  // Record portfolio snapshot when key metrics change (skip in advisor view)
   useEffect(() => {
-    if (!user?.id || authLoading || positionsLoading || assignedLoading) return;
+    if (isAdvisorView || !effectiveUserId || authLoading || positionsLoading || assignedLoading) return;
     
     const recordPortfolioSnapshot = async () => {
       try {
@@ -234,7 +240,7 @@ const Dashboard = () => {
 
     // Record snapshot on significant changes
     recordPortfolioSnapshot();
-  }, [user?.id, totalPortfolioValue, totalPremium, assignedSharesMarketValue, totalUnrealizedPnL]);
+  }, [effectiveUserId, totalPortfolioValue, totalPremium, assignedSharesMarketValue, totalUnrealizedPnL, isAdvisorView]);
   
   // Find next expiration (use active positions only)
   const sortedByExp = [...activePositions].sort((a, b) => a.daysToExp - b.daysToExp);
@@ -292,42 +298,44 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6 space-y-6">
         {/* Top Action Bar */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Terminal</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Real-time position tracking & analytics
-            </p>
+        {!isAdvisorView && (
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Terminal</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Real-time position tracking & analytics
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleRefreshMarketData} 
+                disabled={refreshing}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={exportToCSV} 
+                disabled={activePositions.length === 0}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={signOut}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleRefreshMarketData} 
-              disabled={refreshing}
-            >
-              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={exportToCSV} 
-              disabled={activePositions.length === 0}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={signOut}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
-            </Button>
-          </div>
-        </div>
+        )}
 
         {/* Shared Dashboard Alert */}
         {hasSharedPositions && (
@@ -421,8 +429,8 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Import Bar */}
-        <ImportBar />
+        {/* Import Bar - hide in advisor view */}
+        {!isAdvisorView && <ImportBar />}
 
         {/* Filters */}
         <FiltersToolbar
@@ -507,8 +515,8 @@ const Dashboard = () => {
           </Card>
         )}
 
-        {/* Learning Center */}
-        <LearningCenter />
+        {/* Learning Center - hide in advisor view */}
+        {!isAdvisorView && <LearningCenter />}
       </div>
 
       {/* Assigned Capital Dialog */}

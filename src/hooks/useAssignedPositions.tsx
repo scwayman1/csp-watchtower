@@ -30,14 +30,15 @@ export interface AssignedPosition {
   covered_calls?: CoveredCall[];
 }
 
-export function useAssignedPositions() {
+export function useAssignedPositions(userId?: string) {
   const [assignedPositions, setAssignedPositions] = useState<AssignedPosition[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAssignedPositions = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const effectiveUserId = userId || user?.id;
+      if (!effectiveUserId) return;
 
       // Fetch assigned positions
       const { data: positionsData, error: positionsError } = await supabase
