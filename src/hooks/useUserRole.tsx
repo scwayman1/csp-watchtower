@@ -52,9 +52,6 @@ export function useUserRole() {
     if (roles.includes(role)) {
       setSwitching(true);
       
-      // Small delay to prevent race conditions
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       setActiveRole(role);
       localStorage.setItem("activeRole", role);
       
@@ -64,11 +61,9 @@ export function useUserRole() {
       if (role === "investor") {
         // Switching to investor - redirect to investor routes
         if (currentPath.startsWith("/advisor")) {
-          // If on advisor settings, go to investor settings
           if (currentPath === "/advisor/settings") {
             navigate("/settings", { replace: true });
           } else {
-            // Otherwise go to investor dashboard
             navigate("/", { replace: true });
           }
         }
@@ -81,8 +76,6 @@ export function useUserRole() {
         }
       }
       
-      // Wait for navigation to complete
-      await new Promise(resolve => setTimeout(resolve, 200));
       setSwitching(false);
     }
   };
