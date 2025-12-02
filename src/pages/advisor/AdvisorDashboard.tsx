@@ -43,6 +43,25 @@ export default function AdvisorDashboard() {
     fetchAdvisorStats();
   }, []);
 
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
+  // Fetch client data when selected
+  const { data: selectedClient } = useQuery({
+    queryKey: ["selected-client", selectedClientId],
+    queryFn: async () => {
+      if (!selectedClientId) return null;
+      
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", selectedClientId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedClientId,
+  });
+
   const fetchAdvisorStats = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -122,24 +141,6 @@ export default function AdvisorDashboard() {
       </div>
     );
   }
-
-  // Fetch client data when selected
-  const { data: selectedClient } = useQuery({
-    queryKey: ["selected-client", selectedClientId],
-    queryFn: async () => {
-      if (!selectedClientId) return null;
-      
-      const { data, error } = await supabase
-        .from("clients")
-        .select("*")
-        .eq("id", selectedClientId)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!selectedClientId,
-  });
 
   // If a client is selected, show their full dashboard
   if (selectedClientId && selectedClient?.user_id) {
