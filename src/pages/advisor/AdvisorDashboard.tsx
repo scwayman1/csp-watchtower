@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, TrendingUp, DollarSign, Activity } from "lucide-react";
 import { ProfileViewer } from "@/components/advisor/ProfileViewer";
+import { ClientFilter } from "@/components/advisor/ClientFilter";
+import { ClientDashboardView } from "@/components/advisor/ClientDashboardView";
 
 interface AdvisorStats {
   totalClients: number;
@@ -15,6 +17,7 @@ interface AdvisorStats {
 
 export default function AdvisorDashboard() {
   const navigate = useNavigate();
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [stats, setStats] = useState<AdvisorStats>({
     totalClients: 0,
     activeClients: 0,
@@ -107,15 +110,44 @@ export default function AdvisorDashboard() {
     );
   }
 
+  // If a client is selected, show client-specific view
+  if (selectedClientId) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+              Client Dashboard
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              View client positions and performance
+            </p>
+          </div>
+          <ClientFilter
+            selectedClientId={selectedClientId}
+            onClientSelect={setSelectedClientId}
+          />
+        </div>
+        <ClientDashboardView clientId={selectedClientId} />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
-          Advisor Dashboard
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Manage clients, cycles, and model trades
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+            Advisor Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Manage clients, cycles, and model trades
+          </p>
+        </div>
+        <ClientFilter
+          selectedClientId={selectedClientId}
+          onClientSelect={setSelectedClientId}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
