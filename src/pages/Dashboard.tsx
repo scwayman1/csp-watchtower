@@ -15,7 +15,8 @@ import { LearningCenter } from "@/components/dashboard/LearningCenter";
 import { AssignedCapitalDialog } from "@/components/dashboard/AssignedCapitalDialog";
 import { ActivePositionsBatchHeader } from "@/components/dashboard/ActivePositionsBatchHeader";
 import { MiniSparkline } from "@/components/dashboard/MiniSparkline";
-import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw, Info } from "lucide-react";
+import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw, Wallet, PiggyBank, Target, BarChart3 } from "lucide-react";
+import { TooltipHeader, TooltipRow, TooltipChartWrapper, TooltipContainer, TooltipPositionRow, TooltipScrollArea, TooltipDivider, TooltipEmptyState } from "@/components/dashboard/MetricTooltip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
@@ -379,46 +380,51 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                     />
                   </div>
                 </HoverCardTrigger>
-                <HoverCardContent className="w-72" side="bottom" align="start">
-                  <div className="space-y-3">
-                    <h4 className="font-semibold text-sm flex items-center gap-1">
-                      <Info className="h-3 w-3" /> Assets Breakdown
-                    </h4>
-                    {portfolioHistory.length >= 2 && (
-                      <div className="bg-muted/30 rounded-md p-2">
-                        <div className="text-xs text-muted-foreground mb-1">Portfolio Trend</div>
-                        <MiniSparkline 
-                          data={portfolioHistory.slice(-14).map(h => h.portfolio_value)} 
-                          color="auto"
-                          height={40}
-                        />
-                      </div>
-                    )}
-                    <div className="space-y-1.5 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Cash Balance</span>
-                        <span className="font-medium">${(settings.cash_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Assigned Shares</span>
-                        <span className="font-medium">${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Other Holdings</span>
-                        <span className="font-medium">${(settings.other_holdings_value || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Unrealized P/L</span>
-                        <span className={`font-medium ${totalUnrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}`}>
-                          {totalUnrealizedPnL >= 0 ? '+' : ''}${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0 })}
-                        </span>
-                      </div>
-                      <div className="border-t border-border pt-1.5 flex justify-between font-semibold">
-                        <span>Total</span>
-                        <span className="text-primary">${totalPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
-                      </div>
-                    </div>
-                  </div>
+                <HoverCardContent side="bottom" align="start">
+                  <TooltipHeader 
+                    icon={TrendingUp} 
+                    title="Assets Breakdown"
+                    badge="Live"
+                    badgeVariant="success"
+                  />
+                  {portfolioHistory.length >= 2 && (
+                    <TooltipChartWrapper label="14-Day Portfolio Trend">
+                      <MiniSparkline 
+                        data={portfolioHistory.slice(-14).map(h => h.portfolio_value)} 
+                        color="auto"
+                        height={48}
+                      />
+                    </TooltipChartWrapper>
+                  )}
+                  <TooltipContainer>
+                    <TooltipRow 
+                      icon={Wallet}
+                      label="Cash Balance" 
+                      value={`$${(settings.cash_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                    />
+                    <TooltipRow 
+                      icon={FileText}
+                      label="Assigned Shares" 
+                      value={`$${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                    />
+                    <TooltipRow 
+                      icon={PiggyBank}
+                      label="Other Holdings" 
+                      value={`$${(settings.other_holdings_value || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                    />
+                    <TooltipRow 
+                      icon={BarChart3}
+                      label="Unrealized P/L" 
+                      value={`${totalUnrealizedPnL >= 0 ? '+' : ''}$${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                      valueClassName={totalUnrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}
+                    />
+                    <TooltipRow 
+                      label="Total Assets" 
+                      value={`$${totalPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                      valueClassName="text-primary"
+                      isTotal
+                    />
+                  </TooltipContainer>
                 </HoverCardContent>
               </HoverCard>
               <HoverCard>
@@ -432,44 +438,45 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                     />
                   </div>
                 </HoverCardTrigger>
-                <HoverCardContent className="w-72" side="bottom" align="start">
-                  <div className="space-y-3">
-                    <h4 className="font-semibold text-sm flex items-center gap-1">
-                      <Info className="h-3 w-3" /> Premium Breakdown
-                    </h4>
-                    {portfolioHistory.length >= 2 && (
-                      <div className="bg-muted/30 rounded-md p-2">
-                        <div className="text-xs text-muted-foreground mb-1">Premium Trend</div>
-                        <MiniSparkline 
-                          data={portfolioHistory.slice(-14).map(h => h.total_premiums_collected)} 
-                          color="hsl(var(--success))"
-                          height={40}
-                        />
-                      </div>
-                    )}
-                    <div className="space-y-1.5 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Active Puts ({activePositions.length})</span>
-                        <span className="font-medium">${activePremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Expired Puts ({expiredPositions.length})</span>
-                        <span className="font-medium">${expiredPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Assigned Puts ({filteredAssignedPositions.length})</span>
-                        <span className="font-medium">${assignedPutPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Covered Calls</span>
-                        <span className="font-medium">${coveredCallPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                      <div className="border-t border-border pt-1.5 flex justify-between font-semibold">
-                        <span>Total</span>
-                        <span className="text-primary">${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    </div>
-                  </div>
+                <HoverCardContent side="bottom" align="start">
+                  <TooltipHeader 
+                    icon={DollarSign} 
+                    iconClassName="bg-success/20"
+                    title="Premium Breakdown"
+                  />
+                  {portfolioHistory.length >= 2 && (
+                    <TooltipChartWrapper label="Premium Collection Trend">
+                      <MiniSparkline 
+                        data={portfolioHistory.slice(-14).map(h => h.total_premiums_collected)} 
+                        color="hsl(var(--success))"
+                        height={48}
+                      />
+                    </TooltipChartWrapper>
+                  )}
+                  <TooltipContainer>
+                    <TooltipRow 
+                      label={`Active Puts (${activePositions.length})`}
+                      value={`$${activePremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                    />
+                    <TooltipRow 
+                      label={`Expired Puts (${expiredPositions.length})`}
+                      value={`$${expiredPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                    />
+                    <TooltipRow 
+                      label={`Assigned Puts (${filteredAssignedPositions.length})`}
+                      value={`$${assignedPutPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                    />
+                    <TooltipRow 
+                      label="Covered Calls"
+                      value={`$${coveredCallPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                    />
+                    <TooltipRow 
+                      label="Total Premium" 
+                      value={`$${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                      valueClassName="text-success"
+                      isTotal
+                    />
+                  </TooltipContainer>
                 </HoverCardContent>
               </HoverCard>
               <HoverCard>
@@ -484,41 +491,46 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                     />
                   </div>
                 </HoverCardTrigger>
-                <HoverCardContent className="w-72" side="bottom" align="start">
-                  <div className="space-y-3">
-                    <h4 className="font-semibold text-sm flex items-center gap-1">
-                      <Info className="h-3 w-3" /> Unrealized P/L by Position
-                    </h4>
-                    {portfolioHistory.length >= 2 && (
-                      <div className="bg-muted/30 rounded-md p-2">
-                        <div className="text-xs text-muted-foreground mb-1">P/L Trend</div>
-                        <MiniSparkline 
-                          data={portfolioHistory.slice(-14).map(h => h.net_position_pnl)} 
-                          color="auto"
-                          height={40}
-                        />
-                      </div>
+                <HoverCardContent side="bottom" align="start">
+                  <TooltipHeader 
+                    icon={TrendingUp} 
+                    iconClassName={totalUnrealizedPnL >= 0 ? "bg-success/20" : "bg-destructive/20"}
+                    title="P/L by Position"
+                    badge={totalUnrealizedPnL >= 0 ? "Profit" : "Loss"}
+                    badgeVariant={totalUnrealizedPnL >= 0 ? "success" : "destructive"}
+                  />
+                  {portfolioHistory.length >= 2 && (
+                    <TooltipChartWrapper label="14-Day P/L Trend">
+                      <MiniSparkline 
+                        data={portfolioHistory.slice(-14).map(h => h.net_position_pnl)} 
+                        color="auto"
+                        height={48}
+                      />
+                    </TooltipChartWrapper>
+                  )}
+                  <TooltipScrollArea>
+                    {[...activePositions].sort((a, b) => b.unrealizedPnL - a.unrealizedPnL).map(p => (
+                      <TooltipPositionRow
+                        key={p.id}
+                        symbol={p.symbol}
+                        detail={`${p.contracts}x`}
+                        value={`${p.unrealizedPnL >= 0 ? '+' : ''}$${p.unrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                        valueClassName={p.unrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}
+                        indicator={p.unrealizedPnL >= 0 ? "positive" : "negative"}
+                      />
+                    ))}
+                    {activePositions.length === 0 && (
+                      <TooltipEmptyState message="No active positions" />
                     )}
-                    <div className="space-y-1.5 text-sm max-h-36 overflow-y-auto">
-                      {[...activePositions].sort((a, b) => b.unrealizedPnL - a.unrealizedPnL).map(p => (
-                        <div key={p.id} className="flex justify-between items-center">
-                          <span className="text-muted-foreground">{p.symbol} ({p.contracts}x)</span>
-                          <span className={`font-medium ${p.unrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}`}>
-                            {p.unrealizedPnL >= 0 ? '+' : ''}${p.unrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0 })}
-                          </span>
-                        </div>
-                      ))}
-                      {activePositions.length === 0 && (
-                        <div className="text-muted-foreground text-center py-2">No active positions</div>
-                      )}
-                      <div className="border-t border-border pt-1.5 flex justify-between font-semibold">
-                        <span>Total</span>
-                        <span className={totalUnrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}>
-                          {totalUnrealizedPnL >= 0 ? '+' : ''}${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0 })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                  </TooltipScrollArea>
+                  <TooltipContainer>
+                    <TooltipRow 
+                      label="Net P/L" 
+                      value={`${totalUnrealizedPnL >= 0 ? '+' : ''}$${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                      valueClassName={totalUnrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}
+                      isTotal
+                    />
+                  </TooltipContainer>
                 </HoverCardContent>
               </HoverCard>
               <HoverCard>
@@ -532,39 +544,43 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                     />
                   </div>
                 </HoverCardTrigger>
-                <HoverCardContent className="w-72" side="bottom" align="start">
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-sm flex items-center gap-1">
-                      <Info className="h-3 w-3" /> Assigned Shares Breakdown
-                    </h4>
-                    <div className="space-y-1.5 text-sm">
-                      {filteredAssignedPositions.map(ap => (
-                        <div key={ap.id} className="flex justify-between items-center">
-                          <span className="text-muted-foreground">{ap.symbol} ({ap.shares} sh)</span>
-                          <span className="font-medium">${((ap.current_price || ap.assignment_price) * ap.shares).toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
-                        </div>
-                      ))}
-                      {filteredAssignedPositions.length === 0 && (
-                        <div className="text-muted-foreground text-center py-2">No assigned positions</div>
-                      )}
-                      <div className="border-t border-border pt-1.5 space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Cost Basis</span>
-                          <span>${assignedSharesCostBasis.toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Market Value</span>
-                          <span>${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
-                        </div>
-                        <div className="flex justify-between font-semibold">
-                          <span>Unrealized P/L</span>
-                          <span className={assignedSharesUnrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}>
-                            {assignedSharesUnrealizedPnL >= 0 ? '+' : ''}${assignedSharesUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0 })}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <HoverCardContent side="bottom" align="start">
+                  <TooltipHeader 
+                    icon={FileText} 
+                    title="Assigned Shares"
+                    badge={`${filteredAssignedPositions.length} positions`}
+                  />
+                  <TooltipScrollArea maxHeight="max-h-32">
+                    {filteredAssignedPositions.map(ap => (
+                      <TooltipPositionRow
+                        key={ap.id}
+                        symbol={ap.symbol}
+                        detail={`${ap.shares} shares`}
+                        value={`$${((ap.current_price || ap.assignment_price) * ap.shares).toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                        indicator={(ap.unrealized_pnl || 0) >= 0 ? "positive" : "negative"}
+                      />
+                    ))}
+                    {filteredAssignedPositions.length === 0 && (
+                      <TooltipEmptyState message="No assigned positions" />
+                    )}
+                  </TooltipScrollArea>
+                  <TooltipDivider />
+                  <TooltipContainer>
+                    <TooltipRow 
+                      label="Cost Basis" 
+                      value={`$${assignedSharesCostBasis.toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                    />
+                    <TooltipRow 
+                      label="Market Value" 
+                      value={`$${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                    />
+                    <TooltipRow 
+                      label="Unrealized P/L" 
+                      value={`${assignedSharesUnrealizedPnL >= 0 ? '+' : ''}$${assignedSharesUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                      valueClassName={assignedSharesUnrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}
+                      isTotal
+                    />
+                  </TooltipContainer>
                 </HoverCardContent>
               </HoverCard>
               <HoverCard>
@@ -578,27 +594,34 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                     />
                   </div>
                 </HoverCardTrigger>
-                <HoverCardContent className="w-72" side="bottom" align="start">
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-sm flex items-center gap-1">
-                      <Info className="h-3 w-3" /> Cash Secured Breakdown
-                    </h4>
-                    <div className="space-y-1.5 text-sm max-h-48 overflow-y-auto">
-                      {activePositions.map(p => (
-                        <div key={p.id} className="flex justify-between items-center">
-                          <span className="text-muted-foreground">{p.symbol} ({p.contracts}x ${p.strikePrice})</span>
-                          <span className="font-medium">${(p.strikePrice * 100 * p.contracts).toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
-                        </div>
-                      ))}
-                      {activePositions.length === 0 && (
-                        <div className="text-muted-foreground text-center py-2">No active positions</div>
-                      )}
-                      <div className="border-t border-border pt-1.5 flex justify-between font-semibold">
-                        <span>Total ({activeContracts} contracts)</span>
-                        <span className="text-primary">${cashSecured.toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
-                      </div>
-                    </div>
-                  </div>
+                <HoverCardContent side="bottom" align="start">
+                  <TooltipHeader 
+                    icon={Target} 
+                    title="Cash Secured"
+                    badge={`${activeContracts} contracts`}
+                  />
+                  <TooltipScrollArea>
+                    {activePositions.map(p => (
+                      <TooltipPositionRow
+                        key={p.id}
+                        symbol={p.symbol}
+                        detail={`${p.contracts}x $${p.strikePrice}`}
+                        value={`$${(p.strikePrice * 100 * p.contracts).toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                        indicator="neutral"
+                      />
+                    ))}
+                    {activePositions.length === 0 && (
+                      <TooltipEmptyState message="No active positions" />
+                    )}
+                  </TooltipScrollArea>
+                  <TooltipContainer>
+                    <TooltipRow 
+                      label={`Total Secured`}
+                      value={`$${cashSecured.toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                      valueClassName="text-primary"
+                      isTotal
+                    />
+                  </TooltipContainer>
                 </HoverCardContent>
               </HoverCard>
               <CommandPanelCard
@@ -630,25 +653,29 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                     />
                   </div>
                 </HoverCardTrigger>
-                <HoverCardContent className="w-72" side="bottom" align="end">
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-sm flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3 text-destructive" /> At-Risk Positions (&lt;5% above strike)
-                    </h4>
-                    <div className="space-y-1.5 text-sm max-h-48 overflow-y-auto">
-                      {activePositions.filter(p => p.pctAboveStrike < 5).map(p => (
-                        <div key={p.id} className="flex justify-between items-center">
-                          <span className="text-muted-foreground">{p.symbol} (${p.strikePrice})</span>
-                          <span className={`font-medium ${p.pctAboveStrike < 0 ? 'text-destructive' : 'text-warning'}`}>
-                            {p.pctAboveStrike >= 0 ? '+' : ''}{p.pctAboveStrike.toFixed(1)}%
-                          </span>
-                        </div>
-                      ))}
-                      {atRiskCount === 0 && (
-                        <div className="text-muted-foreground text-center py-2">No at-risk positions 🎉</div>
-                      )}
-                    </div>
-                  </div>
+                <HoverCardContent side="bottom" align="end">
+                  <TooltipHeader 
+                    icon={AlertTriangle} 
+                    iconClassName="bg-destructive/20"
+                    title="At-Risk Positions"
+                    badge={atRiskCount > 0 ? `${atRiskCount} warning${atRiskCount > 1 ? 's' : ''}` : "All clear"}
+                    badgeVariant={atRiskCount > 0 ? "destructive" : "success"}
+                  />
+                  <TooltipScrollArea>
+                    {activePositions.filter(p => p.pctAboveStrike < 5).map(p => (
+                      <TooltipPositionRow
+                        key={p.id}
+                        symbol={p.symbol}
+                        detail={`$${p.strikePrice} strike`}
+                        value={`${p.pctAboveStrike >= 0 ? '+' : ''}${p.pctAboveStrike.toFixed(1)}%`}
+                        valueClassName={p.pctAboveStrike < 0 ? 'text-destructive' : 'text-warning'}
+                        indicator={p.pctAboveStrike < 0 ? "negative" : "warning"}
+                      />
+                    ))}
+                    {atRiskCount === 0 && (
+                      <TooltipEmptyState message="No at-risk positions" />
+                    )}
+                  </TooltipScrollArea>
                 </HoverCardContent>
               </HoverCard>
               

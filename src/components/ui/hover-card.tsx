@@ -10,13 +10,20 @@ const HoverCardTrigger = HoverCardPrimitive.Trigger;
 const HoverCardContent = React.forwardRef<
   React.ElementRef<typeof HoverCardPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof HoverCardPrimitive.Content>
->(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
+>(({ className, align = "center", sideOffset = 8, ...props }, ref) => (
   <HoverCardPrimitive.Content
     ref={ref}
     align={align}
     sideOffset={sideOffset}
     className={cn(
-      "z-50 w-64 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+      "z-50 w-80 rounded-xl border border-border/50 bg-popover/95 backdrop-blur-xl p-4 text-popover-foreground shadow-xl shadow-black/10 outline-none",
+      "data-[state=open]:animate-in data-[state=closed]:animate-out",
+      "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "data-[state=closed]:zoom-out-98 data-[state=open]:zoom-in-98",
+      "data-[state=closed]:scale-98 data-[state=open]:scale-100",
+      "data-[side=bottom]:slide-in-from-top-3 data-[side=left]:slide-in-from-right-3",
+      "data-[side=right]:slide-in-from-left-3 data-[side=top]:slide-in-from-bottom-3",
+      "transition-all duration-200 ease-out",
       className,
     )}
     {...props}
