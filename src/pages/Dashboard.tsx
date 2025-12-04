@@ -367,12 +367,49 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
           </CardHeader>
           <CardContent className="p-6">
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-              <CommandPanelCard
-                label="Total Assets"
-                value={`$${(totalPortfolioValue / 1000).toFixed(1)}K`}
-                subtitle="Complete portfolio value"
-                icon={TrendingUp}
-              />
+              <HoverCard>
+                <HoverCardTrigger asChild>
+                  <div className="cursor-help">
+                    <CommandPanelCard
+                      label="Total Assets"
+                      value={`$${(totalPortfolioValue / 1000).toFixed(1)}K`}
+                      subtitle="Hover for breakdown"
+                      icon={TrendingUp}
+                    />
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-64" side="bottom" align="start">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm flex items-center gap-1">
+                      <Info className="h-3 w-3" /> Assets Breakdown
+                    </h4>
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Cash Balance</span>
+                        <span className="font-medium">${(settings.cash_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Assigned Shares</span>
+                        <span className="font-medium">${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Other Holdings</span>
+                        <span className="font-medium">${(settings.other_holdings_value || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Unrealized P/L</span>
+                        <span className={`font-medium ${totalUnrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}`}>
+                          {totalUnrealizedPnL >= 0 ? '+' : ''}${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                        </span>
+                      </div>
+                      <div className="border-t border-border pt-1.5 flex justify-between font-semibold">
+                        <span>Total</span>
+                        <span className="text-primary">${totalPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
+                      </div>
+                    </div>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
               <HoverCard>
                 <HoverCardTrigger asChild>
                   <div className="cursor-help">
