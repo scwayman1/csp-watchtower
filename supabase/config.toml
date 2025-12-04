@@ -30,7 +30,8 @@ verify_jwt = false
 [functions.send-push-notification]
 verify_jwt = false
 
+[functions.send-sms]
+verify_jwt = true
+
 [functions.track-outcome]
 verify_jwt = false
-
-

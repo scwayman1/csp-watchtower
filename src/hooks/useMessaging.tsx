@@ -5,6 +5,8 @@ import type { Tables } from "@/integrations/supabase/types";
 type Thread = Tables<"threads"> & {
   unread_count?: number;
   client_name?: string;
+  client_sms_opt_in?: boolean;
+  client_phone_number?: string;
 };
 
 export interface Attachment {
@@ -15,9 +17,16 @@ export interface Attachment {
   type: string;
 }
 
+export type MessageChannel = 'app' | 'sms' | 'system';
+export type MessageDirection = 'outbound' | 'inbound' | 'system';
+
 type Message = Omit<Tables<"messages">, "attachments"> & {
   reactions?: MessageReaction[];
   attachments?: Attachment[];
+  channel?: MessageChannel;
+  direction?: MessageDirection;
+  provider_message_id?: string;
+  meta?: Record<string, any>;
 };
 
 type MessageReaction = Tables<"message_reactions">;
@@ -104,10 +113,10 @@ export function useMessaging() {
         const clientIds = [...new Set(data.map(t => t.client_id))] as string[];
         const { data: clients } = await supabase
           .from("clients")
-          .select("id, name")
+          .select("id, name, sms_opt_in, phone_number")
           .in("id", clientIds);
 
-        const clientMap = new Map(clients?.map(c => [c.id, c.name]) || []);
+        const clientMap = new Map(clients?.map(c => [c.id, c]) || []);
         
         // Fetch unread counts for each thread
         const threadsWithNamesAndCounts = await Promise.all(
@@ -119,9 +128,12 @@ export function useMessaging() {
               .eq("recipient_id", user.id)
               .is("read_at", null);
 
+            const client = clientMap.get(thread.client_id);
             return {
               ...thread,
-              client_name: clientMap.get(thread.client_id) || "Unknown Client",
+              client_name: client?.name || "Unknown Client",
+              client_sms_opt_in: client?.sms_opt_in || false,
+              client_phone_number: client?.phone_number || null,
               unread_count: count || 0
             };
           })
@@ -142,6 +154,8 @@ export function useMessaging() {
             return {
               ...thread,
               client_name: "Your Advisor",
+              client_sms_opt_in: false,
+              client_phone_number: null,
               unread_count: count || 0
             };
           })
@@ -183,13 +197,22 @@ export function useMessaging() {
     const messagesWithReactions: Message[] = messagesData.map(message => ({
       ...message,
       reactions: reactionsData?.filter(r => r.message_id === message.id) || [],
-      attachments: (message.attachments as unknown as Attachment[]) || []
+      attachments: (message.attachments as unknown as Attachment[]) || [],
+      channel: (message as any).channel as MessageChannel || 'app',
+      direction: (message as any).direction as MessageDirection || 'outbound',
+      provider_message_id: (message as any).provider_message_id,
+      meta: (message as any).meta
     }));
 
     setMessages(messagesWithReactions);
   };
 
-  const sendMessage = async (threadId: string, content: string, files?: File[]) => {
+  const sendMessage = async (
+    threadId: string, 
+    content: string, 
+    files?: File[], 
+    channel: MessageChannel = 'app'
+  ) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -230,7 +253,7 @@ export function useMessaging() {
         // Advisor sending to client - get client's user_id
         const { data: client } = await supabase
           .from("clients")
-          .select("user_id")
+          .select("user_id, phone_number, sms_opt_in")
           .eq("id", thread.client_id)
           .maybeSingle();
         
@@ -239,11 +262,52 @@ export function useMessaging() {
           return;
         }
         recipientUserId = client.user_id;
+
+        // If SMS channel, send via Twilio
+        if (channel === 'sms' && client.sms_opt_in && client.phone_number) {
+          const { data: smsResult, error: smsError } = await supabase.functions.invoke('send-sms', {
+            body: {
+              to: client.phone_number,
+              message: content
+            }
+          });
+
+          if (smsError) {
+            console.error("Error sending SMS:", smsError);
+            throw smsError;
+          }
+
+          // Insert message with SMS details
+          const { error: insertError } = await supabase
+            .from("messages")
+            .insert({
+              thread_id: threadId,
+              sender_id: user.id,
+              recipient_id: recipientUserId,
+              content,
+              attachments: attachments as any,
+              channel: 'sms',
+              direction: 'outbound',
+              provider_message_id: smsResult?.messageSid,
+              meta: { provider: 'twilio', status: smsResult?.status }
+            });
+
+          if (insertError) throw insertError;
+
+          // Update thread's last_message_at
+          await supabase
+            .from("threads")
+            .update({ last_message_at: new Date().toISOString() })
+            .eq("id", threadId);
+
+          return;
+        }
       } else {
         // Client sending to advisor
         recipientUserId = thread.advisor_id;
       }
 
+      // Standard app message
       const { error } = await supabase
         .from("messages")
         .insert({
@@ -251,7 +315,9 @@ export function useMessaging() {
           sender_id: user.id,
           recipient_id: recipientUserId,
           content,
-          attachments: attachments as any
+          attachments: attachments as any,
+          channel: channel,
+          direction: 'outbound'
         });
 
       if (error) throw error;
@@ -262,17 +328,20 @@ export function useMessaging() {
         .update({ last_message_at: new Date().toISOString() })
         .eq("id", threadId);
 
-      // Trigger push notification
-      await supabase.functions.invoke('send-push-notification', {
-        body: {
-          userId: recipientUserId,
-          title: 'New Message',
-          body: content || 'Sent an attachment',
-          data: { threadId, messageContent: content }
-        }
-      });
+      // Trigger push notification for app messages
+      if (channel === 'app') {
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            userId: recipientUserId,
+            title: 'New Message',
+            body: content || 'Sent an attachment',
+            data: { threadId, messageContent: content }
+          }
+        });
+      }
     } catch (error) {
       console.error("Error sending message:", error);
+      throw error;
     }
   };
 
@@ -285,7 +354,8 @@ export function useMessaging() {
       .insert({
         advisor_id: user.id,
         client_id: clientId,
-        subject
+        subject,
+        primary_client_id: clientId
       })
       .select()
       .single();
