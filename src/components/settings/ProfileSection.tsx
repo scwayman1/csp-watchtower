@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { User, Upload, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { User, Upload, X, Phone, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -27,6 +28,12 @@ export function ProfileSection({ userId }: ProfileSectionProps) {
   const [investmentGoals, setInvestmentGoals] = useState("");
   const [yearsTrading, setYearsTrading] = useState("");
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>([]);
+  
+  // SMS settings from clients table
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [smsOptIn, setSmsOptIn] = useState(false);
+  const [hasClientRecord, setHasClientRecord] = useState(false);
+  const [clientId, setClientId] = useState<string | null>(null);
 
   const strategies = [
     "Cash-Secured Puts",
@@ -41,6 +48,7 @@ export function ProfileSection({ userId }: ProfileSectionProps) {
 
   const loadProfile = useCallback(async () => {
     try {
+      // Load profile data
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -58,6 +66,20 @@ export function ProfileSection({ userId }: ProfileSectionProps) {
         setInvestmentGoals(data.investment_goals || "");
         setYearsTrading(String(data.years_trading || ""));
         setSelectedStrategies(data.preferred_strategies || []);
+      }
+      
+      // Load client record for SMS settings
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('id, phone_number, sms_opt_in')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (!clientError && clientData) {
+        setHasClientRecord(true);
+        setClientId(clientData.id);
+        setPhoneNumber(clientData.phone_number || "");
+        setSmsOptIn(clientData.sms_opt_in || false);
       }
     } catch (error: any) {
       console.error('Error loading profile:', error);
@@ -89,6 +111,19 @@ export function ProfileSection({ userId }: ProfileSectionProps) {
         .upsert(profile, { onConflict: 'user_id' });
 
       if (error) throw error;
+      
+      // Update client record with phone/SMS settings if they have one
+      if (hasClientRecord && clientId) {
+        const { error: clientError } = await supabase
+          .from('clients')
+          .update({
+            phone_number: phoneNumber || null,
+            sms_opt_in: smsOptIn,
+          })
+          .eq('id', clientId);
+        
+        if (clientError) throw clientError;
+      }
 
       toast({
         title: "Profile saved",
@@ -311,6 +346,60 @@ export function ProfileSection({ userId }: ProfileSectionProps) {
             Click to select/deselect strategies you use or are interested in
           </p>
         </div>
+
+        {/* SMS & Communication Settings - Only show if user has a client record */}
+        {hasClientRecord && (
+          <div className="space-y-4 border-t pt-6">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Communication Settings</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Manage how your advisor can contact you
+            </p>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="phone-number">Mobile Number</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="phone-number"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="+1 (555) 123-4567"
+                  className="pl-10"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Required for SMS notifications from your advisor
+              </p>
+            </div>
+            
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="sms-opt-in" className="text-sm font-medium">SMS Notifications</Label>
+                <p className="text-xs text-muted-foreground">
+                  Allow your advisor to send you SMS messages and alerts
+                </p>
+              </div>
+              <Switch
+                id="sms-opt-in"
+                checked={smsOptIn}
+                onCheckedChange={setSmsOptIn}
+                disabled={!phoneNumber}
+              />
+            </div>
+            
+            {smsOptIn && phoneNumber && (
+              <div className="rounded-lg bg-success/10 border border-success/20 p-3">
+                <p className="text-sm text-success">
+                  ✓ SMS notifications enabled. Your advisor can send you text messages.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Save Button */}
         <div className="flex justify-end pt-4">
