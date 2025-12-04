@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, Send, Clock, CheckCheck, Search, MoreVertical, Smile, ThumbsUp, Heart, Flame, PartyPopper, Eye, Paperclip, FileText, Image as ImageIcon, Download, X } from "lucide-react";
+import { MessageSquare, Send, Clock, CheckCheck, Search, MoreVertical, Smile, ThumbsUp, Heart, Flame, PartyPopper, Eye, Paperclip, FileText, Image as ImageIcon, Download, X, Phone, Zap, MonitorSmartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useMessaging } from "@/hooks/useMessaging";
+import { useMessaging, MessageChannel } from "@/hooks/useMessaging";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns";
 import { NotificationToggle } from "@/components/messaging/NotificationToggle";
@@ -13,6 +13,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NewMessageDialog } from "@/components/messaging/NewMessageDialog";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 
 export function MessagingPanel() {
   const { threads, messages, selectedThreadId, setSelectedThreadId, sendMessage, filter, setFilter, addReaction, removeReaction } = useMessaging();
@@ -23,6 +25,7 @@ export function MessagingPanel() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedChannel, setSelectedChannel] = useState<MessageChannel>('app');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,6 +46,9 @@ export function MessagingPanel() {
     }
   }, [selectedThreadId]);
 
+  const selectedThread = threads.find(t => t.id === selectedThreadId);
+  const canSendSms = selectedThread?.client_sms_opt_in && selectedThread?.client_phone_number;
+
   const handleSendMessage = async () => {
     if ((!messageInput.trim() && selectedFiles.length === 0) || !selectedThreadId) return;
     
@@ -52,11 +58,22 @@ export function MessagingPanel() {
       return;
     }
 
+    // Validate SMS requirements
+    if (selectedChannel === 'sms' && !canSendSms) {
+      toast.error("Client has not opted in to SMS");
+      return;
+    }
+
     setSending(true);
     try {
-      await sendMessage(selectedThreadId, trimmedMessage, selectedFiles);
+      await sendMessage(selectedThreadId, trimmedMessage, selectedFiles, selectedChannel);
       setMessageInput("");
       setSelectedFiles([]);
+      if (selectedChannel === 'sms') {
+        toast.success("SMS sent successfully");
+      }
+    } catch (error) {
+      toast.error("Failed to send message");
     } finally {
       setSending(false);
     }
@@ -100,8 +117,6 @@ export function MessagingPanel() {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
-
-  const selectedThread = threads.find(t => t.id === selectedThreadId);
 
   const formatMessageTime = (date: string) => {
     const messageDate = new Date(date);
@@ -161,6 +176,36 @@ export function MessagingPanel() {
     });
     
     return counts;
+  };
+
+  const getChannelBadge = (channel?: string, direction?: string) => {
+    if (channel === 'sms') {
+      return (
+        <Badge variant="outline" className="h-5 gap-1 text-[10px] px-1.5 border-blue-500/30 text-blue-500 bg-blue-500/10">
+          <Phone className="h-3 w-3" />
+          SMS
+        </Badge>
+      );
+    }
+    if (channel === 'system' || direction === 'system') {
+      return (
+        <Badge variant="secondary" className="h-5 gap-1 text-[10px] px-1.5 border-amber-500/30 text-amber-500 bg-amber-500/10">
+          <Zap className="h-3 w-3" />
+          Alert
+        </Badge>
+      );
+    }
+    return null;
+  };
+
+  const getLastMessageChannelIcon = (channel?: string) => {
+    if (channel === 'sms') {
+      return <Phone className="h-3 w-3 text-blue-500" />;
+    }
+    if (channel === 'system') {
+      return <Zap className="h-3 w-3 text-amber-500" />;
+    }
+    return <MonitorSmartphone className="h-3 w-3 text-muted-foreground" />;
   };
 
   return (
@@ -241,8 +286,9 @@ export function MessagingPanel() {
                         </div>
                       )}
                       <div className="flex items-center justify-between">
-                        <div className="text-xs text-muted-foreground truncate">
-                          Last message {formatDistanceToNow(new Date(thread.last_message_at), { addSuffix: true })}
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+                          {getLastMessageChannelIcon(messages.find(m => m.thread_id === thread.id)?.channel)}
+                          <span>Last message {formatDistanceToNow(new Date(thread.last_message_at), { addSuffix: true })}</span>
                         </div>
                         {(thread.unread_count || 0) > 0 && (
                           <Badge variant="default" className="ml-2 h-5 min-w-5 flex items-center justify-center px-1.5 text-xs font-bold shadow-sm">
@@ -272,7 +318,15 @@ export function MessagingPanel() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h3 className="font-semibold text-base">{selectedThread.client_name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-base">{selectedThread.client_name}</h3>
+                      {canSendSms && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 h-4 gap-0.5 border-green-500/30 text-green-600 bg-green-500/10">
+                          <Phone className="h-2.5 w-2.5" />
+                          SMS
+                        </Badge>
+                      )}
+                    </div>
                     {selectedThread.subject && (
                       <p className="text-xs text-muted-foreground">{selectedThread.subject}</p>
                     )}
@@ -289,8 +343,28 @@ export function MessagingPanel() {
                 {messages.map((message, index) => {
                   const isSentByMe = message.sender_id === currentUserId;
                   const showAvatar = index === 0 || messages[index - 1].sender_id !== message.sender_id;
+                  const isSystemMessage = message.channel === 'system' || message.direction === 'system';
                   
                   const reactionCounts = getReactionCounts(message.reactions);
+                  
+                  // System messages have special rendering
+                  if (isSystemMessage) {
+                    return (
+                      <div key={message.id} className="flex justify-center animate-in fade-in duration-300">
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 max-w-[80%]">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Zap className="h-4 w-4 text-amber-500" />
+                            <span className="text-xs font-medium text-amber-500">Portfolio Alert</span>
+                          </div>
+                          <p className="text-sm text-foreground">{message.content}</p>
+                          <div className="flex items-center gap-1.5 mt-2 text-amber-500/60">
+                            <Clock className="h-3 w-3" />
+                            <span className="text-xs">{formatMessageTime(message.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
                   
                   return (
                     <div
@@ -316,6 +390,13 @@ export function MessagingPanel() {
                                 : "bg-muted/80 border border-border/50 rounded-bl-md"
                             }`}
                           >
+                            {/* Channel Badge */}
+                            {message.channel && message.channel !== 'app' && (
+                              <div className="mb-2">
+                                {getChannelBadge(message.channel, message.direction)}
+                              </div>
+                            )}
+                            
                             <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
                             
                             {/* Attachments */}
@@ -391,36 +472,29 @@ export function MessagingPanel() {
                           )}
                         </div>
 
-                        {/* Display Reactions */}
+                        {/* Reactions Display */}
                         {reactionCounts.size > 0 && (
-                          <div className={`flex gap-1 flex-wrap ${isSentByMe ? 'justify-end' : 'justify-start'}`}>
-                            {Array.from(reactionCounts.entries()).map(([reaction, { count, hasReacted }]) => {
-                              const Icon = reactionIcons[reaction as keyof typeof reactionIcons];
+                          <div className={`flex gap-1 mt-1 ${isSentByMe ? 'justify-end' : 'justify-start'}`}>
+                            {Array.from(reactionCounts.entries()).map(([key, { count, hasReacted }]) => {
+                              const Icon = reactionIcons[key as keyof typeof reactionIcons];
                               return (
                                 <button
-                                  key={reaction}
-                                  onClick={() => handleReaction(message.id, reaction)}
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all hover:scale-105 ${
-                                    hasReacted
-                                      ? 'bg-primary/20 border border-primary/50 text-primary'
-                                      : 'bg-muted/50 border border-border/30 text-muted-foreground hover:bg-muted'
+                                  key={key}
+                                  onClick={() => handleReaction(message.id, key)}
+                                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors ${
+                                    hasReacted 
+                                      ? 'bg-primary/10 text-primary border border-primary/20' 
+                                      : 'bg-muted/50 text-muted-foreground border border-border/50 hover:bg-muted'
                                   }`}
                                 >
                                   <Icon className="h-3 w-3" />
-                                  <span className="font-medium">{count}</span>
+                                  <span>{count}</span>
                                 </button>
                               );
                             })}
                           </div>
                         )}
                       </div>
-                      {isSentByMe && (
-                        <Avatar className={`h-8 w-8 border border-border shadow-sm ${showAvatar ? 'opacity-100' : 'opacity-0'}`}>
-                          <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/5 text-primary text-xs font-bold">
-                            ME
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
                     </div>
                   );
                 })}
@@ -457,6 +531,48 @@ export function MessagingPanel() {
                 </div>
               )}
 
+              {/* Channel Selector (for advisors) */}
+              {activeRole === 'advisor' && (
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Send via:</span>
+                  <TooltipProvider>
+                    <div className="flex gap-1 bg-muted/30 rounded-lg p-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant={selectedChannel === 'app' ? 'default' : 'ghost'}
+                            onClick={() => setSelectedChannel('app')}
+                            className="h-7 px-3 text-xs gap-1.5"
+                          >
+                            <MonitorSmartphone className="h-3.5 w-3.5" />
+                            App
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Send in-app message</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant={selectedChannel === 'sms' ? 'default' : 'ghost'}
+                            onClick={() => canSendSms && setSelectedChannel('sms')}
+                            disabled={!canSendSms}
+                            className="h-7 px-3 text-xs gap-1.5"
+                          >
+                            <Phone className="h-3.5 w-3.5" />
+                            SMS
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {canSendSms ? 'Send SMS message' : 'Client has not opted in to SMS'}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TooltipProvider>
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <input
                   ref={fileInputRef}
@@ -470,14 +586,14 @@ export function MessagingPanel() {
                   size="icon"
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={sending}
+                  disabled={sending || selectedChannel === 'sms'}
                   className="h-10 w-10 rounded-xl shadow-sm hover:bg-accent"
                 >
                   <Paperclip className="h-4 w-4" />
                 </Button>
                 <Input
                   ref={inputRef}
-                  placeholder="Type your message..."
+                  placeholder={selectedChannel === 'sms' ? "Type your SMS message..." : "Type your message..."}
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
                   onKeyPress={(e) => {
@@ -486,7 +602,7 @@ export function MessagingPanel() {
                       handleSendMessage();
                     }
                   }}
-                  maxLength={5000}
+                  maxLength={selectedChannel === 'sms' ? 160 : 5000}
                   disabled={sending}
                   className="bg-background border-border/50 focus-visible:ring-primary/50"
                 />
@@ -494,13 +610,19 @@ export function MessagingPanel() {
                   onClick={handleSendMessage} 
                   size="icon" 
                   disabled={sending || (!messageInput.trim() && selectedFiles.length === 0)}
-                  className="h-10 w-10 rounded-xl shadow-sm transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                  className={`h-10 w-10 rounded-xl shadow-sm transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 ${
+                    selectedChannel === 'sms' ? 'bg-blue-500 hover:bg-blue-600' : ''
+                  }`}
                 >
-                  <Send className="h-4 w-4" />
+                  {selectedChannel === 'sms' ? <Phone className="h-4 w-4" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2 text-right">
-                Press Enter to send • {messageInput.length}/5000
+                {selectedChannel === 'sms' ? (
+                  <>SMS: {messageInput.length}/160 characters</>
+                ) : (
+                  <>Press Enter to send • {messageInput.length}/5000</>
+                )}
               </p>
             </div>
           </>

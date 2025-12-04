@@ -241,10 +241,12 @@ export type Database = {
           name: string
           notes: string | null
           open_csp_count: number | null
+          phone_number: string | null
           portfolio_value: number | null
           premium_ytd: number | null
           risk_level: string | null
           segment: string | null
+          sms_opt_in: boolean | null
           updated_at: string | null
           user_id: string | null
         }
@@ -260,10 +262,12 @@ export type Database = {
           name: string
           notes?: string | null
           open_csp_count?: number | null
+          phone_number?: string | null
           portfolio_value?: number | null
           premium_ytd?: number | null
           risk_level?: string | null
           segment?: string | null
+          sms_opt_in?: boolean | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -279,10 +283,12 @@ export type Database = {
           name?: string
           notes?: string | null
           open_csp_count?: number | null
+          phone_number?: string | null
           portfolio_value?: number | null
           premium_ytd?: number | null
           risk_level?: string | null
           segment?: string | null
+          sms_opt_in?: boolean | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -615,9 +621,13 @@ export type Database = {
       messages: {
         Row: {
           attachments: Json | null
+          channel: string
           content: string
           created_at: string
+          direction: string
           id: string
+          meta: Json | null
+          provider_message_id: string | null
           read_at: string | null
           recipient_id: string
           sender_id: string
@@ -626,9 +636,13 @@ export type Database = {
         }
         Insert: {
           attachments?: Json | null
+          channel?: string
           content: string
           created_at?: string
+          direction?: string
           id?: string
+          meta?: Json | null
+          provider_message_id?: string | null
           read_at?: string | null
           recipient_id: string
           sender_id: string
@@ -637,9 +651,13 @@ export type Database = {
         }
         Update: {
           attachments?: Json | null
+          channel?: string
           content?: string
           created_at?: string
+          direction?: string
           id?: string
+          meta?: Json | null
+          provider_message_id?: string | null
           read_at?: string | null
           recipient_id?: string
           sender_id?: string
@@ -1033,6 +1051,7 @@ export type Database = {
           created_at: string
           id: string
           last_message_at: string
+          primary_client_id: string | null
           subject: string | null
           updated_at: string
         }
@@ -1042,6 +1061,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_message_at?: string
+          primary_client_id?: string | null
           subject?: string | null
           updated_at?: string
         }
@@ -1051,10 +1071,19 @@ export type Database = {
           created_at?: string
           id?: string
           last_message_at?: string
+          primary_client_id?: string | null
           subject?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "threads_primary_client_id_fkey"
+            columns: ["primary_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
