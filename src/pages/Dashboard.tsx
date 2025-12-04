@@ -556,12 +556,38 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                   </CardContent>
                 </Card>
               </div>
-              <CommandPanelCard
-                label="At-Risk"
-                value={atRiskCount.toString()}
-                subtitle="< 5% above strike"
-                icon={AlertTriangle}
-              />
+              <HoverCard>
+                <HoverCardTrigger asChild>
+                  <div className="cursor-help">
+                    <CommandPanelCard
+                      label="At-Risk"
+                      value={atRiskCount.toString()}
+                      subtitle="Hover for details"
+                      icon={AlertTriangle}
+                    />
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-72" side="bottom" align="end">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3 text-destructive" /> At-Risk Positions (&lt;5% above strike)
+                    </h4>
+                    <div className="space-y-1.5 text-sm max-h-48 overflow-y-auto">
+                      {activePositions.filter(p => p.pctAboveStrike < 5).map(p => (
+                        <div key={p.id} className="flex justify-between items-center">
+                          <span className="text-muted-foreground">{p.symbol} (${p.strikePrice})</span>
+                          <span className={`font-medium ${p.pctAboveStrike < 0 ? 'text-destructive' : 'text-warning'}`}>
+                            {p.pctAboveStrike >= 0 ? '+' : ''}{p.pctAboveStrike.toFixed(1)}%
+                          </span>
+                        </div>
+                      ))}
+                      {atRiskCount === 0 && (
+                        <div className="text-muted-foreground text-center py-2">No at-risk positions 🎉</div>
+                      )}
+                    </div>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
               
               {/* Assets Trend Chart - spans multiple columns */}
               <AssetsTrendChart currentValue={totalPortfolioValue} history={portfolioHistory} />
