@@ -14,6 +14,7 @@ import { AIPerformanceTracker } from "@/components/dashboard/AIPerformanceTracke
 import { LearningCenter } from "@/components/dashboard/LearningCenter";
 import { AssignedCapitalDialog } from "@/components/dashboard/AssignedCapitalDialog";
 import { ActivePositionsBatchHeader } from "@/components/dashboard/ActivePositionsBatchHeader";
+import { MiniSparkline } from "@/components/dashboard/MiniSparkline";
 import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw, Info } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useAuth } from "@/hooks/useAuth";
@@ -378,11 +379,21 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                     />
                   </div>
                 </HoverCardTrigger>
-                <HoverCardContent className="w-64" side="bottom" align="start">
-                  <div className="space-y-2">
+                <HoverCardContent className="w-72" side="bottom" align="start">
+                  <div className="space-y-3">
                     <h4 className="font-semibold text-sm flex items-center gap-1">
                       <Info className="h-3 w-3" /> Assets Breakdown
                     </h4>
+                    {portfolioHistory.length >= 2 && (
+                      <div className="bg-muted/30 rounded-md p-2">
+                        <div className="text-xs text-muted-foreground mb-1">Portfolio Trend</div>
+                        <MiniSparkline 
+                          data={portfolioHistory.slice(-14).map(h => h.portfolio_value)} 
+                          color="auto"
+                          height={40}
+                        />
+                      </div>
+                    )}
                     <div className="space-y-1.5 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Cash Balance</span>
@@ -421,11 +432,21 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                     />
                   </div>
                 </HoverCardTrigger>
-                <HoverCardContent className="w-64" side="bottom" align="start">
-                  <div className="space-y-2">
+                <HoverCardContent className="w-72" side="bottom" align="start">
+                  <div className="space-y-3">
                     <h4 className="font-semibold text-sm flex items-center gap-1">
                       <Info className="h-3 w-3" /> Premium Breakdown
                     </h4>
+                    {portfolioHistory.length >= 2 && (
+                      <div className="bg-muted/30 rounded-md p-2">
+                        <div className="text-xs text-muted-foreground mb-1">Premium Trend</div>
+                        <MiniSparkline 
+                          data={portfolioHistory.slice(-14).map(h => h.total_premiums_collected)} 
+                          color="hsl(var(--success))"
+                          height={40}
+                        />
+                      </div>
+                    )}
                     <div className="space-y-1.5 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Active Puts ({activePositions.length})</span>
@@ -464,11 +485,21 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                   </div>
                 </HoverCardTrigger>
                 <HoverCardContent className="w-72" side="bottom" align="start">
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <h4 className="font-semibold text-sm flex items-center gap-1">
                       <Info className="h-3 w-3" /> Unrealized P/L by Position
                     </h4>
-                    <div className="space-y-1.5 text-sm max-h-48 overflow-y-auto">
+                    {portfolioHistory.length >= 2 && (
+                      <div className="bg-muted/30 rounded-md p-2">
+                        <div className="text-xs text-muted-foreground mb-1">P/L Trend</div>
+                        <MiniSparkline 
+                          data={portfolioHistory.slice(-14).map(h => h.net_position_pnl)} 
+                          color="auto"
+                          height={40}
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-1.5 text-sm max-h-36 overflow-y-auto">
                       {[...activePositions].sort((a, b) => b.unrealizedPnL - a.unrealizedPnL).map(p => (
                         <div key={p.id} className="flex justify-between items-center">
                           <span className="text-muted-foreground">{p.symbol} ({p.contracts}x)</span>
