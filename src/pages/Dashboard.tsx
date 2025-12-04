@@ -451,13 +451,45 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                   </div>
                 </HoverCardContent>
               </HoverCard>
-              <CommandPanelCard
-                label="Net Position P/L"
-                value={`$${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-                subtitle="Unrealized gains/losses"
-                icon={TrendingUp}
-                trend={{ value: `${totalUnrealizedPnL >= 0 ? '+' : ''}${totalUnrealizedPnL.toFixed(0)}`, isPositive: totalUnrealizedPnL >= 0 }}
-              />
+              <HoverCard>
+                <HoverCardTrigger asChild>
+                  <div className="cursor-help">
+                    <CommandPanelCard
+                      label="Net Position P/L"
+                      value={`$${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                      subtitle="Hover for breakdown"
+                      icon={TrendingUp}
+                      trend={{ value: `${totalUnrealizedPnL >= 0 ? '+' : ''}${totalUnrealizedPnL.toFixed(0)}`, isPositive: totalUnrealizedPnL >= 0 }}
+                    />
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-72" side="bottom" align="start">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm flex items-center gap-1">
+                      <Info className="h-3 w-3" /> Unrealized P/L by Position
+                    </h4>
+                    <div className="space-y-1.5 text-sm max-h-48 overflow-y-auto">
+                      {[...activePositions].sort((a, b) => b.unrealizedPnL - a.unrealizedPnL).map(p => (
+                        <div key={p.id} className="flex justify-between items-center">
+                          <span className="text-muted-foreground">{p.symbol} ({p.contracts}x)</span>
+                          <span className={`font-medium ${p.unrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}`}>
+                            {p.unrealizedPnL >= 0 ? '+' : ''}${p.unrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                      ))}
+                      {activePositions.length === 0 && (
+                        <div className="text-muted-foreground text-center py-2">No active positions</div>
+                      )}
+                      <div className="border-t border-border pt-1.5 flex justify-between font-semibold">
+                        <span>Total</span>
+                        <span className={totalUnrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}>
+                          {totalUnrealizedPnL >= 0 ? '+' : ''}${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
               <HoverCard>
                 <HoverCardTrigger asChild>
                   <div className="cursor-help" onClick={() => setAssignedCapitalDialogOpen(true)}>
