@@ -32,7 +32,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Mail, TrendingUp, DollarSign, Eye } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { UserPlus, Mail, TrendingUp, DollarSign, Eye, Phone, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ClientsPage() {
@@ -42,6 +43,8 @@ export default function ClientsPage() {
   const [newClient, setNewClient] = useState({
     name: "",
     email: "",
+    phone_number: "",
+    sms_opt_in: false,
     risk_level: "MODERATE",
     segment: "",
     notes: "",
@@ -85,6 +88,8 @@ export default function ClientsPage() {
           advisor_id: user.id,
           name: clientData.name,
           email: clientData.email,
+          phone_number: clientData.phone_number || null,
+          sms_opt_in: clientData.sms_opt_in,
           risk_level: clientData.risk_level,
           segment: clientData.segment || null,
           notes: clientData.notes || null,
@@ -118,6 +123,8 @@ export default function ClientsPage() {
       setNewClient({
         name: "",
         email: "",
+        phone_number: "",
+        sms_opt_in: false,
         risk_level: "MODERATE",
         segment: "",
         notes: "",
@@ -223,6 +230,29 @@ export default function ClientsPage() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="phone_number">Mobile Number</Label>
+                <Input
+                  id="phone_number"
+                  type="tel"
+                  placeholder="+1 (555) 123-4567"
+                  value={newClient.phone_number}
+                  onChange={(e) => setNewClient({ ...newClient, phone_number: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Required for SMS messaging</p>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="sms_opt_in" className="text-sm font-medium">SMS Notifications</Label>
+                  <p className="text-xs text-muted-foreground">Allow sending SMS messages to this client</p>
+                </div>
+                <Switch
+                  id="sms_opt_in"
+                  checked={newClient.sms_opt_in}
+                  onCheckedChange={(checked) => setNewClient({ ...newClient, sms_opt_in: checked })}
+                  disabled={!newClient.phone_number}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="risk_level">Risk Level</Label>
                 <Select
                   value={newClient.risk_level}
@@ -295,11 +325,12 @@ export default function ClientsPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>SMS</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Risk Level</TableHead>
                   <TableHead>Portfolio Value</TableHead>
                   <TableHead>Premium YTD</TableHead>
-                  <TableHead>Open Positions</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -308,6 +339,26 @@ export default function ClientsPage() {
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.name}</TableCell>
                     <TableCell>{client.email}</TableCell>
+                    <TableCell>
+                      {client.phone_number ? (
+                        <div className="flex items-center gap-1 text-sm">
+                          <Phone className="h-3 w-3 text-muted-foreground" />
+                          {client.phone_number}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {client.sms_opt_in ? (
+                        <Badge variant="success" className="gap-1">
+                          <MessageSquare className="h-3 w-3" />
+                          Enabled
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">Disabled</Badge>
+                      )}
+                    </TableCell>
                     <TableCell>{getStatusBadge(client.invite_status || "PENDING")}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{client.risk_level || "N/A"}</Badge>
@@ -324,7 +375,6 @@ export default function ClientsPage() {
                         ${client.premium_ytd?.toLocaleString() || "0"}
                       </div>
                     </TableCell>
-                    <TableCell>{client.open_csp_count || 0}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Button
