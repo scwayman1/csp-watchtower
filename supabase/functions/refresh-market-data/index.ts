@@ -93,8 +93,13 @@ serve(async (req) => {
           if (validPrices.length > 0) {
             const currentPrice = validPrices[validPrices.length - 1].price;
             // Use explicit open price from first candle for accurate daily change calculation
-            const dayOpen = opens[0] ?? validPrices[0].price;
+            const explicitOpen = opens[0];
+            const firstClose = validPrices[0].price;
+            const dayOpen = explicitOpen ?? firstClose;
             const dayChangePct = ((currentPrice - dayOpen) / dayOpen) * 100;
+            
+            // Debug logging for price verification
+            console.log(`${symbol}: open=${explicitOpen?.toFixed(2) ?? 'N/A'}, firstClose=${firstClose?.toFixed(2)}, using=${dayOpen?.toFixed(2)}, current=${currentPrice?.toFixed(2)}, change=${dayChangePct?.toFixed(2)}%`);
             
             // Extract prices for sparkline (sample every few points for performance)
             const step = Math.max(1, Math.ceil(validPrices.length / 20));
