@@ -14,7 +14,8 @@ import { AIPerformanceTracker } from "@/components/dashboard/AIPerformanceTracke
 import { LearningCenter } from "@/components/dashboard/LearningCenter";
 import { AssignedCapitalDialog } from "@/components/dashboard/AssignedCapitalDialog";
 import { ActivePositionsBatchHeader } from "@/components/dashboard/ActivePositionsBatchHeader";
-import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw } from "lucide-react";
+import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw, Info } from "lucide-react";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
 import { useAssignedPositions } from "@/hooks/useAssignedPositions";
@@ -372,12 +373,47 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                 subtitle="Complete portfolio value"
                 icon={TrendingUp}
               />
-              <CommandPanelCard
-                label="Total Premium"
-                value={`$${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-                subtitle="All puts + calls collected"
-                icon={DollarSign}
-              />
+              <HoverCard>
+                <HoverCardTrigger asChild>
+                  <div className="cursor-help">
+                    <CommandPanelCard
+                      label="Total Premium"
+                      value={`$${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                      subtitle="Hover for breakdown"
+                      icon={DollarSign}
+                    />
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-64" side="bottom" align="start">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm flex items-center gap-1">
+                      <Info className="h-3 w-3" /> Premium Breakdown
+                    </h4>
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Active Puts ({activePositions.length})</span>
+                        <span className="font-medium">${activePremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Expired Puts ({expiredPositions.length})</span>
+                        <span className="font-medium">${expiredPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Assigned Puts ({filteredAssignedPositions.length})</span>
+                        <span className="font-medium">${assignedPutPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Covered Calls</span>
+                        <span className="font-medium">${coveredCallPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="border-t border-border pt-1.5 flex justify-between font-semibold">
+                        <span>Total</span>
+                        <span className="text-primary">${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
               <CommandPanelCard
                 label="Net Position P/L"
                 value={`$${totalUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
