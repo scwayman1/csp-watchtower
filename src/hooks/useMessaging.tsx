@@ -141,7 +141,14 @@ export function useMessaging() {
 
         setThreads(threadsWithNamesAndCounts);
       } else {
-        // For clients, show "Advisor" as the name
+        // For clients, show "Advisor" as the name and load their own SMS settings
+        // First, get the current user's client record to get their SMS settings
+        const { data: myClientRecord } = await supabase
+          .from("clients")
+          .select("phone_number, sms_opt_in")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        
         const threadsWithNamesAndCounts = await Promise.all(
           data.map(async (thread) => {
             const { count } = await supabase
@@ -154,8 +161,9 @@ export function useMessaging() {
             return {
               ...thread,
               client_name: "Your Advisor",
-              client_sms_opt_in: false,
-              client_phone_number: null,
+              // Use the investor's own SMS settings
+              client_sms_opt_in: myClientRecord?.sms_opt_in || false,
+              client_phone_number: myClientRecord?.phone_number || null,
               unread_count: count || 0
             };
           })

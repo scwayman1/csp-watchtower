@@ -531,47 +531,49 @@ export function MessagingPanel() {
                 </div>
               )}
 
-              {/* Channel Selector (for advisors) */}
-              {activeRole === 'advisor' && (
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Send via:</span>
-                  <TooltipProvider>
-                    <div className="flex gap-1 bg-muted/30 rounded-lg p-1">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant={selectedChannel === 'app' ? 'default' : 'ghost'}
-                            onClick={() => setSelectedChannel('app')}
-                            className="h-7 px-3 text-xs gap-1.5"
-                          >
-                            <MonitorSmartphone className="h-3.5 w-3.5" />
-                            App
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Send in-app message</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant={selectedChannel === 'sms' ? 'default' : 'ghost'}
-                            onClick={() => canSendSms && setSelectedChannel('sms')}
-                            disabled={!canSendSms}
-                            className="h-7 px-3 text-xs gap-1.5"
-                          >
-                            <Phone className="h-3.5 w-3.5" />
-                            SMS
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {canSendSms ? 'Send SMS message' : 'Client has not opted in to SMS'}
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </TooltipProvider>
-                </div>
-              )}
+              {/* Channel Selector */}
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Send via:</span>
+                <TooltipProvider>
+                  <div className="flex gap-1 bg-muted/30 rounded-lg p-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant={selectedChannel === 'app' ? 'default' : 'ghost'}
+                          onClick={() => setSelectedChannel('app')}
+                          className="h-7 px-3 text-xs gap-1.5"
+                        >
+                          <MonitorSmartphone className="h-3.5 w-3.5" />
+                          App
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Send in-app message</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant={selectedChannel === 'sms' ? 'default' : 'ghost'}
+                          onClick={() => canSendSms && setSelectedChannel('sms')}
+                          disabled={!canSendSms}
+                          className="h-7 px-3 text-xs gap-1.5"
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                          SMS
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {canSendSms 
+                          ? 'Send SMS message' 
+                          : activeRole === 'advisor' 
+                            ? 'Client has not opted in to SMS' 
+                            : 'Enable SMS in Settings to send text messages'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TooltipProvider>
+              </div>
 
               <div className="flex gap-3">
                 <input
