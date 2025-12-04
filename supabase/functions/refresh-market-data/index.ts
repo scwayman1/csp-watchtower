@@ -83,6 +83,7 @@ serve(async (req) => {
           const quote = result.indicators.quote[0];
           const timestamps = result.timestamp || [];
           const closes = quote.close || [];
+          const opens = quote.open || [];
           
           // Filter out null values and get valid prices
           const validPrices = closes
@@ -91,7 +92,8 @@ serve(async (req) => {
           
           if (validPrices.length > 0) {
             const currentPrice = validPrices[validPrices.length - 1].price;
-            const dayOpen = validPrices[0].price;
+            // Use explicit open price from first candle for accurate daily change calculation
+            const dayOpen = opens[0] ?? validPrices[0].price;
             const dayChangePct = ((currentPrice - dayOpen) / dayOpen) * 100;
             
             // Extract prices for sparkline (sample every few points for performance)
