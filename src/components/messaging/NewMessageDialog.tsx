@@ -19,9 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Plus, Phone, MonitorSmartphone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useMessaging } from "@/hooks/useMessaging";
+import { useMessaging, MessageChannel } from "@/hooks/useMessaging";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
@@ -35,6 +36,8 @@ type Client = {
   id: string;
   name: string;
   invite_status: string | null;
+  sms_opt_in: boolean | null;
+  phone_number: string | null;
 };
 
 export function NewMessageDialog() {
@@ -44,8 +47,20 @@ export function NewMessageDialog() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState<MessageChannel>('app');
   const { createThread, sendMessage } = useMessaging();
   const { toast } = useToast();
+
+  // Get selected client's SMS settings
+  const selectedClient = clients.find(c => c.id === selectedClientId);
+  const canSendSms = selectedClient?.sms_opt_in && selectedClient?.phone_number;
+
+  // Reset channel to 'app' if client changes and SMS not available
+  useEffect(() => {
+    if (!canSendSms && selectedChannel === 'sms') {
+      setSelectedChannel('app');
+    }
+  }, [selectedClientId, canSendSms, selectedChannel]);
 
   useEffect(() => {
     if (open) {
@@ -59,7 +74,7 @@ export function NewMessageDialog() {
 
     const { data, error } = await supabase
       .from("clients")
-      .select("id, name, invite_status")
+      .select("id, name, invite_status, sms_opt_in, phone_number")
       .eq("advisor_id", user.id)
       .order("name");
 
@@ -79,11 +94,21 @@ export function NewMessageDialog() {
   const handleSubmit = async () => {
     try {
       // Validate inputs
+      const maxLength = selectedChannel === 'sms' ? 160 : 5000;
       const validated = messageSchema.parse({
         clientId: selectedClientId,
         subject: subject || undefined,
         message,
       });
+
+      if (selectedChannel === 'sms' && message.length > 160) {
+        toast({
+          title: "Message too long",
+          description: "SMS messages must be 160 characters or less",
+          variant: "destructive",
+        });
+        return;
+      }
 
       setLoading(true);
 
@@ -94,18 +119,26 @@ export function NewMessageDialog() {
         throw new Error("Failed to create conversation");
       }
 
-      // Send first message
-      await sendMessage(thread.id, validated.message);
+      // Send first message with selected channel
+      await sendMessage(thread.id, validated.message, [], selectedChannel);
 
-      toast({
-        title: "Success",
-        description: "Message sent successfully",
-      });
+      if (selectedChannel === 'sms') {
+        toast({
+          title: "SMS Sent",
+          description: "Message sent via SMS successfully",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Message sent successfully",
+        });
+      }
 
       // Reset form and close
       setSelectedClientId("");
       setSubject("");
       setMessage("");
+      setSelectedChannel('app');
       setOpen(false);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -127,6 +160,8 @@ export function NewMessageDialog() {
       setLoading(false);
     }
   };
+
+  const maxLength = selectedChannel === 'sms' ? 160 : 5000;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -159,10 +194,15 @@ export function NewMessageDialog() {
                 ) : (
                   clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                      {client.invite_status === 'PENDING' && (
-                        <span className="text-xs text-muted-foreground ml-2">(Pending)</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {client.name}
+                        {client.invite_status === 'PENDING' && (
+                          <span className="text-xs text-muted-foreground">(Pending)</span>
+                        )}
+                        {client.sms_opt_in && client.phone_number && (
+                          <Phone className="h-3 w-3 text-primary" />
+                        )}
+                      </div>
                     </SelectItem>
                   ))
                 )}
@@ -181,18 +221,63 @@ export function NewMessageDialog() {
             />
           </div>
 
+          {/* Channel Selector */}
+          {selectedClientId && (
+            <div className="space-y-2">
+              <Label>Send via</Label>
+              <TooltipProvider>
+                <div className="flex gap-1 bg-muted/30 rounded-lg p-1 w-fit">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={selectedChannel === 'app' ? 'default' : 'ghost'}
+                        onClick={() => setSelectedChannel('app')}
+                        className="h-8 px-4 text-sm gap-2"
+                      >
+                        <MonitorSmartphone className="h-4 w-4" />
+                        App
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Send in-app message</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={selectedChannel === 'sms' ? 'default' : 'ghost'}
+                        onClick={() => canSendSms && setSelectedChannel('sms')}
+                        disabled={!canSendSms}
+                        className="h-8 px-4 text-sm gap-2"
+                      >
+                        <Phone className="h-4 w-4" />
+                        SMS
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {canSendSms ? 'Send SMS message' : 'Client has not opted in to SMS'}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="message">Message *</Label>
             <Textarea
               id="message"
-              placeholder="Type your message..."
+              placeholder={selectedChannel === 'sms' ? "Type your SMS message..." : "Type your message..."}
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={6}
-              maxLength={5000}
+              onChange={(e) => setMessage(e.target.value.slice(0, maxLength))}
+              rows={selectedChannel === 'sms' ? 3 : 6}
+              maxLength={maxLength}
             />
-            <p className="text-xs text-muted-foreground text-right">
-              {message.length}/5000
+            <p className={`text-xs text-right ${message.length > maxLength * 0.9 ? 'text-warning' : 'text-muted-foreground'}`}>
+              {message.length}/{maxLength}
+              {selectedChannel === 'sms' && ' characters'}
             </p>
           </div>
         </div>
@@ -201,8 +286,13 @@ export function NewMessageDialog() {
           <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={loading || !selectedClientId || !message.trim()}>
-            {loading ? "Sending..." : "Send Message"}
+          <Button 
+            onClick={handleSubmit} 
+            disabled={loading || !selectedClientId || !message.trim()}
+            className="gap-2"
+          >
+            {selectedChannel === 'sms' && <Phone className="h-4 w-4" />}
+            {loading ? "Sending..." : selectedChannel === 'sms' ? "Send SMS" : "Send Message"}
           </Button>
         </DialogFooter>
       </DialogContent>
