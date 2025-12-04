@@ -421,19 +421,86 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                 icon={TrendingUp}
                 trend={{ value: `${totalUnrealizedPnL >= 0 ? '+' : ''}${totalUnrealizedPnL.toFixed(0)}`, isPositive: totalUnrealizedPnL >= 0 }}
               />
-              <CommandPanelCard
-                label="Assigned Capital"
-                value={`$${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-                subtitle={`Cost: $${assignedSharesCostBasis.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-                icon={FileText}
-                onClick={() => setAssignedCapitalDialogOpen(true)}
-              />
-              <CommandPanelCard
-                label="Cash Secured"
-                value={`$${cashSecured.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-                subtitle={`${activeContracts} active contracts`}
-                icon={Calendar}
-              />
+              <HoverCard>
+                <HoverCardTrigger asChild>
+                  <div className="cursor-help" onClick={() => setAssignedCapitalDialogOpen(true)}>
+                    <CommandPanelCard
+                      label="Assigned Capital"
+                      value={`$${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                      subtitle="Hover for breakdown"
+                      icon={FileText}
+                    />
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-72" side="bottom" align="start">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm flex items-center gap-1">
+                      <Info className="h-3 w-3" /> Assigned Shares Breakdown
+                    </h4>
+                    <div className="space-y-1.5 text-sm">
+                      {filteredAssignedPositions.map(ap => (
+                        <div key={ap.id} className="flex justify-between items-center">
+                          <span className="text-muted-foreground">{ap.symbol} ({ap.shares} sh)</span>
+                          <span className="font-medium">${((ap.current_price || ap.assignment_price) * ap.shares).toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
+                        </div>
+                      ))}
+                      {filteredAssignedPositions.length === 0 && (
+                        <div className="text-muted-foreground text-center py-2">No assigned positions</div>
+                      )}
+                      <div className="border-t border-border pt-1.5 space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Cost Basis</span>
+                          <span>${assignedSharesCostBasis.toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Market Value</span>
+                          <span>${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
+                        </div>
+                        <div className="flex justify-between font-semibold">
+                          <span>Unrealized P/L</span>
+                          <span className={assignedSharesUnrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}>
+                            {assignedSharesUnrealizedPnL >= 0 ? '+' : ''}${assignedSharesUnrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
+              <HoverCard>
+                <HoverCardTrigger asChild>
+                  <div className="cursor-help">
+                    <CommandPanelCard
+                      label="Cash Secured"
+                      value={`$${cashSecured.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                      subtitle="Hover for breakdown"
+                      icon={Calendar}
+                    />
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-72" side="bottom" align="start">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm flex items-center gap-1">
+                      <Info className="h-3 w-3" /> Cash Secured Breakdown
+                    </h4>
+                    <div className="space-y-1.5 text-sm max-h-48 overflow-y-auto">
+                      {activePositions.map(p => (
+                        <div key={p.id} className="flex justify-between items-center">
+                          <span className="text-muted-foreground">{p.symbol} ({p.contracts}x ${p.strikePrice})</span>
+                          <span className="font-medium">${(p.strikePrice * 100 * p.contracts).toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
+                        </div>
+                      ))}
+                      {activePositions.length === 0 && (
+                        <div className="text-muted-foreground text-center py-2">No active positions</div>
+                      )}
+                      <div className="border-t border-border pt-1.5 flex justify-between font-semibold">
+                        <span>Total ({activeContracts} contracts)</span>
+                        <span className="text-primary">${cashSecured.toLocaleString('en-US', { minimumFractionDigits: 0 })}</span>
+                      </div>
+                    </div>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
               <CommandPanelCard
                 label="Available Cash"
                 value={`$${(availableCash / 1000).toFixed(1)}K`}
