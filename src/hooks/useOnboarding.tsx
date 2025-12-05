@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "./useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
-const ONBOARDING_COMPLETED_KEY = "wheel_terminal_onboarding_completed";
-
 export function useOnboarding() {
   const { user } = useAuth();
   const [showGuide, setShowGuide] = useState(false);
@@ -18,24 +16,20 @@ export function useOnboarding() {
 
     const checkOnboardingStatus = async () => {
       try {
-        // First check localStorage for quick response
-        const localCompleted = JSON.parse(localStorage.getItem(ONBOARDING_COMPLETED_KEY) || "[]");
-        if (localCompleted.includes(user.id)) {
-          setShowGuide(false);
+        // Check database for onboarding_completed_at
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("onboarding_completed_at")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Error checking onboarding status:", error);
           setIsLoading(false);
           return;
         }
 
-        // Check database for onboarding_completed flag in profiles
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("bio")
-          .eq("user_id", user.id)
-          .single();
-
-        // Use bio field existence as a proxy for "has interacted with profile"
-        // Or check localStorage - if neither, show guide
-        const hasCompletedOnboarding = localCompleted.includes(user.id);
+        const hasCompletedOnboarding = !!profile?.onboarding_completed_at;
         
         if (!hasCompletedOnboarding) {
           // Delay showing guide to let dashboard load
@@ -56,24 +50,34 @@ export function useOnboarding() {
     checkOnboardingStatus();
   }, [user]);
 
-  const dismissGuide = useCallback(() => {
+  const dismissGuide = useCallback(async () => {
+    setShowGuide(false);
+    
     if (user) {
-      // Save to localStorage immediately
-      const completedUsers = JSON.parse(localStorage.getItem(ONBOARDING_COMPLETED_KEY) || "[]");
-      if (!completedUsers.includes(user.id)) {
-        completedUsers.push(user.id);
-        localStorage.setItem(ONBOARDING_COMPLETED_KEY, JSON.stringify(completedUsers));
+      // Save completion to database
+      const { error } = await supabase
+        .from("profiles")
+        .update({ onboarding_completed_at: new Date().toISOString() })
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error saving onboarding status:", error);
       }
     }
-    setShowGuide(false);
   }, [user]);
 
-  const resetOnboarding = useCallback(() => {
+  const resetOnboarding = useCallback(async () => {
     if (user) {
-      // Remove from localStorage
-      const completedUsers = JSON.parse(localStorage.getItem(ONBOARDING_COMPLETED_KEY) || "[]");
-      const filtered = completedUsers.filter((id: string) => id !== user.id);
-      localStorage.setItem(ONBOARDING_COMPLETED_KEY, JSON.stringify(filtered));
+      // Clear completion in database
+      const { error } = await supabase
+        .from("profiles")
+        .update({ onboarding_completed_at: null })
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error resetting onboarding status:", error);
+        return;
+      }
       
       // Show guide again
       setShowGuide(true);
