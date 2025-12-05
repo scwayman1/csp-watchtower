@@ -56,27 +56,28 @@ const Auth = () => {
   };
 
   const handleAuthSuccess = async (userId: string) => {
-    // If advisor role selected, add the role
-    if (selectedRole === "advisor" && authMode === "signup") {
-      try {
-        const { error } = await supabase
-          .from("user_roles")
-          .insert({ user_id: userId, role: "advisor" });
-        
-        if (error && !error.message.includes("duplicate")) {
-          console.error("Error adding advisor role:", error);
+    if (authMode === "signup") {
+      // The database trigger automatically creates profile, settings, and assigns investor role
+      // If advisor role was selected, add it as an additional role
+      if (selectedRole === "advisor") {
+        try {
+          const { error } = await supabase
+            .from("user_roles")
+            .insert({ user_id: userId, role: "advisor" });
+          
+          if (error && !error.message.includes("duplicate")) {
+            console.error("Error adding advisor role:", error);
+          }
+        } catch (err) {
+          console.error("Error adding advisor role:", err);
         }
-      } catch (err) {
-        console.error("Error adding advisor role:", err);
       }
-    }
-
-    if (authMode === "login") {
+      
+      // Show completion screen for new signups
+      setStep("complete");
+    } else {
       // For login, go directly to dashboard
       navigate(returnUrl);
-    } else {
-      // For signup, show completion screen
-      setStep("complete");
     }
   };
 
