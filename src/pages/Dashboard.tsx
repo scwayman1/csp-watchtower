@@ -45,7 +45,7 @@ interface DashboardProps {
 const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {}) => {
   const navigate = useNavigate();
   const { user, loading: authLoading, signOut } = useAuth();
-  const { showGuide, dismissGuide } = useOnboarding();
+  const { showGuide, dismissGuide, userRole } = useOnboarding();
   const effectiveUserId = viewAsUserId || user?.id;
   const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions(effectiveUserId);
   const { assignedPositions, loading: assignedLoading, refetch: refetchAssigned } = useAssignedPositions(effectiveUserId);
@@ -791,7 +791,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
       {/* First-time user guide */}
       {showGuide && !isAdvisorView && (
         <FirstTimeUserGuide
-          userRole="investor"
+          userRole={userRole}
           onDismiss={dismissGuide}
           onNavigate={(path) => navigate(path)}
         />
