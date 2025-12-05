@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, TrendingUp, DollarSign, Activity } from "lucide-react";
 import { ProfileViewer } from "@/components/advisor/ProfileViewer";
 import { ClientFilter } from "@/components/advisor/ClientFilter";
+import { FirstTimeUserGuide } from "@/components/onboarding/FirstTimeUserGuide";
+import { AdvisorSetupChecklist } from "@/components/onboarding/AdvisorSetupChecklist";
+import { useOnboarding } from "@/hooks/useOnboarding";
 import Dashboard from "@/pages/Dashboard";
 
 interface AdvisorStats {
@@ -18,6 +21,7 @@ interface AdvisorStats {
 
 export default function AdvisorDashboard() {
   const navigate = useNavigate();
+  const { showGuide, dismissGuide } = useOnboarding();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedClientId, setSelectedClientId] = useState<string | null>(
     searchParams.get("client")
@@ -200,6 +204,9 @@ export default function AdvisorDashboard() {
         })}
       </div>
 
+      {/* Setup Checklist for new advisors */}
+      <AdvisorSetupChecklist />
+
       <Card className="bg-card/50 border-border/50">
         <CardHeader>
           <CardTitle>Quick Actions</CardTitle>
@@ -232,6 +239,15 @@ export default function AdvisorDashboard() {
       </Card>
 
       <ProfileViewer />
+
+      {/* First-time advisor guide */}
+      {showGuide && (
+        <FirstTimeUserGuide
+          userRole="advisor"
+          onDismiss={dismissGuide}
+          onNavigate={(path) => navigate(path)}
+        />
+      )}
     </div>
   );
 }

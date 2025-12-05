@@ -1,5 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { CommandPanelCard } from "@/components/dashboard/CommandPanelCard";
+import { FirstTimeUserGuide } from "@/components/onboarding/FirstTimeUserGuide";
+import { useOnboarding } from "@/hooks/useOnboarding";
 import { RadialGauge } from "@/components/dashboard/RadialGauge";
 import { AssetsTrendChart } from "@/components/dashboard/AssetsTrendChart";
 import { ImportBar } from "@/components/dashboard/ImportBar";
@@ -40,7 +43,9 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {}) => {
+  const navigate = useNavigate();
   const { user, loading: authLoading, signOut } = useAuth();
+  const { showGuide, dismissGuide } = useOnboarding();
   const effectiveUserId = viewAsUserId || user?.id;
   const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions(effectiveUserId);
   const { assignedPositions, loading: assignedLoading, refetch: refetchAssigned } = useAssignedPositions(effectiveUserId);
@@ -782,6 +787,15 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
         assignedPositions={filteredAssignedPositions}
         totalAssignedCapital={assignedSharesMarketValue}
       />
+
+      {/* First-time user guide */}
+      {showGuide && !isAdvisorView && (
+        <FirstTimeUserGuide
+          userRole="investor"
+          onDismiss={dismissGuide}
+          onNavigate={(path) => navigate(path)}
+        />
+      )}
     </div>
   );
 };
