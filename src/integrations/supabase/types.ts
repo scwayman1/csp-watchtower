@@ -915,6 +915,7 @@ export type Database = {
           id: string
           investment_experience: string | null
           investment_goals: string | null
+          onboarding_completed_at: string | null
           preferred_strategies: string[] | null
           risk_tolerance: string | null
           updated_at: string
@@ -929,6 +930,7 @@ export type Database = {
           id?: string
           investment_experience?: string | null
           investment_goals?: string | null
+          onboarding_completed_at?: string | null
           preferred_strategies?: string[] | null
           risk_tolerance?: string | null
           updated_at?: string
@@ -943,6 +945,7 @@ export type Database = {
           id?: string
           investment_experience?: string | null
           investment_goals?: string | null
+          onboarding_completed_at?: string | null
           preferred_strategies?: string[] | null
           risk_tolerance?: string | null
           updated_at?: string
