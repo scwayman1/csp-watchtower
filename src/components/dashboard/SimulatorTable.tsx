@@ -5,15 +5,17 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, CheckCircle, TrendingUp, DollarSign } from "lucide-react";
+import { X, CheckCircle, TrendingUp, DollarSign, Phone } from "lucide-react";
 import { LearningPosition } from "@/hooks/useLearningPositions";
 import { useLearningAssignedPositions } from "@/hooks/useLearningAssignedPositions";
 import { useLearningMarketData } from "@/hooks/useLearningMarketData";
 import { useSimulatorSettings } from "@/hooks/useSimulatorSettings";
 import { useSimulatorPortfolioHistory } from "@/hooks/useSimulatorPortfolioHistory";
+import { useLearningExpiredPositions } from "@/hooks/useLearningExpiredPositions";
 import { SellCoveredCallDialog } from "./SellCoveredCallDialog";
 import { AssignedPositionRow } from "./AssignedPositionRow";
 import { SimulatorPerformanceChart } from "./SimulatorPerformanceChart";
+import { LearningExpiredBatches } from "./LearningExpiredBatches";
 
 interface SimulatorTableProps {
   positions: LearningPosition[];
@@ -26,6 +28,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
   const { assignedPositions, assignPosition, sellCoveredCall } = useLearningAssignedPositions(userId);
   const { settings, updateSettings } = useSimulatorSettings(userId);
   const { history, recordSnapshot } = useSimulatorPortfolioHistory(userId);
+  const { batches: expiredBatches, expiredPositions } = useLearningExpiredPositions(userId);
   const [capital, setCapital] = useState(settings?.starting_capital?.toString() || "100000");
   const [selectedAssignedPosition, setSelectedAssignedPosition] = useState<string | null>(null);
 
@@ -111,7 +114,10 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
   const totalCallPremiums = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.coveredCallPremiums, 0);
   const totalAssignedPnL = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.unrealizedPnL, 0);
 
-  const totalPremiums = totalPutPremiums + totalCallPremiums;
+  // Include expired positions premium in totals
+  const totalExpiredPremiums = expiredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
+
+  const totalPremiums = totalPutPremiums + totalCallPremiums + totalExpiredPremiums;
   const availableCapital = (parseFloat(capital) || 0) - totalCashSecured - totalAssignedCostBasis + totalPremiums;
   const totalPortfolioValue = parseFloat(capital) + totalPremiums;
 
@@ -463,7 +469,10 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
         </Card>
       )}
 
-      {positions.length === 0 && assignedPositions.length === 0 && (
+      {/* Expired Positions (Vintage Cards) */}
+      <LearningExpiredBatches batches={expiredBatches} />
+
+      {positions.length === 0 && assignedPositions.length === 0 && expiredBatches.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
           <p>No practice positions yet.</p>
           <p className="text-sm mt-2">Use the Options Chain to add positions to your simulator.</p>
