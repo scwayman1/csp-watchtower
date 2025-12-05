@@ -131,15 +131,26 @@ export function FirstTimeUserGuide({ userRole, onDismiss, onNavigate }: FirstTim
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleSkip}
+              onClick={onDismiss}
               className="text-muted-foreground"
             >
-              {currentTip < tips.length - 1 ? "Skip" : "Close"}
+              Skip Tour
             </Button>
-            <Button size="sm" onClick={handleAction} className="ml-auto">
-              {tips[currentTip].action}
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+            <div className="flex items-center gap-2 ml-auto">
+              {currentTip < tips.length - 1 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSkip}
+                >
+                  Next
+                </Button>
+              )}
+              <Button size="sm" onClick={handleAction}>
+                {tips[currentTip].action}
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
           </div>
 
           {/* Dots indicator */}
