@@ -23,9 +23,10 @@ interface OptionsChainProps {
   options: OptionRow[];
   contracts: number;
   expiration: string;
-  onAddToSimulator: (row: any) => void;
+  onAddToSimulator?: (row: any) => void;
   symbol: string;
   isStale?: boolean;
+  optionType?: 'PUT' | 'CALL';
 }
 
 export const OptionsChain = ({ 
@@ -35,14 +36,15 @@ export const OptionsChain = ({
   expiration,
   onAddToSimulator,
   symbol,
-  isStale = false
+  isStale = false,
+  optionType = 'PUT'
 }: OptionsChainProps) => {
   
   const calculateMetrics = (option: OptionRow) => {
     // Safely handle undefined values with defaults
     const credit = option.mid ?? 0;
     const strike = option.strike ?? 0;
-    const breakeven = strike - credit;
+    const breakeven = optionType === 'PUT' ? strike - credit : strike + credit;
     const totalPremium = credit * 100 * contracts;
     const capitalReq = strike * 100 * contracts;
     const maxProfit = totalPremium;
@@ -53,16 +55,30 @@ export const OptionsChain = ({
     let status = 'Safe';
     let statusVariant: 'default' | 'secondary' | 'destructive' = 'default';
     
-    // For cash-secured puts: negative pctFromSpot = OTM = Safe, positive = ITM = Risky
-    if (pctFromSpot <= -10) {
-      status = 'Safe';
-      statusVariant = 'default';
-    } else if (pctFromSpot <= -5) {
-      status = 'Moderate';
-      statusVariant = 'secondary';
+    if (optionType === 'PUT') {
+      // For cash-secured puts: negative pctFromSpot = OTM = Safe
+      if (pctFromSpot <= -10) {
+        status = 'Safe';
+        statusVariant = 'default';
+      } else if (pctFromSpot <= -5) {
+        status = 'Moderate';
+        statusVariant = 'secondary';
+      } else {
+        status = 'Risky';
+        statusVariant = 'destructive';
+      }
     } else {
-      status = 'Risky';
-      statusVariant = 'destructive';
+      // For covered calls: positive pctFromSpot = OTM = Safe
+      if (pctFromSpot >= 10) {
+        status = 'Safe';
+        statusVariant = 'default';
+      } else if (pctFromSpot >= 5) {
+        status = 'Moderate';
+        statusVariant = 'secondary';
+      } else {
+        status = 'Risky';
+        statusVariant = 'destructive';
+      }
     }
     
     return {
@@ -90,7 +106,7 @@ export const OptionsChain = ({
   if (options.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        No puts available for this expiration.
+        No {optionType === 'PUT' ? 'puts' : 'calls'} available for this expiration.
       </div>
     );
   }
@@ -250,20 +266,24 @@ export const OptionsChain = ({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      size="sm"
-                      onClick={() => onAddToSimulator({
-                        symbol,
-                        strike_price: option.strike,
-                        expiration,
-                        contracts,
-                        premium_per_contract: option.mid,
-                        notes: `ROC: ${option.roc.toFixed(2)}%, Δ: ${option.delta?.toFixed(2) || 'N/A'}`
-                      })}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Add
-                    </Button>
+                    {onAddToSimulator ? (
+                      <Button
+                        size="sm"
+                        onClick={() => onAddToSimulator({
+                          symbol,
+                          strike_price: option.strike,
+                          expiration,
+                          contracts,
+                          premium_per_contract: option.mid,
+                          notes: `ROC: ${option.roc.toFixed(2)}%, Δ: ${option.delta?.toFixed(2) || 'N/A'}`
+                        })}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">View only</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

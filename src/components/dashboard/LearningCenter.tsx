@@ -35,8 +35,9 @@ export const LearningCenter = () => {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [optionType, setOptionType] = useState<'PUT' | 'CALL'>('PUT');
 
-  const { data: chainData, isLoading, refetch, isStale, staleReason } = useOptionsChain(searchSymbol);
+  const { data: chainData, isLoading, refetch, isStale, staleReason } = useOptionsChain(searchSymbol, optionType);
   const { data: searchResults, isLoading: isSearching } = useTickerSearch(searchQuery);
 
   const handleSearch = () => {
@@ -132,7 +133,7 @@ export const LearningCenter = () => {
           <CardTitle>Learning Center</CardTitle>
         </div>
         <CardDescription>
-          Practice pricing cash-secured puts with live market data and simulate trades without risk
+          Practice pricing {optionType === 'PUT' ? 'cash-secured puts' : 'covered calls'} with live market data and simulate trades without risk
         </CardDescription>
       </CardHeader>
       <CardContent className="overflow-visible">
@@ -222,6 +223,27 @@ export const LearningCenter = () => {
                     </div>
                   </div>
                 </div>
+                <div className="flex-none">
+                  <label className="text-sm font-medium mb-2 block">Option Type</label>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant={optionType === 'PUT' ? "default" : "outline"}
+                      onClick={() => setOptionType('PUT')}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Cash-Secured Put
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={optionType === 'CALL' ? "default" : "outline"}
+                      onClick={() => setOptionType('CALL')}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Covered Call
+                    </Button>
+                  </div>
+                </div>
                 <Button onClick={handleSearch} disabled={isLoading}>
                   {isLoading ? (
                     <RefreshCw className="h-4 w-4 animate-spin" />
@@ -280,14 +302,15 @@ export const LearningCenter = () => {
                       options={currentOptions}
                       contracts={contracts}
                       expiration={currentExpiration}
-                      onAddToSimulator={handleAddPosition}
+                      onAddToSimulator={optionType === 'PUT' ? handleAddPosition : undefined}
                       symbol={searchSymbol}
                       isStale={isStale}
+                      optionType={optionType}
                     />
                   ) : (
                     <div className="text-center py-12 text-muted-foreground">
                       <GraduationCap className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>Enter a symbol and click "Get Quotes" to view the options chain</p>
+                      <p>Enter a symbol and click "Get Quotes" to view {optionType === 'PUT' ? 'put' : 'call'} options</p>
                     </div>
                   )}
                 </div>
