@@ -11,9 +11,10 @@ import { RoleManager } from "@/components/RoleManager";
 import { ProfileSection } from "@/components/settings/ProfileSection";
 import { AdvisorProfileSection } from "@/components/settings/AdvisorProfileSection";
 import { HouseholdManagement } from "@/components/settings/HouseholdManagement";
-import { Settings as SettingsIcon } from "lucide-react";
+import { Settings as SettingsIcon, RotateCcw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useOnboarding } from "@/hooks/useOnboarding";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 const Settings = () => {
   const { user } = useAuth();
   const { activeRole } = useUserRole();
+  const { resetOnboarding } = useOnboarding();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -300,6 +302,31 @@ const Settings = () => {
 
         {/* Share Management */}
         {user && <ShareManagement userId={user.id} />}
+
+        {/* Onboarding Tour */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Onboarding Tour</CardTitle>
+            <CardDescription>
+              Restart the getting started guide to see tips again
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                resetOnboarding();
+                toast({
+                  title: "Tour restarted",
+                  description: "The onboarding guide will appear on your dashboard.",
+                });
+              }}
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Restart Tour
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Save Button */}
         <div className="flex justify-end">
