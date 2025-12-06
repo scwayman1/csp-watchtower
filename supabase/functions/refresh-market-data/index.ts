@@ -17,25 +17,44 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get all active positions and assigned positions to find symbols we need prices for
-    const { data: positions, error: positionsError } = await supabase
-      .from('positions')
-      .select('symbol')
-      .eq('is_active', true);
+    // Check if specific symbols were provided in the request
+    let requestedSymbols: string[] = [];
+    try {
+      const body = await req.json();
+      if (body.symbols && Array.isArray(body.symbols)) {
+        requestedSymbols = body.symbols;
+        console.log('Received request for specific symbols:', requestedSymbols);
+      }
+    } catch {
+      // No body or invalid JSON - that's fine, we'll fetch from positions
+    }
 
-    if (positionsError) throw positionsError;
+    let symbols: string[] = [];
 
-    const { data: assignedPositions, error: assignedError } = await supabase
-      .from('assigned_positions')
-      .select('symbol')
-      .eq('is_active', true);
+    if (requestedSymbols.length > 0) {
+      // Use the symbols provided in the request
+      symbols = requestedSymbols;
+    } else {
+      // Get all active positions and assigned positions to find symbols we need prices for
+      const { data: positions, error: positionsError } = await supabase
+        .from('positions')
+        .select('symbol')
+        .eq('is_active', true);
 
-    if (assignedError) throw assignedError;
+      if (positionsError) throw positionsError;
 
-    const symbolsSet = new Set<string>();
-    (positions || []).forEach((p: { symbol: string }) => symbolsSet.add(p.symbol));
-    (assignedPositions || []).forEach((p: { symbol: string }) => symbolsSet.add(p.symbol));
-    const symbols = [...symbolsSet];
+      const { data: assignedPositions, error: assignedError } = await supabase
+        .from('assigned_positions')
+        .select('symbol')
+        .eq('is_active', true);
+
+      if (assignedError) throw assignedError;
+
+      const symbolsSet = new Set<string>();
+      (positions || []).forEach((p: { symbol: string }) => symbolsSet.add(p.symbol));
+      (assignedPositions || []).forEach((p: { symbol: string }) => symbolsSet.add(p.symbol));
+      symbols = [...symbolsSet];
+    }
     
     if (symbols.length === 0) {
       return new Response(
