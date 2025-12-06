@@ -3,7 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PortfolioSnapshot } from "@/hooks/useSimulatorPortfolioHistory";
 import { TrendingUp, TrendingDown, Calendar, Percent, DollarSign, Target, BarChart3 } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, Tooltip } from "recharts";
+
+interface PositionForMetrics {
+  id: string;
+  symbol: string;
+  contracts: number;
+  premium_per_contract: number;
+  created_at: string;
+  is_active: boolean;
+}
 
 interface SimulatorMetricsProps {
   history: PortfolioSnapshot[];
@@ -12,6 +21,12 @@ interface SimulatorMetricsProps {
   totalCashSecured: number;
   totalAssignedCostBasis: number;
   totalPortfolioValue: number;
+  // Current calculated values for display
+  currentPortfolioValue: number;
+  currentTotalPremiums: number;
+  // Position data for accurate monthly calculations
+  allPositions: PositionForMetrics[];
+  expiredPositions: PositionForMetrics[];
 }
 
 interface MonthlyPerformance {
@@ -30,6 +45,10 @@ export const SimulatorMetrics = ({
   totalCashSecured,
   totalAssignedCostBasis,
   totalPortfolioValue,
+  currentPortfolioValue,
+  currentTotalPremiums,
+  allPositions,
+  expiredPositions,
 }: SimulatorMetricsProps) => {
   // Calculate days active from first position
   const daysActive = useMemo(() => {
@@ -58,56 +77,43 @@ export const SimulatorMetrics = ({
     return (totalPremiums / capitalAtRisk) * 100;
   }, [totalPremiums, capitalAtRisk]);
 
-  // Calculate total return on starting capital
-  const totalReturn = totalPortfolioValue - startingCapital;
+  // Calculate total return on starting capital - use current calculated values, not snapshot history
+  const totalReturn = currentPortfolioValue - startingCapital;
   const totalReturnPct = startingCapital > 0 ? (totalReturn / startingCapital) * 100 : 0;
 
-  // Calculate month-over-month performance
+  // Calculate month-over-month performance from ACTUAL position data
   const monthlyPerformance = useMemo<MonthlyPerformance[]>(() => {
-    if (history.length === 0) return [];
-
-    // Sort history by date
-    const sortedHistory = [...history].sort((a, b) => 
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
+    // Combine all positions (active + expired) for monthly premium calculation
+    const combinedPositions = [...allPositions, ...expiredPositions];
+    
+    if (combinedPositions.length === 0) return [];
 
     const monthlyData: Record<string, { 
-      startPremiums: number;
-      endPremiums: number; 
-      endValue: number; 
-      startValue: number;
+      premiums: number;
       trades: number;
     }> = {};
 
-    // Group snapshots by month
-    sortedHistory.forEach((snapshot, index) => {
-      const date = new Date(snapshot.created_at);
+    // Group positions by their creation month and sum premiums
+    combinedPositions.forEach((pos) => {
+      const date = new Date(pos.created_at);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       
+      const positionPremium = pos.premium_per_contract * 100 * pos.contracts;
+      
       if (!monthlyData[monthKey]) {
-        // Get starting values - use previous snapshot or starting capital
-        const prevSnapshot = index > 0 ? sortedHistory[index - 1] : null;
         monthlyData[monthKey] = {
-          startPremiums: prevSnapshot?.total_premiums_collected || 0,
-          endPremiums: snapshot.total_premiums_collected,
-          startValue: prevSnapshot?.portfolio_value || startingCapital,
-          endValue: snapshot.portfolio_value,
+          premiums: 0,
           trades: 0,
         };
       }
       
-      // Update end values to latest in month
-      monthlyData[monthKey].endValue = snapshot.portfolio_value;
-      monthlyData[monthKey].endPremiums = snapshot.total_premiums_collected;
-      
-      // Count trades (positions opened, closed, assigned)
-      if (['position_opened', 'position_closed', 'position_assigned', 'auto_assigned', 'expired_otm', 'covered_call_sold'].includes(snapshot.event_type)) {
-        monthlyData[monthKey].trades++;
-      }
+      monthlyData[monthKey].premiums += positionPremium;
+      monthlyData[monthKey].trades++;
     });
 
     // Convert to array with proper month labels
     const months = Object.keys(monthlyData).sort();
+    let cumulativePremiums = 0;
     
     return months.map((monthKey, idx) => {
       const [year, month] = monthKey.split('-');
@@ -115,26 +121,27 @@ export const SimulatorMetrics = ({
       const monthLabel = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
       
       const data = monthlyData[monthKey];
+      cumulativePremiums += data.premiums;
       
-      // Get previous month's end premiums for accurate month-over-month calculation
-      const prevMonthKey = months[idx - 1];
-      const prevEndPremiums = prevMonthKey ? monthlyData[prevMonthKey].endPremiums : 0;
+      // Calculate portfolio value at end of month (starting + cumulative premiums)
+      const portfolioValue = startingCapital + cumulativePremiums;
       
-      const monthPremiums = data.endPremiums - prevEndPremiums;
-      const returnPct = data.startValue > 0 
-        ? ((data.endValue - data.startValue) / data.startValue) * 100 
+      // Calculate return for this month
+      const prevPortfolioValue = idx === 0 ? startingCapital : startingCapital + (cumulativePremiums - data.premiums);
+      const returnPct = prevPortfolioValue > 0 
+        ? ((portfolioValue - prevPortfolioValue) / prevPortfolioValue) * 100 
         : 0;
       
       return {
         month: monthKey,
         monthLabel,
-        premiumsCollected: monthPremiums,
-        portfolioValue: data.endValue,
+        premiumsCollected: data.premiums,
+        portfolioValue,
         returnPct,
         trades: data.trades,
       };
     });
-  }, [history, startingCapital]);
+  }, [allPositions, expiredPositions, startingCapital]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
