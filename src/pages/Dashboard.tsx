@@ -369,6 +369,8 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                       value={`$${(totalPortfolioValue / 1000).toFixed(1)}K`}
                       subtitle="Hover for breakdown"
                       icon={TrendingUp}
+                      sparklineData={portfolioHistory.slice(-14).map(h => h.portfolio_value)}
+                      sparklineColor="auto"
                     />
                   </div>
                 </HoverCardTrigger>
@@ -427,6 +429,8 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                       value={`$${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                       subtitle="Hover for breakdown"
                       icon={DollarSign}
+                      sparklineData={portfolioHistory.slice(-14).map(h => h.total_premiums_collected)}
+                      sparklineColor="hsl(var(--success))"
                     />
                   </div>
                 </HoverCardTrigger>
@@ -480,6 +484,8 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                       subtitle="Hover for breakdown"
                       icon={TrendingUp}
                       trend={{ value: `${totalUnrealizedPnL >= 0 ? '+' : ''}${totalUnrealizedPnL.toFixed(0)}`, isPositive: totalUnrealizedPnL >= 0 }}
+                      sparklineData={portfolioHistory.slice(-14).map(h => h.net_position_pnl)}
+                      sparklineColor="auto"
                     />
                   </div>
                 </HoverCardTrigger>
@@ -533,6 +539,8 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                       value={`$${assignedSharesMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                       subtitle="Hover for breakdown"
                       icon={FileText}
+                      sparklineData={portfolioHistory.slice(-14).map(h => h.assigned_shares_value)}
+                      sparklineColor="hsl(var(--primary))"
                     />
                   </div>
                 </HoverCardTrigger>
@@ -583,6 +591,8 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                       value={`$${cashSecured.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                       subtitle="Hover for breakdown"
                       icon={Calendar}
+                      sparklineData={portfolioHistory.slice(-14).map(h => h.positions_value)}
+                      sparklineColor="hsl(var(--muted-foreground))"
                     />
                   </div>
                 </HoverCardTrigger>
@@ -621,6 +631,8 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                 value={`$${(availableCash / 1000).toFixed(1)}K`}
                 subtitle="Liquid capital"
                 icon={DollarSign}
+                sparklineData={portfolioHistory.slice(-14).map(h => h.cash_balance)}
+                sparklineColor="hsl(var(--primary))"
               />
               <div className="col-span-1">
                 <Card className="h-full">
@@ -642,6 +654,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                       value={atRiskCount.toString()}
                       subtitle="Hover for details"
                       icon={AlertTriangle}
+                      sparklineColor="hsl(var(--destructive))"
                     />
                   </div>
                 </HoverCardTrigger>
