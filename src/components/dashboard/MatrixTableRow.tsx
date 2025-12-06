@@ -2,7 +2,6 @@ import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { MiniSparkline } from "./MiniSparkline";
 import type { Position } from "./PositionsTable";
 
 interface MatrixTableRowProps {
@@ -54,25 +53,14 @@ export function MatrixTableRow({
         </div>
       </TableCell>
       <TableCell className="font-mono cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => window.open(`https://finance.yahoo.com/quote/${position.symbol}`, '_blank')}>
-        <div className="flex items-center gap-2">
-          <div className="flex flex-col gap-0.5">
-            <span className="font-semibold text-sm">{formatCurrency(position.underlyingPrice)}</span>
-            <div className="flex items-center gap-1">
-              {getTrendIcon()}
-              <span className={`text-xs ${position.dayChangePct && position.dayChangePct > 0 ? "text-success" : position.dayChangePct && position.dayChangePct < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                {position.dayChangePct ? `${position.dayChangePct >= 0 ? '+' : ''}${position.dayChangePct.toFixed(1)}%` : '-'}
-              </span>
-            </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="font-semibold text-sm">{formatCurrency(position.underlyingPrice)}</span>
+          <div className="flex items-center gap-1">
+            {getTrendIcon()}
+            <span className={`text-xs ${position.dayChangePct && position.dayChangePct > 0 ? "text-success" : position.dayChangePct && position.dayChangePct < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+              {position.dayChangePct ? `${position.dayChangePct >= 0 ? '+' : ''}${position.dayChangePct.toFixed(1)}%` : '-'}
+            </span>
           </div>
-          {position.intradayPrices && position.intradayPrices.length >= 2 && (
-            <div className="w-16 h-6">
-              <MiniSparkline 
-                data={position.intradayPrices} 
-                color="auto" 
-                height={24}
-              />
-            </div>
-          )}
         </div>
       </TableCell>
       <TableCell className="font-mono text-sm font-semibold">
