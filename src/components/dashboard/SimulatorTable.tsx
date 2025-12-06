@@ -281,6 +281,10 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
         totalCashSecured={totalCashSecured}
         totalAssignedCostBasis={totalAssignedCostBasis}
         totalPortfolioValue={totalPortfolioValue}
+        currentPortfolioValue={totalPortfolioValue}
+        currentTotalPremiums={totalPremiums}
+        allPositions={positions}
+        expiredPositions={expiredPositions}
       />
 
       {/* Performance Chart */}
