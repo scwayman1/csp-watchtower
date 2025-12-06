@@ -4,9 +4,15 @@ interface MiniSparklineProps {
   data: number[];
   color?: string;
   height?: number;
+  animated?: boolean;
 }
 
-export function MiniSparkline({ data, color = "hsl(var(--primary))", height = 32 }: MiniSparklineProps) {
+export function MiniSparkline({ 
+  data, 
+  color = "hsl(var(--primary))", 
+  height = 32,
+  animated = true 
+}: MiniSparklineProps) {
   const chartData = data.map((value, index) => ({ value, index }));
   
   if (data.length < 2) {
@@ -32,7 +38,10 @@ export function MiniSparkline({ data, color = "hsl(var(--primary))", height = 32
             stroke={lineColor}
             strokeWidth={1.5}
             dot={false}
-            isAnimationActive={false}
+            isAnimationActive={animated}
+            animationDuration={800}
+            animationEasing="ease-out"
+            animationBegin={0}
           />
         </LineChart>
       </ResponsiveContainer>
