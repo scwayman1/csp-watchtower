@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, CheckCircle, TrendingUp, TrendingDown, Minus, DollarSign, Phone } from "lucide-react";
+import { X, CheckCircle, TrendingUp, TrendingDown, Minus, DollarSign } from "lucide-react";
 import { LearningPosition } from "@/hooks/useLearningPositions";
 import { useLearningAssignedPositions } from "@/hooks/useLearningAssignedPositions";
 import { useLearningMarketData } from "@/hooks/useLearningMarketData";
@@ -13,9 +13,9 @@ import { useSimulatorSettings } from "@/hooks/useSimulatorSettings";
 import { useSimulatorPortfolioHistory } from "@/hooks/useSimulatorPortfolioHistory";
 import { useLearningExpiredPositions } from "@/hooks/useLearningExpiredPositions";
 import { SellCoveredCallDialog } from "./SellCoveredCallDialog";
-import { AssignedPositionRow } from "./AssignedPositionRow";
 import { SimulatorPerformanceChart } from "./SimulatorPerformanceChart";
 import { LearningExpiredBatches } from "./LearningExpiredBatches";
+import { SimulatorAssignedZone } from "./SimulatorAssignedZone";
 
 interface SimulatorTableProps {
   positions: LearningPosition[];
@@ -445,45 +445,11 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
         </Card>
       )}
 
-      {/* Assigned Positions */}
-      {enhancedAssignedPositions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Assigned Positions (Wheel Strategy)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="border rounded-lg overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Symbol</TableHead>
-                    <TableHead>Shares</TableHead>
-                    <TableHead>Current Price</TableHead>
-                    <TableHead>Cost Basis</TableHead>
-                    <TableHead>Market Value</TableHead>
-                    <TableHead>Put Premium</TableHead>
-                    <TableHead>Call Premiums</TableHead>
-                    <TableHead>Unrealized P/L</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {enhancedAssignedPositions.map((ap) => (
-                    <AssignedPositionRow
-                      key={ap.id}
-                      position={ap}
-                      onSellCall={(pos) => setSelectedAssignedPosition(pos.id)}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Assigned Positions Zone */}
+      <SimulatorAssignedZone
+        assignedPositions={enhancedAssignedPositions}
+        onSellCall={(pos) => setSelectedAssignedPosition(pos.id)}
+      />
 
       {/* Expired Positions (Vintage Cards) */}
       <LearningExpiredBatches batches={expiredBatches} />
