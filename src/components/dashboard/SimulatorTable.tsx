@@ -14,6 +14,7 @@ import { useSimulatorPortfolioHistory } from "@/hooks/useSimulatorPortfolioHisto
 import { useLearningExpiredPositions } from "@/hooks/useLearningExpiredPositions";
 import { SellCoveredCallDialog } from "./SellCoveredCallDialog";
 import { SimulatorPerformanceChart } from "./SimulatorPerformanceChart";
+import { SimulatorMetrics } from "./SimulatorMetrics";
 import { LearningExpiredBatches } from "./LearningExpiredBatches";
 import { SimulatorAssignedZone } from "./SimulatorAssignedZone";
 
@@ -272,6 +273,16 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
 
   return (
     <div className="space-y-6">
+      {/* Performance Metrics - Annualized ROC & Month-over-Month */}
+      <SimulatorMetrics
+        history={history}
+        startingCapital={parseFloat(capital) || 100000}
+        totalPremiums={totalPremiums}
+        totalCashSecured={totalCashSecured}
+        totalAssignedCostBasis={totalAssignedCostBasis}
+        totalPortfolioValue={totalPortfolioValue}
+      />
+
       {/* Performance Chart */}
       <SimulatorPerformanceChart 
         history={history} 
