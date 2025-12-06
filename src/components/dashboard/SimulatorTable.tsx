@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, CheckCircle, TrendingUp, DollarSign, Phone } from "lucide-react";
+import { X, CheckCircle, TrendingUp, TrendingDown, Minus, DollarSign, Phone } from "lucide-react";
 import { LearningPosition } from "@/hooks/useLearningPositions";
 import { useLearningAssignedPositions } from "@/hooks/useLearningAssignedPositions";
 import { useLearningMarketData } from "@/hooks/useLearningMarketData";
@@ -54,6 +54,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
     return positions.map(pos => {
       const priceData = marketData[pos.symbol];
       const underlyingPrice = priceData?.price || 0;
+      const dayChangePct = priceData?.change_pct || 0;
       const currentMarkPrice = pos.premium_per_contract; // Using original premium as placeholder
 
       // Calculate metrics
@@ -69,6 +70,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
       return {
         ...pos,
         underlyingPrice,
+        dayChangePct,
         cashSecured,
         totalPremium,
         unrealizedPnL,
@@ -359,7 +361,21 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
                       <TableCell className="font-medium">{pos.symbol}</TableCell>
                       <TableCell>
                         {pos.underlyingPrice > 0 ? (
-                          <span className="font-medium">${pos.underlyingPrice.toFixed(2)}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-sm">${pos.underlyingPrice.toFixed(2)}</span>
+                            <div className="flex items-center gap-1">
+                              {pos.dayChangePct > 0 ? (
+                                <TrendingUp className="w-3 h-3 text-success" />
+                              ) : pos.dayChangePct < 0 ? (
+                                <TrendingDown className="w-3 h-3 text-destructive" />
+                              ) : (
+                                <Minus className="w-3 h-3 text-muted-foreground" />
+                              )}
+                              <span className={`text-xs ${pos.dayChangePct > 0 ? "text-success" : pos.dayChangePct < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                                {pos.dayChangePct ? `${pos.dayChangePct >= 0 ? '+' : ''}${pos.dayChangePct.toFixed(1)}%` : '-'}
+                              </span>
+                            </div>
+                          </div>
                         ) : (
                           <span className="text-muted-foreground text-sm">-</span>
                         )}
