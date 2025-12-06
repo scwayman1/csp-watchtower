@@ -66,57 +66,64 @@ export const SimulatorMetrics = ({
   const monthlyPerformance = useMemo<MonthlyPerformance[]>(() => {
     if (history.length === 0) return [];
 
+    // Sort history by date
+    const sortedHistory = [...history].sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
     const monthlyData: Record<string, { 
-      premiums: number; 
+      startPremiums: number;
+      endPremiums: number; 
       endValue: number; 
       startValue: number;
       trades: number;
     }> = {};
 
     // Group snapshots by month
-    history.forEach((snapshot, index) => {
+    sortedHistory.forEach((snapshot, index) => {
       const date = new Date(snapshot.created_at);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       
       if (!monthlyData[monthKey]) {
-        // Use previous month's end value or starting capital
-        const prevValue = index > 0 ? history[index - 1].portfolio_value : startingCapital;
+        // Get starting values - use previous snapshot or starting capital
+        const prevSnapshot = index > 0 ? sortedHistory[index - 1] : null;
         monthlyData[monthKey] = {
-          premiums: 0,
-          startValue: prevValue,
+          startPremiums: prevSnapshot?.total_premiums_collected || 0,
+          endPremiums: snapshot.total_premiums_collected,
+          startValue: prevSnapshot?.portfolio_value || startingCapital,
           endValue: snapshot.portfolio_value,
           trades: 0,
         };
       }
       
-      // Update end value to latest in month
+      // Update end values to latest in month
       monthlyData[monthKey].endValue = snapshot.portfolio_value;
+      monthlyData[monthKey].endPremiums = snapshot.total_premiums_collected;
       
       // Count trades (positions opened, closed, assigned)
       if (['position_opened', 'position_closed', 'position_assigned', 'auto_assigned', 'expired_otm', 'covered_call_sold'].includes(snapshot.event_type)) {
         monthlyData[monthKey].trades++;
       }
-      
-      // Track cumulative premiums at end of month
-      monthlyData[monthKey].premiums = snapshot.total_premiums_collected;
     });
 
     // Convert to array with proper month labels
     const months = Object.keys(monthlyData).sort();
-    let prevPremiums = 0;
     
-    return months.map((monthKey) => {
+    return months.map((monthKey, idx) => {
       const [year, month] = monthKey.split('-');
       const date = new Date(parseInt(year), parseInt(month) - 1);
       const monthLabel = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
       
       const data = monthlyData[monthKey];
-      const monthPremiums = data.premiums - prevPremiums; // Premiums collected this month
+      
+      // Get previous month's end premiums for accurate month-over-month calculation
+      const prevMonthKey = months[idx - 1];
+      const prevEndPremiums = prevMonthKey ? monthlyData[prevMonthKey].endPremiums : 0;
+      
+      const monthPremiums = data.endPremiums - prevEndPremiums;
       const returnPct = data.startValue > 0 
         ? ((data.endValue - data.startValue) / data.startValue) * 100 
         : 0;
-      
-      prevPremiums = data.premiums;
       
       return {
         month: monthKey,
