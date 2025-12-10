@@ -45,7 +45,7 @@ export default function ClientsPage() {
     email: "",
     phone_number: "",
     sms_opt_in: false,
-    risk_level: "MODERATE",
+    risk_level: "MEDIUM",
     segment: "",
     notes: "",
   });
@@ -126,7 +126,7 @@ export default function ClientsPage() {
         email: "",
         phone_number: "",
         sms_opt_in: false,
-        risk_level: "MODERATE",
+        risk_level: "MEDIUM",
         segment: "",
         notes: "",
       });
@@ -264,9 +264,9 @@ export default function ClientsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CONSERVATIVE">Conservative</SelectItem>
-                    <SelectItem value="MODERATE">Moderate</SelectItem>
-                    <SelectItem value="AGGRESSIVE">Aggressive</SelectItem>
+                    <SelectItem value="LOW">Low</SelectItem>
+                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                    <SelectItem value="HIGH">High</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
