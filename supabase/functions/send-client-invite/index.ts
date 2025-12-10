@@ -45,6 +45,7 @@ interface InviteRequest {
   clientName: string;
   clientEmail: string;
   advisorName?: string;
+  appUrl?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -57,9 +58,9 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { clientId, clientName, clientEmail, advisorName }: InviteRequest = await req.json();
+    const { clientId, clientName, clientEmail, advisorName, appUrl }: InviteRequest = await req.json();
 
-    console.log(`Sending invitation to ${clientEmail} for client ${clientName}`);
+    console.log(`Sending invitation to ${clientEmail} for client ${clientName}, appUrl: ${appUrl}`);
 
     // Fetch the invite token from the client record
     const { data: clientData, error: clientError } = await supabase
@@ -77,9 +78,8 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const inviteToken = clientData.invite_token;
-    const appUrl = Deno.env.get("SUPABASE_URL")?.replace("supabase.co", "lovable.app") || 
-                   "http://localhost:5173";
-    const inviteUrl = `${appUrl}/accept-client-invite/${inviteToken}`;
+    const baseUrl = appUrl || "http://localhost:5173";
+    const inviteUrl = `${baseUrl}/accept-client-invite/${inviteToken}`;
 
     const emailResponse = await resend.sendEmail({
       from: "The Wheel Terminal <onboarding@resend.dev>",

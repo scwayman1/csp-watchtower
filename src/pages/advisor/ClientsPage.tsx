@@ -107,6 +107,7 @@ export default function ClientsPage() {
           clientName: clientData.name,
           clientEmail: clientData.email,
           advisorName: profile?.full_name || "Your Advisor",
+          appUrl: window.location.origin,
         },
       });
 
@@ -162,6 +163,7 @@ export default function ClientsPage() {
           clientName: client.name,
           clientEmail: client.email,
           advisorName: profile?.full_name || "Your Advisor",
+          appUrl: window.location.origin,
         },
       });
 
