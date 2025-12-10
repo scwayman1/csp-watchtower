@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { UserPlus, Mail, TrendingUp, DollarSign, Eye, Phone, MessageSquare } from "lucide-react";
+import { UserPlus, Mail, TrendingUp, DollarSign, Eye, Phone, MessageSquare, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ClientsPage() {
@@ -388,15 +388,29 @@ export default function ClientsPage() {
                           View
                         </Button>
                         {client.invite_status === "PENDING" && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => resendInviteMutation.mutate(client)}
-                            disabled={resendInviteMutation.isPending}
-                          >
-                            <Mail className="h-4 w-4 mr-1" />
-                            Resend
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const inviteLink = `${window.location.origin}/accept-client-invite/${client.invite_token}`;
+                                navigator.clipboard.writeText(inviteLink);
+                                toast.success("Invite link copied to clipboard");
+                              }}
+                            >
+                              <Copy className="h-4 w-4 mr-1" />
+                              Copy Link
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => resendInviteMutation.mutate(client)}
+                              disabled={resendInviteMutation.isPending}
+                            >
+                              <Mail className="h-4 w-4 mr-1" />
+                              Resend
+                            </Button>
+                          </>
                         )}
                       </div>
                     </TableCell>
