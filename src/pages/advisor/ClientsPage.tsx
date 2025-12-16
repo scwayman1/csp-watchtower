@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { UserPlus, Mail, TrendingUp, DollarSign, Eye, Phone, MessageSquare, Copy } from "lucide-react";
+import { UserPlus, TrendingUp, DollarSign, Eye, Phone, MessageSquare, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ClientsPage() {
@@ -74,15 +74,10 @@ export default function ClientsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Fetch advisor profile for name
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("user_id", user.id)
-        .single();
+      // Generate invite token
+      const inviteToken = crypto.randomUUID();
 
-      // Create client record
-      const { data: client, error: clientError } = await supabase
+      const { data, error } = await supabase
         .from("clients")
         .insert({
           advisor_id: user.id,
@@ -93,32 +88,18 @@ export default function ClientsPage() {
           risk_level: clientData.risk_level,
           segment: clientData.segment || null,
           notes: clientData.notes || null,
+          invite_token: inviteToken,
           invite_status: "PENDING",
+          invited_at: new Date().toISOString(),
         })
         .select()
         .single();
 
-      if (clientError) throw clientError;
+      if (error) throw error;
 
-      // Send invitation email
-      const { error: inviteError } = await supabase.functions.invoke("send-client-invite", {
-        body: {
-          clientId: client.id,
-          clientName: clientData.name,
-          clientEmail: clientData.email,
-          advisorName: profile?.full_name || "Your Advisor",
-          appUrl: window.location.origin,
-        },
-      });
-
-      if (inviteError) {
-        console.error("Error sending invitation:", inviteError);
-        toast.error("Client created but invitation email failed to send");
-      }
-
-      return client;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["advisor-clients"] });
       setIsInviteDialogOpen(false);
       setNewClient({
@@ -130,10 +111,14 @@ export default function ClientsPage() {
         segment: "",
         notes: "",
       });
-      toast.success("Client invited successfully! They will receive an email.");
+      
+      // Copy invite link to clipboard automatically
+      const inviteLink = `${window.location.origin}/accept-client-invite/${data.invite_token}`;
+      navigator.clipboard.writeText(inviteLink);
+      toast.success("Client created! Invite link copied to clipboard.");
     },
     onError: (error: Error) => {
-      toast.error(`Failed to invite client: ${error.message}`);
+      toast.error(`Failed to create client: ${error.message}`);
     },
   });
 
@@ -145,37 +130,6 @@ export default function ClientsPage() {
     createClientMutation.mutate(newClient);
   };
 
-  // Resend invitation
-  const resendInviteMutation = useMutation({
-    mutationFn: async (client: any) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("user_id", user.id)
-        .single();
-
-      const { error } = await supabase.functions.invoke("send-client-invite", {
-        body: {
-          clientId: client.id,
-          clientName: client.name,
-          clientEmail: client.email,
-          advisorName: profile?.full_name || "Your Advisor",
-          appUrl: window.location.origin,
-        },
-      });
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Invitation resent successfully!");
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to resend invitation: ${error.message}`);
-    },
-  });
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "success" | "secondary"> = {
@@ -388,29 +342,18 @@ export default function ClientsPage() {
                           View
                         </Button>
                         {client.invite_status === "PENDING" && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                const inviteLink = `${window.location.origin}/accept-client-invite/${client.invite_token}`;
-                                navigator.clipboard.writeText(inviteLink);
-                                toast.success("Invite link copied to clipboard");
-                              }}
-                            >
-                              <Copy className="h-4 w-4 mr-1" />
-                              Copy Link
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => resendInviteMutation.mutate(client)}
-                              disabled={resendInviteMutation.isPending}
-                            >
-                              <Mail className="h-4 w-4 mr-1" />
-                              Resend
-                            </Button>
-                          </>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const inviteLink = `${window.location.origin}/accept-client-invite/${client.invite_token}`;
+                              navigator.clipboard.writeText(inviteLink);
+                              toast.success("Invite link copied to clipboard");
+                            }}
+                          >
+                            <Copy className="h-4 w-4 mr-1" />
+                            Copy Link
+                          </Button>
                         )}
                       </div>
                     </TableCell>
