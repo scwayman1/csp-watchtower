@@ -115,6 +115,21 @@ export default function AcceptClientInvite() {
         console.error("Error linking client:", updateError);
       }
 
+      // Notify advisor about new client signup
+      try {
+        await supabase.functions.invoke("notify-client-signup", {
+          body: {
+            clientId: client.id,
+            clientName: fullName || client.name,
+            advisorId: client.advisor_id,
+          },
+        });
+        console.log("Advisor notification sent");
+      } catch (notifyError) {
+        console.error("Error notifying advisor:", notifyError);
+        // Don't block the flow if notification fails
+      }
+
       setStep("success");
       toast.success("Account created successfully!");
       
