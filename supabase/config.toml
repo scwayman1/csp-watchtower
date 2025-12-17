@@ -12,6 +12,9 @@ verify_jwt = true
 [functions.fetch-option-chain]
 verify_jwt = false
 
+[functions.notify-client-signup]
+verify_jwt = false
+
 [functions.parse-covered-call]
 verify_jwt = false
 
