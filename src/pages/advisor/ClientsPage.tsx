@@ -112,8 +112,11 @@ export default function ClientsPage() {
         notes: "",
       });
       
-      // Copy invite link to clipboard automatically
-      const inviteLink = `${window.location.origin}/accept-client-invite/${data.invite_token}`;
+      // Copy invite link to clipboard automatically - use production URL
+      const productionUrl = window.location.hostname.includes('lovable.app') 
+        ? window.location.origin 
+        : 'https://wheel-terminal.lovable.app';
+      const inviteLink = `${productionUrl}/accept-client-invite/${data.invite_token}`;
       navigator.clipboard.writeText(inviteLink);
       toast.success("Client created! Invite link copied to clipboard.");
     },
@@ -346,7 +349,10 @@ export default function ClientsPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              const inviteLink = `${window.location.origin}/accept-client-invite/${client.invite_token}`;
+                              const productionUrl = window.location.hostname.includes('lovable.app') 
+                                ? window.location.origin 
+                                : 'https://wheel-terminal.lovable.app';
+                              const inviteLink = `${productionUrl}/accept-client-invite/${client.invite_token}`;
                               navigator.clipboard.writeText(inviteLink);
                               toast.success("Invite link copied to clipboard");
                             }}
