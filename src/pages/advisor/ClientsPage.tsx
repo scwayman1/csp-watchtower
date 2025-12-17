@@ -115,7 +115,7 @@ export default function ClientsPage() {
       // Copy invite link to clipboard automatically - use production URL
       const productionUrl = window.location.hostname.includes('lovable.app') 
         ? window.location.origin 
-        : 'https://wheel-terminal.lovable.app';
+        : 'https://csp-watchtower.lovable.app';
       const inviteLink = `${productionUrl}/accept-client-invite/${data.invite_token}`;
       navigator.clipboard.writeText(inviteLink);
       toast.success("Client created! Invite link copied to clipboard.");
@@ -351,7 +351,7 @@ export default function ClientsPage() {
                             onClick={() => {
                               const productionUrl = window.location.hostname.includes('lovable.app') 
                                 ? window.location.origin 
-                                : 'https://wheel-terminal.lovable.app';
+                                : 'https://csp-watchtower.lovable.app';
                               const inviteLink = `${productionUrl}/accept-client-invite/${client.invite_token}`;
                               navigator.clipboard.writeText(inviteLink);
                               toast.success("Invite link copied to clipboard");
