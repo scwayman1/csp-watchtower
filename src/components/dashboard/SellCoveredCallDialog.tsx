@@ -88,13 +88,16 @@ export const SellCoveredCallDialog = ({
                   </SelectTrigger>
                   <SelectContent>
                     {optionChainData.expirations.map((exp) => {
-                      const date = new Date(parseInt(exp) * 1000);
+                      const isoDate = new Date(parseInt(exp) * 1000).toISOString().split('T')[0];
+                      const [year, month, day] = isoDate.split('-').map(Number);
+                      const localDate = new Date(year, month - 1, day);
+
                       return (
                         <SelectItem key={exp} value={exp}>
-                          {date.toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric', 
-                            year: 'numeric' 
+                          {localDate.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
                           })}
                         </SelectItem>
                       );
