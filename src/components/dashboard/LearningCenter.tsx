@@ -27,8 +27,8 @@ export const LearningCenter = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { positions, addPosition, closePosition, deletePosition } = useLearningPositions(user?.id);
-  const [inputSymbol, setInputSymbol] = useState("ACVA");
-  const [searchSymbol, setSearchSymbol] = useState("ACVA");
+  const [inputSymbol, setInputSymbol] = useState("");
+  const [searchSymbol, setSearchSymbol] = useState("");
   const [contracts, setContracts] = useState(1);
   const [selectedExpiration, setSelectedExpiration] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
