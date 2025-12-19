@@ -5,9 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple in-memory cache (expires after 15 minutes)
+// Simple in-memory cache (expires after 60 minutes)
 const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_DURATION = 900000; // 15 minutes
+const CACHE_DURATION = 60 * 60 * 1000; // 60 minutes
 const REQUEST_TIMEOUT = 5000; // 5 seconds per request
 
 const FINNHUB_API_KEY = Deno.env.get('FINNHUB_API_KEY');
@@ -96,44 +96,56 @@ serve(async (req) => {
     const optionsByExpiration: Record<string, any[]> = {};
     
     if (optionsData.data && optionsData.data.length > 0) {
-      // Process only first 3 expirations max
-      const maxExpirations = Math.min(3, optionsData.data.length);
-      const strikeMin = underlyingPrice * 0.85;
-      const strikeMax = underlyingPrice * 1.15;
-      
-      for (let i = 0; i < maxExpirations; i++) {
-        const expData = optionsData.data[i];
-        if (!expData || !expData.options || !expData.options[optionType]) continue;
-        
+      // Ultra-lean processing to avoid CPU timeouts:
+      // - Process ONLY the first expiration
+      // - Narrow strike window
+      // - Hard-cap how many raw options we scan
+      const expData = optionsData.data[0];
+      const strikeMin = underlyingPrice * 0.9;
+      const strikeMax = underlyingPrice * 1.1;
+      const MAX_OPTIONS = 15;
+      const MAX_SCAN = 500;
+
+      if (expData?.options?.[optionType]) {
         const actualExpDate = expData.expirationDate;
-        const rawOptions = expData.options[optionType];
-        
-        // Limit to 15 options per expiration within strike range
-        const filteredOptions = [];
-        for (let j = 0; j < rawOptions.length && filteredOptions.length < 15; j++) {
+        const rawOptions = expData.options[optionType] as any[];
+
+        const filteredOptions: any[] = [];
+        const scanLimit = Math.min(rawOptions.length, MAX_SCAN);
+        for (let j = 0; j < scanLimit && filteredOptions.length < MAX_OPTIONS; j++) {
           const opt = rawOptions[j];
-          if (opt.strike >= strikeMin && opt.strike <= strikeMax) {
+          const strike = opt?.strike;
+          if (typeof strike !== 'number') continue;
+
+          if (strike >= strikeMin && strike <= strikeMax) {
+            const bid = opt.bid || 0;
+            const ask = opt.ask || 0;
             filteredOptions.push({
-              strike: opt.strike,
-              bid: opt.bid || 0,
-              ask: opt.ask || 0,
-              mid: opt.bid && opt.ask ? (opt.bid + opt.ask) / 2 : opt.lastTradePrice || 0,
+              strike,
+              bid,
+              ask,
+              mid: bid && ask ? (bid + ask) / 2 : opt.lastTradePrice || 0,
               volume: opt.volume || 0,
               openInterest: opt.openInterest || 0,
               impliedVolatility: opt.impliedVolatility || 0,
               delta: opt.delta || 0,
-              inTheMoney: optionType === 'PUT' ? opt.strike > underlyingPrice : opt.strike < underlyingPrice,
-              lastPrice: opt.lastTradePrice || 0
+              inTheMoney: optionType === 'PUT' ? strike > underlyingPrice : strike < underlyingPrice,
+              lastPrice: opt.lastTradePrice || 0,
             });
           }
         }
-        
+
         if (filteredOptions.length > 0) {
-          // Sort by strike descending
           filteredOptions.sort((a, b) => b.strike - a.strike);
           const timestamp = (new Date(actualExpDate).getTime() / 1000).toString();
           optionsByExpiration[timestamp] = filteredOptions;
-          console.log(`Found ${filteredOptions.length} options for ${actualExpDate}`);
+          console.log(
+            `Processed expiration ${actualExpDate}: kept ${filteredOptions.length}/${MAX_OPTIONS}, scanned ${scanLimit}/${rawOptions.length}`,
+          );
+        } else {
+          console.log(
+            `No options found in ${strikeMin.toFixed(2)}-${strikeMax.toFixed(2)} window (scanned up to ${scanLimit} rows).`,
+          );
         }
       }
     }
