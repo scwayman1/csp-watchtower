@@ -22,6 +22,7 @@ import {
 } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Position } from "@/components/dashboard/PositionsTable";
+import { PositionAnalysisTooltip } from "@/components/dashboard/PositionAnalysisTooltip";
 
 interface PerformanceMetricsProps {
   positions: Position[];
@@ -146,85 +147,91 @@ export function PerformanceMetrics({ positions }: PerformanceMetricsProps) {
       {/* Best/Worst Performers */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         {bestPosition && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Award className="h-5 w-5 text-success" />
-                Best Performer
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-lg">{bestPosition.symbol}</span>
-                  <Badge variant="success" className="text-base">
-                    +${bestPosition.unrealizedPnL.toFixed(2)}
-                  </Badge>
+          <PositionAnalysisTooltip position={bestPosition} variant="success">
+            <Card className="cursor-pointer transition-all hover:ring-2 hover:ring-success/50 hover:shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="h-5 w-5 text-success" />
+                  Best Performer
+                  <Badge variant="outline" className="ml-auto text-xs">Hover for AI insights</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-lg">{bestPosition.symbol}</span>
+                    <Badge variant="success" className="text-base">
+                      +${bestPosition.unrealizedPnL.toFixed(2)}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Strike:</span>
+                      <span className="ml-2 font-medium">${bestPosition.strikePrice}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Premium:</span>
+                      <span className="ml-2 font-medium">${bestPosition.totalPremium}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">% Above:</span>
+                      <span className="ml-2 font-medium">{bestPosition.pctAboveStrike.toFixed(1)}%</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">ROI:</span>
+                      <span className="ml-2 font-medium text-success">
+                        {((bestPosition.unrealizedPnL / bestPosition.totalPremium) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Strike:</span>
-                    <span className="ml-2 font-medium">${bestPosition.strikePrice}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Premium:</span>
-                    <span className="ml-2 font-medium">${bestPosition.totalPremium}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">% Above:</span>
-                    <span className="ml-2 font-medium">{bestPosition.pctAboveStrike.toFixed(1)}%</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">ROI:</span>
-                    <span className="ml-2 font-medium text-success">
-                      {((bestPosition.unrealizedPnL / bestPosition.totalPremium) * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </PositionAnalysisTooltip>
         )}
 
         {worstPosition && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-destructive" />
-                Needs Attention
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-lg">{worstPosition.symbol}</span>
-                  <Badge variant="destructive" className="text-base">
-                    ${worstPosition.unrealizedPnL.toFixed(2)}
-                  </Badge>
+          <PositionAnalysisTooltip position={worstPosition} variant="destructive">
+            <Card className="cursor-pointer transition-all hover:ring-2 hover:ring-destructive/50 hover:shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-destructive" />
+                  Needs Attention
+                  <Badge variant="outline" className="ml-auto text-xs">Hover for AI insights</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-lg">{worstPosition.symbol}</span>
+                    <Badge variant="destructive" className="text-base">
+                      ${worstPosition.unrealizedPnL.toFixed(2)}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Strike:</span>
+                      <span className="ml-2 font-medium">${worstPosition.strikePrice}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Premium:</span>
+                      <span className="ml-2 font-medium">${worstPosition.totalPremium}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">% Above:</span>
+                      <span className="ml-2 font-medium">{worstPosition.pctAboveStrike.toFixed(1)}%</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">ROI:</span>
+                      <span className="ml-2 font-medium text-destructive">
+                        {((worstPosition.unrealizedPnL / worstPosition.totalPremium) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Strike:</span>
-                    <span className="ml-2 font-medium">${worstPosition.strikePrice}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Premium:</span>
-                    <span className="ml-2 font-medium">${worstPosition.totalPremium}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">% Above:</span>
-                    <span className="ml-2 font-medium">{worstPosition.pctAboveStrike.toFixed(1)}%</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">ROI:</span>
-                    <span className="ml-2 font-medium text-destructive">
-                      {((worstPosition.unrealizedPnL / worstPosition.totalPremium) * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </PositionAnalysisTooltip>
         )}
       </div>
 
