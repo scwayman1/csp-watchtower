@@ -96,23 +96,25 @@ serve(async (req) => {
     const optionsByExpiration: Record<string, any[]> = {};
     
     if (optionsData.data && optionsData.data.length > 0) {
-      // Ultra-lean processing to avoid CPU timeouts:
-      // - Process ONLY the first expiration
-      // - Narrow strike window
-      // - Hard-cap how many raw options we scan
-      const expData = optionsData.data[0];
+      // Process multiple expirations (up to 4) with lean processing
       const strikeMin = underlyingPrice * 0.9;
       const strikeMax = underlyingPrice * 1.1;
-      const MAX_OPTIONS = 15;
-      const MAX_SCAN = 500;
+      const MAX_OPTIONS_PER_EXP = 15;
+      const MAX_SCAN = 300;
+      const MAX_EXPIRATIONS = 4;
 
-      if (expData?.options?.[optionType]) {
+      const expirationsToProcess = optionsData.data.slice(0, MAX_EXPIRATIONS);
+      
+      for (const expData of expirationsToProcess) {
+        if (!expData?.options?.[optionType]) continue;
+        
         const actualExpDate = expData.expirationDate;
         const rawOptions = expData.options[optionType] as any[];
 
         const filteredOptions: any[] = [];
         const scanLimit = Math.min(rawOptions.length, MAX_SCAN);
-        for (let j = 0; j < scanLimit && filteredOptions.length < MAX_OPTIONS; j++) {
+        
+        for (let j = 0; j < scanLimit && filteredOptions.length < MAX_OPTIONS_PER_EXP; j++) {
           const opt = rawOptions[j];
           const strike = opt?.strike;
           if (typeof strike !== 'number') continue;
@@ -140,14 +142,12 @@ serve(async (req) => {
           const timestamp = (new Date(actualExpDate).getTime() / 1000).toString();
           optionsByExpiration[timestamp] = filteredOptions;
           console.log(
-            `Processed expiration ${actualExpDate}: kept ${filteredOptions.length}/${MAX_OPTIONS}, scanned ${scanLimit}/${rawOptions.length}`,
-          );
-        } else {
-          console.log(
-            `No options found in ${strikeMin.toFixed(2)}-${strikeMax.toFixed(2)} window (scanned up to ${scanLimit} rows).`,
+            `Processed expiration ${actualExpDate}: kept ${filteredOptions.length} options`,
           );
         }
       }
+      
+      console.log(`Total expirations processed: ${Object.keys(optionsByExpiration).length}`);
     }
 
     const result = {
