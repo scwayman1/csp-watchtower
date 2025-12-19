@@ -31,10 +31,13 @@ export function PerformanceMetrics({ positions }: PerformanceMetricsProps) {
   // Calculate comprehensive metrics
   const totalPositions = positions.length;
   
-  // Moneyness breakdown
-  const otmPositions = positions.filter(p => p.pctAboveStrike > 2).length;
-  const atmPositions = positions.filter(p => p.pctAboveStrike >= -2 && p.pctAboveStrike <= 2).length;
-  const itmPositions = positions.filter(p => p.pctAboveStrike < -2).length;
+  // Moneyness breakdown (industry standard for PUT options)
+  // ITM: underlying < strike (pctAboveStrike < -1%)
+  // ATM: underlying ≈ strike (within ±1%)
+  // OTM: underlying > strike (pctAboveStrike > +1%)
+  const itmPositions = positions.filter(p => p.pctAboveStrike < -1).length;
+  const atmPositions = positions.filter(p => p.pctAboveStrike >= -1 && p.pctAboveStrike <= 1).length;
+  const otmPositions = positions.filter(p => p.pctAboveStrike > 1).length;
   const otmPercentage = totalPositions > 0 ? (otmPositions / totalPositions) * 100 : 0;
   
   // Expiring soon
