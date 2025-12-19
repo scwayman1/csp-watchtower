@@ -8,72 +8,20 @@ const corsHeaders = {
 // Simple in-memory cache (expires after 15 minutes)
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 900000; // 15 minutes
-const REQUEST_TIMEOUT = 3000; // 3 seconds per request
+const REQUEST_TIMEOUT = 5000; // 5 seconds per request
 
 const FINNHUB_API_KEY = Deno.env.get('FINNHUB_API_KEY');
 
-// Helper to get next expiration dates (weekly + monthly)
-// Reduced to minimize CPU usage
-function getNextExpirations(weeklyCount: number = 1, monthlyCount: number = 1): string[] {
-  const dates: string[] = [];
+// Helper to get next expiration date (just one Friday)
+function getNextFriday(): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  // First, add weekly expirations (next N Fridays)
-  const currentDate = new Date(today);
-  let weeklyAdded = 0;
+  const daysUntilFriday = (5 - today.getDay() + 7) % 7;
+  const nextFriday = new Date(today);
+  nextFriday.setDate(today.getDate() + (daysUntilFriday === 0 ? 7 : daysUntilFriday));
   
-  while (weeklyAdded < weeklyCount) {
-    // Find the next Friday
-    const daysUntilFriday = (5 - currentDate.getDay() + 7) % 7;
-    const nextFriday = new Date(currentDate);
-    nextFriday.setDate(currentDate.getDate() + (daysUntilFriday === 0 ? 7 : daysUntilFriday));
-    
-    // Only add if it's in the future (after today)
-    if (nextFriday > today) {
-      const dateStr = nextFriday.toISOString().split('T')[0];
-      if (!dates.includes(dateStr)) {
-        dates.push(dateStr);
-        weeklyAdded++;
-      }
-    }
-    
-    // Move to next week
-    currentDate.setDate(nextFriday.getDate() + 1);
-  }
-  
-  // Then add monthly expirations (3rd Friday of upcoming months)
-  let currentMonth = today.getMonth();
-  let currentYear = today.getFullYear();
-  let monthlyAdded = 0;
-  
-  while (monthlyAdded < monthlyCount) {
-    // Find 3rd Friday of the month
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    const firstFriday = firstDay.getDay() <= 5 
-      ? 1 + (5 - firstDay.getDay()) 
-      : 1 + (12 - firstDay.getDay());
-    const thirdFriday = firstFriday + 14;
-    
-    const expirationDate = new Date(currentYear, currentMonth, thirdFriday);
-    const dateStr = expirationDate.toISOString().split('T')[0];
-    
-    // Only add if it's in the future and not already in the list
-    if (expirationDate > today && !dates.includes(dateStr)) {
-      dates.push(dateStr);
-      monthlyAdded++;
-    }
-    
-    // Move to next month
-    currentMonth++;
-    if (currentMonth > 11) {
-      currentMonth = 0;
-      currentYear++;
-    }
-  }
-  
-  // Sort dates chronologically
-  return dates.sort();
+  return nextFriday.toISOString().split('T')[0];
 }
 
 serve(async (req) => {
@@ -96,7 +44,7 @@ serve(async (req) => {
       throw new Error('FINNHUB_API_KEY not configured');
     }
 
-    console.log(`Fetching option chain for ${symbol} from Finnhub.io`);
+    console.log(`Fetching option chain for ${symbol} (${optionType})`);
 
     // Check cache first
     const cacheKey = `chain_${symbol}_${optionType}`;
@@ -117,129 +65,78 @@ serve(async (req) => {
     const quoteResponse = await fetch(quoteUrl);
     
     if (!quoteResponse.ok) {
-      const errorText = await quoteResponse.text();
-      console.error(`Quote fetch failed: ${quoteResponse.status} - ${errorText}`);
       throw new Error(`Failed to fetch stock quote: ${quoteResponse.status}`);
     }
     
     const quoteData = await quoteResponse.json();
     
     if (!quoteData.c) {
-      console.error(`No quote data found for ${symbol}. This may be an invalid ticker symbol.`);
-      throw new Error(`Invalid ticker symbol: "${symbol}". Please verify the ticker and try again. (e.g., "DAL" for Delta Air Lines)`);
+      throw new Error(`Invalid ticker symbol: "${symbol}"`);
     }
     
-    const underlyingPrice = quoteData.c; // Current price
+    const underlyingPrice = quoteData.c;
     console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
-    // Step 2: Fetch options from Finnhub (limit to 6 total expirations max)
-    const expirationDates = getNextExpirations(3, 2); // 3 weekly + 2 monthly as hints
-    console.log(`Fetching options for ${symbol} (dates are hints to Finnhub)`);
+    // Step 2: Fetch options from Finnhub (single request)
+    const hintDate = getNextFriday();
+    const optionsUrl = `https://finnhub.io/api/v1/stock/option-chain?symbol=${symbol}&date=${hintDate}&token=${FINNHUB_API_KEY}`;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+    
+    const optionsResponse = await fetch(optionsUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    
+    if (!optionsResponse.ok) {
+      throw new Error(`Failed to fetch options: ${optionsResponse.status}`);
+    }
+    
+    const optionsData = await optionsResponse.json();
     
     const optionsByExpiration: Record<string, any[]> = {};
-    const seenExpirations = new Set<string>();
-    const MAX_EXPIRATIONS = 6; // Limit to prevent CPU timeout
-    const STRIKE_RANGE_PCT = 0.20; // Only fetch strikes within ±20% of underlying price
     
-    // Fetch options - Finnhub returns actual expirations available
-    const fetchPromises = expirationDates.map(async (hintDate) => {
-      try {
-        const optionsUrl = `https://finnhub.io/api/v1/stock/option-chain?symbol=${symbol}&date=${hintDate}&token=${FINNHUB_API_KEY}`;
-        console.log(`Fetching options for ${symbol} (hint date: ${hintDate})`);
+    if (optionsData.data && optionsData.data.length > 0) {
+      // Process only first 3 expirations max
+      const maxExpirations = Math.min(3, optionsData.data.length);
+      const strikeMin = underlyingPrice * 0.85;
+      const strikeMax = underlyingPrice * 1.15;
+      
+      for (let i = 0; i < maxExpirations; i++) {
+        const expData = optionsData.data[i];
+        if (!expData || !expData.options || !expData.options[optionType]) continue;
         
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+        const actualExpDate = expData.expirationDate;
+        const rawOptions = expData.options[optionType];
         
-        const optionsResponse = await fetch(optionsUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        
-        if (!optionsResponse.ok) {
-          console.error(`Options fetch failed: ${optionsResponse.status}`);
-          return [];
-        }
-        
-        const optionsData = await optionsResponse.json();
-        
-        // Finnhub returns all available expirations in data array
-        if (!optionsData.data || optionsData.data.length === 0) {
-          console.log(`No options data returned`);
-          return [];
-        }
-
-        const results: any[] = [];
-        
-        // Process up to 3 expirations from each fetch to provide more options
-        const expirationsToProcess = optionsData.data.slice(0, 3);
-        
-        for (const expirationData of expirationsToProcess) {
-          if (!expirationData) {
-            continue;
-          }
-          
-          const actualExpDate = expirationData.expirationDate;
-          
-          // Skip if we've already processed this expiration or hit limit
-          if (seenExpirations.has(actualExpDate) || seenExpirations.size >= MAX_EXPIRATIONS) {
-            continue;
-          }
-          seenExpirations.add(actualExpDate);
-          
-          if (!expirationData.options || !expirationData.options[optionType]) {
-            continue;
-          }
-          
-          console.log(`Processing ${optionType} options for expiration ${actualExpDate}`);
-          
-          // Filter and map Finnhub options to our format
-          // Only process strikes within ±20% of underlying to reduce CPU usage
-          const minStrike = underlyingPrice * (1 - STRIKE_RANGE_PCT);
-          const maxStrike = underlyingPrice * (1 + STRIKE_RANGE_PCT);
-          
-          const options = expirationData.options[optionType]
-            .filter((opt: any) => {
-              const strike = opt.strike || 0;
-              return strike > 0 && strike >= minStrike && strike <= maxStrike;
-            })
-            .map((opt: any) => ({
+        // Limit to 15 options per expiration within strike range
+        const filteredOptions = [];
+        for (let j = 0; j < rawOptions.length && filteredOptions.length < 15; j++) {
+          const opt = rawOptions[j];
+          if (opt.strike >= strikeMin && opt.strike <= strikeMax) {
+            filteredOptions.push({
               strike: opt.strike,
               bid: opt.bid || 0,
               ask: opt.ask || 0,
               mid: opt.bid && opt.ask ? (opt.bid + opt.ask) / 2 : opt.lastTradePrice || 0,
               volume: opt.volume || 0,
               openInterest: opt.openInterest || 0,
-              impliedVolatility: opt.impliedVolatility || expirationData.impliedVolatility || 0,
+              impliedVolatility: opt.impliedVolatility || 0,
               delta: opt.delta || 0,
-              inTheMoney: optionType === 'PUT' 
-                ? (opt.inTheMoney === "TRUE" || opt.strike > underlyingPrice)
-                : (opt.inTheMoney === "TRUE" || opt.strike < underlyingPrice),
+              inTheMoney: optionType === 'PUT' ? opt.strike > underlyingPrice : opt.strike < underlyingPrice,
               lastPrice: opt.lastTradePrice || 0
-            }))
-            .sort((a: any, b: any) => b.strike - a.strike); // Sort by strike descending
-          
-          if (options.length > 0) {
-            // Use actual expiration date from Finnhub
-            const timestamp = new Date(actualExpDate).getTime() / 1000;
-            console.log(`Found ${options.length} ${optionType} options for ${actualExpDate}`);
-            results.push({ timestamp: timestamp.toString(), options });
+            });
           }
         }
         
-        return results;
-      } catch (error) {
-        console.error(`Error fetching options:`, error);
-        return [];
+        if (filteredOptions.length > 0) {
+          // Sort by strike descending
+          filteredOptions.sort((a, b) => b.strike - a.strike);
+          const timestamp = (new Date(actualExpDate).getTime() / 1000).toString();
+          optionsByExpiration[timestamp] = filteredOptions;
+          console.log(`Found ${filteredOptions.length} options for ${actualExpDate}`);
+        }
       }
-    });
-    
-    // Wait for all requests to complete
-    const allResults = await Promise.all(fetchPromises);
-    
-    // Flatten and build the options object
-    allResults.flat().forEach(result => {
-      if (result && result.options) {
-        optionsByExpiration[result.timestamp] = result.options;
-      }
-    });
+    }
 
     const result = {
       symbol,
