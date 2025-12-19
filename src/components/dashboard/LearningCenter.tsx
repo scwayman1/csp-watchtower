@@ -104,11 +104,21 @@ export const LearningCenter = () => {
     ? chainData.options[currentExpiration] 
     : [];
 
+  const unixExpToISODate = (exp: string) => {
+    // exp is unix seconds at 00:00 UTC; convert to YYYY-MM-DD
+    return new Date(parseInt(exp) * 1000).toISOString().split("T")[0];
+  };
+
+  const isoDateToLocalDate = (isoDate: string) => {
+    // Parse as local date to avoid timezone shifting the day
+    const [year, month, day] = isoDate.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const getDaysToExpiration = (exp: string) => {
     try {
-      // Convert Unix timestamp (seconds) to Date
-      const date = new Date(parseInt(exp) * 1000);
-      return differenceInDays(date, new Date());
+      const localDate = isoDateToLocalDate(unixExpToISODate(exp));
+      return differenceInDays(localDate, new Date());
     } catch {
       return 0;
     }
@@ -116,10 +126,9 @@ export const LearningCenter = () => {
 
   const formatExpirationLabel = (exp: string) => {
     try {
-      // Convert Unix timestamp (seconds) to Date
-      const date = new Date(parseInt(exp) * 1000);
+      const localDate = isoDateToLocalDate(unixExpToISODate(exp));
       const dte = getDaysToExpiration(exp);
-      return `${format(date, 'MMM dd')} (${dte}d)`;
+      return `${format(localDate, 'MMM dd')} (${dte}d)`;
     } catch {
       return exp;
     }
