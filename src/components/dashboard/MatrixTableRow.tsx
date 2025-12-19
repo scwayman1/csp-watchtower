@@ -48,7 +48,12 @@ export function MatrixTableRow({
         <div className="flex flex-col">
           <span className="text-base">{position.symbol}</span>
           <span className="text-xs text-muted-foreground">
-            {new Date(position.expiration).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {(() => {
+              // Parse as local date to avoid timezone shift
+              const [year, month, day] = position.expiration.split('-').map(Number);
+              const date = new Date(year, month - 1, day);
+              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            })()}
           </span>
         </div>
       </TableCell>
