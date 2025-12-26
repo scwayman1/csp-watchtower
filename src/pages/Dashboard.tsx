@@ -15,6 +15,7 @@ import { PerformanceMetrics } from "@/components/dashboard/PerformanceMetrics";
 import { ExpirationCalendar } from "@/components/dashboard/ExpirationCalendar";
 import { AIPerformanceTracker } from "@/components/dashboard/AIPerformanceTracker";
 import { LearningCenter } from "@/components/dashboard/LearningCenter";
+import { CalledAwayPositions } from "@/components/dashboard/CalledAwayPositions";
 import { AssignedCapitalDialog } from "@/components/dashboard/AssignedCapitalDialog";
 import { ActivePositionsBatchHeader } from "@/components/dashboard/ActivePositionsBatchHeader";
 import { MiniSparkline } from "@/components/dashboard/MiniSparkline";
@@ -24,6 +25,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
 import { useAssignedPositions } from "@/hooks/useAssignedPositions";
+import { useCalledAwayDetection } from "@/hooks/useCalledAwayDetection";
 import { useSettings } from "@/hooks/useSettings";
 import { usePortfolioHistory } from "@/hooks/usePortfolioHistory";
 import { Button } from "@/components/ui/button";
@@ -48,7 +50,10 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const { showGuide, dismissGuide, userRole } = useOnboarding();
   const effectiveUserId = viewAsUserId || user?.id;
   const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions(effectiveUserId);
-  const { assignedPositions, loading: assignedLoading, refetch: refetchAssigned } = useAssignedPositions(effectiveUserId);
+  const { assignedPositions, closedPositions, loading: assignedLoading, refetch: refetchAssigned } = useAssignedPositions(effectiveUserId);
+  
+  // Auto-detect called away positions
+  useCalledAwayDetection(assignedPositions, refetchAssigned);
   const { settings } = useSettings(effectiveUserId);
   const { history: portfolioHistory, recordSnapshot } = usePortfolioHistory(effectiveUserId);
   const { toast } = useToast();
@@ -191,7 +196,13 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const expiredPremiums = expiredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
   const assignedPutPremiums = filteredAssignedPositions.reduce((sum, p) => sum + p.original_put_premium, 0);
   const coveredCallPremiums = filteredAssignedPositions.reduce((sum, p) => sum + (p.total_call_premiums || 0), 0);
-  const totalPremium = activePremiums + expiredPremiums + assignedPutPremiums + coveredCallPremiums;
+  
+  // Include premiums from closed (called away) positions
+  const closedPutPremiums = closedPositions.reduce((sum, p) => sum + p.original_put_premium, 0);
+  const closedCallPremiums = closedPositions.reduce((sum, p) => sum + (p.total_call_premiums || 0), 0);
+  const totalRealizedGains = closedPositions.reduce((sum, p) => sum + (p.realized_pnl || 0), 0);
+  
+  const totalPremium = activePremiums + expiredPremiums + assignedPutPremiums + coveredCallPremiums + closedPutPremiums + closedCallPremiums;
   
   // 2. Assigned Shares Metrics
   const assignedSharesCostBasis = filteredAssignedPositions.reduce((sum, p) => 
@@ -764,6 +775,11 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
             <AssignedPositionsTable positions={filteredAssignedPositions} onRefetch={refetchAssigned} />
           </CardContent>
         </Card>
+
+        {/* Called Away Positions (Completed Wheel Cycles) */}
+        {closedPositions.length > 0 && (
+          <CalledAwayPositions positions={closedPositions} />
+        )}
 
         {/* History Zone */}
         {expiredPositions.length > 0 && (
