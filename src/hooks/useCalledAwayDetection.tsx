@@ -100,26 +100,32 @@ export function useCalledAwayDetection(
 
   const checkForCalledAway = useCallback(async () => {
     const now = new Date();
+    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    console.log('[CalledAwayDetection] Checking positions:', assignedPositions.length);
     
     for (const position of assignedPositions) {
       if (!position.covered_calls?.length) continue;
       
       const currentPrice = position.current_price || 0;
+      console.log(`[CalledAwayDetection] ${position.symbol}: price=${currentPrice}, calls=${position.covered_calls.length}`);
       
       for (const call of position.covered_calls) {
         // Skip if already processed or not active
-        if (!call.is_active || processedCallsRef.current.has(call.id)) continue;
+        if (!call.is_active || processedCallsRef.current.has(call.id)) {
+          console.log(`[CalledAwayDetection] Skipping call ${call.id}: is_active=${call.is_active}, processed=${processedCallsRef.current.has(call.id)}`);
+          continue;
+        }
         
-        // Parse expiration date - use 4 PM ET (market close) as the cutoff
-        const [year, month, day] = call.expiration.split('-').map(Number);
-        const expirationDate = new Date(year, month - 1, day);
-        expirationDate.setHours(16, 0, 0, 0); // 4 PM market close
-        
-        // Check if at or past market close on expiration day AND in-the-money
-        const isExpiredOrExpiringToday = now >= expirationDate;
+        // Check if expiration date is today or in the past
+        const expirationStr = call.expiration; // YYYY-MM-DD format
+        const isExpiredOrExpiringToday = expirationStr <= todayStr;
         const isITM = currentPrice >= call.strike_price;
         
+        console.log(`[CalledAwayDetection] Call ${call.id}: expiration=${expirationStr}, today=${todayStr}, expired=${isExpiredOrExpiringToday}, strike=${call.strike_price}, ITM=${isITM}`);
+        
         if (isExpiredOrExpiringToday && isITM) {
+          console.log(`[CalledAwayDetection] TRIGGERING called away for ${position.symbol}!`);
           // Mark as processed to prevent duplicate processing
           processedCallsRef.current.add(call.id);
           
