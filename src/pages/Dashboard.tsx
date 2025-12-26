@@ -89,18 +89,22 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   }, [positions, timePeriod, customDateRange]);
 
   // Separate active (not expired) and expired positions
+  // Contracts expire at market close (4:00 PM ET) on expiration day
+  // We consider them active through the entire expiration day
   const activePositions = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return filteredPositions.filter(position => {
-      const expirationDate = new Date(position.expiration);
+      // Parse expiration as local date to avoid timezone issues
+      const [year, month, day] = position.expiration.split('-').map(Number);
+      const expirationDate = new Date(year, month - 1, day);
+      expirationDate.setHours(23, 59, 59, 999); // End of expiration day
       return expirationDate >= today;
     });
   }, [filteredPositions]);
 
   const expiredPositions = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
     
     // Get IDs of positions that have been assigned
     const assignedPositionIds = new Set(
@@ -110,8 +114,12 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     );
     
     return filteredPositions.filter(position => {
-      const expirationDate = new Date(position.expiration);
-      const isExpired = expirationDate < today;
+      // Parse expiration as local date to avoid timezone issues
+      const [year, month, day] = position.expiration.split('-').map(Number);
+      const expirationDate = new Date(year, month - 1, day);
+      expirationDate.setHours(23, 59, 59, 999); // End of expiration day
+      
+      const isExpired = expirationDate < now;
       const wasAssigned = assignedPositionIds.has(position.id);
       
       // Include only expired positions that were NOT assigned
