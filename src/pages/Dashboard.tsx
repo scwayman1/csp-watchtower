@@ -190,17 +190,24 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   };
   
   // Calculate portfolio stats
-  // 1. Total Premiums: active + expired (non-assigned) puts + assigned put premiums + covered call premiums
-  // Assigned positions' premiums are counted via assignedPutPremiums, not expiredPremiums
+  // 1. Total Premiums: actual cash collected from selling options
   const activePremiums = activePositions.reduce((sum, p) => sum + p.totalPremium, 0);
   const expiredPremiums = expiredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
   const assignedPutPremiums = filteredAssignedPositions.reduce((sum, p) => sum + p.original_put_premium, 0);
   const coveredCallPremiums = filteredAssignedPositions.reduce((sum, p) => sum + (p.total_call_premiums || 0), 0);
   
-  // Include premiums from closed (called away) positions
+  // Premiums from closed (called away) positions
   const closedPutPremiums = closedPositions.reduce((sum, p) => sum + p.original_put_premium, 0);
   const closedCallPremiums = closedPositions.reduce((sum, p) => sum + (p.total_call_premiums || 0), 0);
-  const totalRealizedGains = closedPositions.reduce((sum, p) => sum + (p.realized_pnl || 0), 0);
+  
+  // Capital gains from called away positions = (sold_price - assignment_price) × shares
+  // This is the pure stock appreciation, NOT including premiums (which are counted separately)
+  const totalCapitalGains = closedPositions.reduce((sum, p) => {
+    const soldPrice = p.sold_price || 0;
+    const assignmentPrice = p.assignment_price;
+    const stockGain = (soldPrice - assignmentPrice) * p.shares;
+    return sum + stockGain;
+  }, 0);
   
   const totalPremium = activePremiums + expiredPremiums + assignedPutPremiums + coveredCallPremiums + closedPutPremiums + closedCallPremiums;
   
@@ -390,10 +397,10 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                     <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Returns</span>
                   </div>
                   <div className="text-4xl font-bold text-success">
-                    ${(totalPremium + totalRealizedGains).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${(totalPremium + totalCapitalGains).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Combined premium income + realized gains from completed wheel cycles
+                    Combined premium income + capital gains from completed wheel cycles
                   </p>
                 </div>
                 
@@ -459,19 +466,19 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                       <div className="cursor-help flex-1 min-w-[160px] p-4 rounded-lg bg-background/50 border border-border/50 hover:border-success/30 transition-colors">
                         <div className="flex items-center gap-2 mb-1">
                           <Target className="h-4 w-4 text-success" />
-                          <span className="text-xs text-muted-foreground uppercase tracking-wider">Realized Gain</span>
+                          <span className="text-xs text-muted-foreground uppercase tracking-wider">Capital Gains</span>
                         </div>
                         <div className="text-2xl font-bold">
-                          ${totalRealizedGains.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          ${totalCapitalGains.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">Called away positions</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Stock appreciation</p>
                       </div>
                     </HoverCardTrigger>
                     <HoverCardContent side="bottom" align="start">
                       <TooltipHeader 
                         icon={Target} 
                         iconClassName="bg-success/20"
-                        title="Realized Gains Breakdown"
+                        title="Capital Gains Breakdown"
                       />
                       <TooltipContainer>
                         <TooltipRow 
@@ -482,22 +489,25 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                           <>
                             <TooltipDivider />
                             <TooltipScrollArea>
-                              {closedPositions.map(p => (
-                                <TooltipPositionRow
-                                  key={p.id}
-                                  symbol={p.symbol}
-                                  detail={`${p.shares} shares`}
-                                  value={`+$${(p.realized_pnl || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
-                                  valueClassName="text-success"
-                                  indicator="positive"
-                                />
-                              ))}
+                              {closedPositions.map(p => {
+                                const stockGain = ((p.sold_price || 0) - p.assignment_price) * p.shares;
+                                return (
+                                  <TooltipPositionRow
+                                    key={p.id}
+                                    symbol={p.symbol}
+                                    detail={`${p.shares} shares @ $${p.sold_price?.toFixed(2)}`}
+                                    value={`+$${stockGain.toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                                    valueClassName="text-success"
+                                    indicator="positive"
+                                  />
+                                );
+                              })}
                             </TooltipScrollArea>
                           </>
                         )}
                         <TooltipRow 
-                          label="Total Realized Gain" 
-                          value={`$${totalRealizedGains.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                          label="Total Capital Gains" 
+                          value={`$${totalCapitalGains.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                           valueClassName="text-success"
                           isTotal
                         />
@@ -513,7 +523,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                       <span className="text-xs text-success uppercase tracking-wider font-medium">Total</span>
                     </div>
                     <div className="text-2xl font-bold text-success">
-                      ${(totalPremium + totalRealizedGains).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      ${(totalPremium + totalCapitalGains).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </div>
                     <p className="text-xs text-success/80 mt-0.5">Your earnings</p>
                   </div>
