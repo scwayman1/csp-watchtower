@@ -130,11 +130,14 @@ export function useCalledAwayDetection(
           processedCallsRef.current.add(call.id);
           
           // Calculate realized gain
+          // Note: cost_basis already has put premium deducted, so capital gain includes that benefit
           const sharesCalledAway = call.contracts * 100;
           const callPremium = call.premium_per_contract * 100 * call.contracts;
           const capitalGain = (call.strike_price - position.cost_basis) * sharesCalledAway;
-          const putPremiumPortion = (position.original_put_premium / position.shares) * sharesCalledAway;
-          const realizedGain = capitalGain + callPremium + putPremiumPortion;
+          // Don't add put premium again - it's already reflected in the lower cost_basis
+          const realizedGain = capitalGain + callPremium;
+          
+          console.log(`[CalledAwayDetection] Realized gain breakdown: capitalGain=$${capitalGain}, callPremium=$${callPremium}, total=$${realizedGain}`);
           
           await processCalledAway({
             position,
