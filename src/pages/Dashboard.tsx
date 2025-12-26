@@ -58,13 +58,17 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const { settings } = useSettings(effectiveUserId);
   const { history: portfolioHistory, recordSnapshot } = usePortfolioHistory(effectiveUserId);
   
-  // FAIL-PROOF PREMIUM CALCULATION - single source of truth
-  const { breakdown: premiumBreakdown, refetch: refetchPremiums } = usePremiumAudit(effectiveUserId);
   const { toast } = useToast();
   const [refreshing, setRefreshing] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
   const [assignedCapitalDialogOpen, setAssignedCapitalDialogOpen] = useState(false);
+  
+  // FAIL-PROOF PREMIUM CALCULATION - single source of truth with time period filtering
+  const { breakdown: premiumBreakdown, refetch: refetchPremiums } = usePremiumAudit(effectiveUserId, {
+    timePeriod,
+    customDateRange,
+  });
   
   const hasSharedPositions = sharedOwners && sharedOwners.size > 0;
   const ownPositions = positions.filter(p => !sharedOwners?.has(p.id));

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { startOfMonth, startOfYear, isAfter, isWithinInterval, parseISO } from "date-fns";
+import { DateRange } from "react-day-picker";
 
 /**
  * FAIL-PROOF PREMIUM CALCULATION STRATEGY
@@ -19,6 +21,8 @@ import { supabase } from "@/integrations/supabase/client";
  * - We EXCLUDE positions that became assigned from the expired count to avoid double-counting
  * - Covered calls are ALWAYS from covered_calls table (never double-counted)
  */
+
+export type TimePeriod = "all" | "mtd" | "ytd" | "custom";
 
 export interface PremiumBreakdown {
   // Put premiums
@@ -54,10 +58,42 @@ export interface PremiumRecord {
   date: string;
 }
 
-export function usePremiumAudit(userId?: string) {
+interface PremiumAuditOptions {
+  timePeriod?: TimePeriod;
+  customDateRange?: DateRange;
+}
+
+function isDateInPeriod(dateStr: string, timePeriod: TimePeriod, customDateRange?: DateRange): boolean {
+  if (timePeriod === "all") return true;
+  
+  const date = parseISO(dateStr);
+  const now = new Date();
+  
+  switch (timePeriod) {
+    case "mtd":
+      return isAfter(date, startOfMonth(now)) || date.toDateString() === startOfMonth(now).toDateString();
+    case "ytd":
+      return isAfter(date, startOfYear(now)) || date.toDateString() === startOfYear(now).toDateString();
+    case "custom":
+      if (customDateRange?.from && customDateRange?.to) {
+        return isWithinInterval(date, {
+          start: customDateRange.from,
+          end: customDateRange.to,
+        });
+      }
+      return true;
+    default:
+      return true;
+  }
+}
+
+export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) {
   const [breakdown, setBreakdown] = useState<PremiumBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const timePeriod = options?.timePeriod ?? "all";
+  const customDateRange = options?.customDateRange;
 
   const calculatePremiums = useCallback(async () => {
     if (!userId) {
@@ -75,7 +111,7 @@ export function usePremiumAudit(userId?: string) {
       // 1. Get ALL positions for this user
       const { data: positions, error: posError } = await supabase
         .from('positions')
-        .select('id, symbol, premium_per_contract, contracts, expiration, is_active')
+        .select('id, symbol, premium_per_contract, contracts, expiration, is_active, opened_at')
         .eq('user_id', userId);
       
       if (posError) throw posError;
@@ -97,6 +133,7 @@ export function usePremiumAudit(userId?: string) {
           contracts, 
           is_active, 
           opened_at,
+          expiration,
           assigned_position_id,
           assigned_positions!inner(symbol, user_id)
         `)
@@ -118,6 +155,10 @@ export function usePremiumAudit(userId?: string) {
       let expiredPutCount = 0;
       
       for (const pos of positions || []) {
+        // Use opened_at for time filtering, fallback to expiration
+        const relevantDate = pos.opened_at || pos.expiration;
+        if (!isDateInPeriod(relevantDate, timePeriod, customDateRange)) continue;
+        
         const premium = pos.premium_per_contract * pos.contracts * 100;
         const isExpired = pos.expiration < today;
         const wasAssigned = assignedPositionIds.has(pos.id);
@@ -157,6 +198,8 @@ export function usePremiumAudit(userId?: string) {
       let assignedPutCount = 0;
       
       for (const ap of assignedPositions || []) {
+        if (!isDateInPeriod(ap.assignment_date, timePeriod, customDateRange)) continue;
+        
         assignedPutPremium += ap.original_put_premium;
         assignedPutCount += Math.floor(ap.shares / 100); // Convert shares back to contracts
         auditRecords.push({
@@ -177,6 +220,9 @@ export function usePremiumAudit(userId?: string) {
       let closedCallCount = 0;
       
       for (const cc of coveredCalls || []) {
+        // Use opened_at for time filtering
+        if (!isDateInPeriod(cc.opened_at, timePeriod, customDateRange)) continue;
+        
         const premium = cc.premium_per_contract * cc.contracts * 100;
         const symbol = (cc.assigned_positions as any)?.symbol || 'UNKNOWN';
         
@@ -231,6 +277,7 @@ export function usePremiumAudit(userId?: string) {
       
       // Log for debugging
       console.log('[PremiumAudit] Breakdown:', {
+        timePeriod,
         activePutPremium: activePutPremium.toFixed(2),
         expiredPutPremium: expiredPutPremium.toFixed(2),
         assignedPutPremium: assignedPutPremium.toFixed(2),
@@ -246,7 +293,7 @@ export function usePremiumAudit(userId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, timePeriod, customDateRange]);
 
   useEffect(() => {
     calculatePremiums();
