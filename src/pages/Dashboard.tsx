@@ -378,7 +378,150 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
           <CardHeader className="border-b border-border">
             <CardTitle className="text-lg">Portfolio Command Panel</CardTitle>
           </CardHeader>
-          <CardContent className="p-6">
+          <CardContent className="p-6 space-y-6">
+            {/* Total Returns Hero Section */}
+            <div className="rounded-xl bg-gradient-to-r from-success/10 via-success/5 to-transparent border border-success/20 p-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-2 rounded-lg bg-success/20">
+                      <TrendingUp className="h-5 w-5 text-success" />
+                    </div>
+                    <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Returns</span>
+                  </div>
+                  <div className="text-4xl font-bold text-success">
+                    ${(totalPremium + totalRealizedGains).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Combined premium income + realized gains from completed wheel cycles
+                  </p>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-4 lg:gap-8">
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <div className="cursor-help flex-1 min-w-[160px] p-4 rounded-lg bg-background/50 border border-border/50 hover:border-success/30 transition-colors">
+                        <div className="flex items-center gap-2 mb-1">
+                          <DollarSign className="h-4 w-4 text-success" />
+                          <span className="text-xs text-muted-foreground uppercase tracking-wider">Premium</span>
+                        </div>
+                        <div className="text-2xl font-bold">
+                          ${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">All options sold</p>
+                      </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent side="bottom" align="start">
+                      <TooltipHeader 
+                        icon={DollarSign} 
+                        iconClassName="bg-success/20"
+                        title="Premium Breakdown"
+                      />
+                      <TooltipContainer>
+                        <TooltipRow 
+                          label={`Active Puts (${activePositions.length})`}
+                          value={`$${activePremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                        />
+                        <TooltipRow 
+                          label={`Expired Puts (${expiredPositions.length})`}
+                          value={`$${expiredPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                        />
+                        <TooltipRow 
+                          label={`Assigned Puts (${filteredAssignedPositions.length})`}
+                          value={`$${assignedPutPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                        />
+                        <TooltipRow 
+                          label="Covered Calls (Active)"
+                          value={`$${coveredCallPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                        />
+                        <TooltipRow 
+                          label={`Closed Puts (${closedPositions.length})`}
+                          value={`$${closedPutPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                        />
+                        <TooltipRow 
+                          label="Closed Covered Calls"
+                          value={`$${closedCallPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                        />
+                        <TooltipRow 
+                          label="Total Premium" 
+                          value={`$${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                          valueClassName="text-success"
+                          isTotal
+                        />
+                      </TooltipContainer>
+                    </HoverCardContent>
+                  </HoverCard>
+                  
+                  <div className="hidden sm:flex items-center text-2xl font-light text-muted-foreground">+</div>
+                  
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <div className="cursor-help flex-1 min-w-[160px] p-4 rounded-lg bg-background/50 border border-border/50 hover:border-success/30 transition-colors">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Target className="h-4 w-4 text-success" />
+                          <span className="text-xs text-muted-foreground uppercase tracking-wider">Realized Gain</span>
+                        </div>
+                        <div className="text-2xl font-bold">
+                          ${totalRealizedGains.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">Called away positions</p>
+                      </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent side="bottom" align="start">
+                      <TooltipHeader 
+                        icon={Target} 
+                        iconClassName="bg-success/20"
+                        title="Realized Gains Breakdown"
+                      />
+                      <TooltipContainer>
+                        <TooltipRow 
+                          label="Completed Wheel Cycles"
+                          value={closedPositions.length.toString()}
+                        />
+                        {closedPositions.length > 0 && (
+                          <>
+                            <TooltipDivider />
+                            <TooltipScrollArea>
+                              {closedPositions.map(p => (
+                                <TooltipPositionRow
+                                  key={p.id}
+                                  symbol={p.symbol}
+                                  detail={`${p.shares} shares`}
+                                  value={`+$${(p.realized_pnl || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}`}
+                                  valueClassName="text-success"
+                                  indicator="positive"
+                                />
+                              ))}
+                            </TooltipScrollArea>
+                          </>
+                        )}
+                        <TooltipRow 
+                          label="Total Realized Gain" 
+                          value={`$${totalRealizedGains.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                          valueClassName="text-success"
+                          isTotal
+                        />
+                      </TooltipContainer>
+                    </HoverCardContent>
+                  </HoverCard>
+                  
+                  <div className="hidden sm:flex items-center text-2xl font-light text-muted-foreground">=</div>
+                  
+                  <div className="flex-1 min-w-[160px] p-4 rounded-lg bg-success/20 border border-success/30">
+                    <div className="flex items-center gap-2 mb-1">
+                      <TrendingUp className="h-4 w-4 text-success" />
+                      <span className="text-xs text-success uppercase tracking-wider font-medium">Total</span>
+                    </div>
+                    <div className="text-2xl font-bold text-success">
+                      ${(totalPremium + totalRealizedGains).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </div>
+                    <p className="text-xs text-success/80 mt-0.5">Your earnings</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Metrics Grid */}
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
               <HoverCard>
                 <HoverCardTrigger asChild>
