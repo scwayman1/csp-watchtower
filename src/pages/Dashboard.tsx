@@ -26,6 +26,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
 import { useAssignedPositions } from "@/hooks/useAssignedPositions";
 import { useCalledAwayDetection } from "@/hooks/useCalledAwayDetection";
+import { usePremiumAudit } from "@/hooks/usePremiumAudit";
 import { useSettings } from "@/hooks/useSettings";
 import { usePortfolioHistory } from "@/hooks/usePortfolioHistory";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,9 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   useCalledAwayDetection(assignedPositions, refetchAssigned);
   const { settings } = useSettings(effectiveUserId);
   const { history: portfolioHistory, recordSnapshot } = usePortfolioHistory(effectiveUserId);
+  
+  // FAIL-PROOF PREMIUM CALCULATION - single source of truth
+  const { breakdown: premiumBreakdown, refetch: refetchPremiums } = usePremiumAudit(effectiveUserId);
   const { toast } = useToast();
   const [refreshing, setRefreshing] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
@@ -173,7 +177,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     setRefreshing(true);
     try {
       await supabase.functions.invoke('refresh-market-data');
-      await refetch();
+      await Promise.all([refetch(), refetchPremiums()]);
       toast({
         title: "Market data refreshed",
         description: "All stock prices have been updated.",
@@ -189,16 +193,17 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     }
   };
   
-  // Calculate portfolio stats
-  // 1. Total Premiums: actual cash collected from selling options
-  const activePremiums = activePositions.reduce((sum, p) => sum + p.totalPremium, 0);
-  const expiredPremiums = expiredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
-  const assignedPutPremiums = filteredAssignedPositions.reduce((sum, p) => sum + p.original_put_premium, 0);
-  const coveredCallPremiums = filteredAssignedPositions.reduce((sum, p) => sum + (p.total_call_premiums || 0), 0);
+  // PREMIUM CALCULATION: Use the fail-proof audit hook as the SINGLE SOURCE OF TRUTH
+  // This eliminates all double-counting issues by calculating each category exactly once
+  const activePremiums = premiumBreakdown?.activePutPremium ?? 0;
+  const expiredPremiums = premiumBreakdown?.expiredPutPremium ?? 0;
+  const assignedPutPremiums = premiumBreakdown?.assignedPutPremium ?? 0;
+  const coveredCallPremiums = premiumBreakdown?.activeCallPremium ?? 0;
+  const closedPutPremiums = 0; // Already included in assignedPutPremiums (no separate "closed put" category)
+  const closedCallPremiums = premiumBreakdown?.closedCallPremium ?? 0;
   
-  // Premiums from closed (called away) positions
-  const closedPutPremiums = closedPositions.reduce((sum, p) => sum + p.original_put_premium, 0);
-  const closedCallPremiums = closedPositions.reduce((sum, p) => sum + (p.total_call_premiums || 0), 0);
+  // Total premium from all sources - calculated by the audit hook, NO manual addition here
+  const totalPremium = premiumBreakdown?.totalPremium ?? 0;
   
   // Capital gains from called away positions = (sold_price - assignment_price) × shares
   // This is the pure stock appreciation, NOT including premiums (which are counted separately)
@@ -208,8 +213,6 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     const stockGain = (soldPrice - assignmentPrice) * p.shares;
     return sum + stockGain;
   }, 0);
-  
-  const totalPremium = activePremiums + expiredPremiums + assignedPutPremiums + coveredCallPremiums + closedPutPremiums + closedCallPremiums;
   
   // 2. Assigned Shares Metrics
   const assignedSharesCostBasis = filteredAssignedPositions.reduce((sum, p) => 
@@ -425,34 +428,44 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                         title="Premium Breakdown"
                       />
                       <TooltipContainer>
+                        <p className="text-xs text-muted-foreground mb-2">PUT PREMIUMS</p>
                         <TooltipRow 
-                          label={`Active Puts (${activePositions.length})`}
+                          label={`Active (${premiumBreakdown?.activePutCount ?? 0} contracts)`}
                           value={`$${activePremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                         />
                         <TooltipRow 
-                          label={`Expired Puts (${expiredPositions.length})`}
+                          label={`Expired Worthless (${premiumBreakdown?.expiredPutCount ?? 0})`}
                           value={`$${expiredPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                         />
                         <TooltipRow 
-                          label={`Assigned Puts (${filteredAssignedPositions.length})`}
+                          label={`Assigned to Stock (${premiumBreakdown?.assignedPutCount ?? 0})`}
                           value={`$${assignedPutPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                         />
                         <TooltipRow 
-                          label="Covered Calls (Active)"
+                          label="Subtotal Puts" 
+                          value={`$${(premiumBreakdown?.totalPutPremium ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                          isTotal
+                        />
+                        <TooltipDivider />
+                        <p className="text-xs text-muted-foreground mb-2">CALL PREMIUMS</p>
+                        <TooltipRow 
+                          label={`Active Covered Calls (${premiumBreakdown?.activeCallCount ?? 0})`}
                           value={`$${coveredCallPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                         />
                         <TooltipRow 
-                          label={`Closed Puts (${closedPositions.length})`}
-                          value={`$${closedPutPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-                        />
-                        <TooltipRow 
-                          label="Closed Covered Calls"
+                          label={`Closed/Exercised (${premiumBreakdown?.closedCallCount ?? 0})`}
                           value={`$${closedCallPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                         />
                         <TooltipRow 
-                          label="Total Premium" 
+                          label="Subtotal Calls" 
+                          value={`$${(premiumBreakdown?.totalCallPremium ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                          isTotal
+                        />
+                        <TooltipDivider />
+                        <TooltipRow 
+                          label="TOTAL PREMIUM" 
                           value={`$${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-                          valueClassName="text-success"
+                          valueClassName="text-success font-bold"
                           isTotal
                         />
                       </TooltipContainer>
