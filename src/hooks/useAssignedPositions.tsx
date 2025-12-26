@@ -151,9 +151,11 @@ export function useAssignedPositions(userId?: string, includeInactive = false) {
           sum + (parseFloat(String(call.premium_per_contract)) * 100 * call.contracts), 0
         );
         
-        // Realized P/L = (Sold Price - Cost Basis) × Shares + Put Premium + Call Premiums
+        // Realized P/L = (Sold Price - Cost Basis) × Shares + Call Premiums
+        // Note: cost_basis already has put premium deducted (cost_basis = assignment_price - put_premium/shares)
+        // So capital gain already includes the put premium benefit - don't add it again
         const capitalGain = (soldPrice - costBasis) * shares;
-        const realizedPnl = capitalGain + putPremium + totalCallPremiums;
+        const realizedPnl = capitalGain + totalCallPremiums;
 
         return {
           id: pos.id,
