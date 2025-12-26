@@ -110,16 +110,16 @@ export function useCalledAwayDetection(
         // Skip if already processed or not active
         if (!call.is_active || processedCallsRef.current.has(call.id)) continue;
         
-        // Parse expiration date
+        // Parse expiration date - use 4 PM ET (market close) as the cutoff
         const [year, month, day] = call.expiration.split('-').map(Number);
         const expirationDate = new Date(year, month - 1, day);
-        expirationDate.setHours(23, 59, 59, 999); // End of expiration day
+        expirationDate.setHours(16, 0, 0, 0); // 4 PM market close
         
-        // Check if expired AND in-the-money (current price > strike)
-        const isExpired = now > expirationDate;
+        // Check if at or past market close on expiration day AND in-the-money
+        const isExpiredOrExpiringToday = now >= expirationDate;
         const isITM = currentPrice >= call.strike_price;
         
-        if (isExpired && isITM) {
+        if (isExpiredOrExpiringToday && isITM) {
           // Mark as processed to prevent duplicate processing
           processedCallsRef.current.add(call.id);
           
