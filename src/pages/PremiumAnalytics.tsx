@@ -181,33 +181,63 @@ export default function PremiumAnalytics() {
             <ChartContainer config={chartConfig} className="h-[400px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <defs>
+                    <linearGradient id="putGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f472b6" stopOpacity={1} />
+                      <stop offset="50%" stopColor="#ec4899" stopOpacity={0.9} />
+                      <stop offset="100%" stopColor="#be185d" stopOpacity={0.8} />
+                    </linearGradient>
+                    <linearGradient id="callGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#34d399" stopOpacity={1} />
+                      <stop offset="50%" stopColor="#10b981" stopOpacity={0.9} />
+                      <stop offset="100%" stopColor="#059669" stopOpacity={0.8} />
+                    </linearGradient>
+                    <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3" />
+                    </filter>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted/50" vertical={false} />
                   <XAxis 
                     dataKey="month" 
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize: 12, fontWeight: 500 }}
                     className="fill-muted-foreground"
+                    axisLine={{ stroke: 'hsl(var(--border))' }}
+                    tickLine={false}
                   />
                   <YAxis 
                     tickFormatter={(value) => `$${value.toLocaleString()}`}
                     tick={{ fontSize: 12 }}
                     className="fill-muted-foreground"
+                    axisLine={false}
+                    tickLine={false}
                   />
                   <ChartTooltip 
                     content={<ChartTooltipContent />}
                     formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                    cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }}
                   />
-                  <Legend />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    iconType="circle"
+                  />
                   <Bar 
                     dataKey="putPremium" 
                     name="Put Premium" 
-                    fill="hsl(var(--chart-1))" 
-                    radius={[4, 4, 0, 0]}
+                    fill="url(#putGradient)" 
+                    radius={[8, 8, 0, 0]}
+                    filter="url(#barShadow)"
+                    animationDuration={800}
+                    animationEasing="ease-out"
                   />
                   <Bar 
                     dataKey="callPremium" 
                     name="Call Premium" 
-                    fill="hsl(var(--chart-2))" 
-                    radius={[4, 4, 0, 0]}
+                    fill="url(#callGradient)" 
+                    radius={[8, 8, 0, 0]}
+                    filter="url(#barShadow)"
+                    animationDuration={800}
+                    animationEasing="ease-out"
+                    animationBegin={200}
                   />
                 </BarChart>
               </ResponsiveContainer>
