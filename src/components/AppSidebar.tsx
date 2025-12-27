@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Target, Building2, BarChart3, History, MessageSquare, Settings, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Target, Building2, BarChart3, History, MessageSquare, Settings, ChevronDown, DollarSign } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -130,10 +130,22 @@ export function AppSidebar() {
           )}
         </SidebarGroup>
 
-        {/* Messages & Settings (Always Visible) */}
+        {/* Premium Analytics, Messages & Settings */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Premium Analytics">
+                  <NavLink
+                    to="/premium-analytics"
+                    className="flex items-center gap-2"
+                    activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                  >
+                    <DollarSign className="h-4 w-4" />
+                    {!isCollapsed && <span>Premium Analytics</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Messages">
                   <NavLink
