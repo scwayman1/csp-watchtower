@@ -12,6 +12,7 @@ import { useLearningMarketData } from "@/hooks/useLearningMarketData";
 import { useSimulatorSettings } from "@/hooks/useSimulatorSettings";
 import { useSimulatorPortfolioHistory } from "@/hooks/useSimulatorPortfolioHistory";
 import { useLearningExpiredPositions } from "@/hooks/useLearningExpiredPositions";
+import { useLearningCallExpiration } from "@/hooks/useLearningCallExpiration";
 import { SellCoveredCallDialog } from "./SellCoveredCallDialog";
 import { SimulatorPerformanceChart } from "./SimulatorPerformanceChart";
 import { SimulatorMetrics } from "./SimulatorMetrics";
@@ -32,6 +33,9 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
   const { batches: expiredBatches, expiredPositions } = useLearningExpiredPositions(userId);
   const [capital, setCapital] = useState(settings?.starting_capital?.toString() || "100000");
   const [selectedAssignedPosition, setSelectedAssignedPosition] = useState<string | null>(null);
+
+  // Auto-process expired covered calls to free up shares
+  useLearningCallExpiration(userId, assignedPositions);
 
   // Update capital when settings load
   useEffect(() => {
@@ -92,10 +96,9 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
       const marketValue = currentPrice * ap.shares;
       const unrealizedPnL = marketValue - ap.cost_basis + ap.original_put_premium;
       
-      // Calculate covered call premiums
+      // Calculate covered call premiums (ALL calls, not just active - premium is always kept)
       const coveredCallPremiums = (ap.covered_calls || [])
-        .filter(cc => cc.is_active)
-        .reduce((sum, cc) => sum + (cc.premium_per_contract * 100 * cc.contracts), 0);
+        .reduce((sum, cc) => sum + (parseFloat(String(cc.premium_per_contract)) * 100 * cc.contracts), 0);
 
       return {
         ...ap,
