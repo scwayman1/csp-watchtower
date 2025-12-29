@@ -159,7 +159,7 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
         const relevantDate = pos.opened_at || pos.expiration;
         if (!isDateInPeriod(relevantDate, timePeriod, customDateRange)) continue;
         
-        const premium = pos.premium_per_contract * pos.contracts * 100;
+        const premium = parseFloat(String(pos.premium_per_contract)) * pos.contracts * 100;
         const isExpired = pos.expiration < today;
         const wasAssigned = assignedPositionIds.has(pos.id);
         
@@ -200,7 +200,7 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
       for (const ap of assignedPositions || []) {
         if (!isDateInPeriod(ap.assignment_date, timePeriod, customDateRange)) continue;
         
-        assignedPutPremium += ap.original_put_premium;
+        assignedPutPremium += parseFloat(String(ap.original_put_premium)) || 0;
         assignedPutCount += Math.floor(ap.shares / 100); // Convert shares back to contracts
         auditRecords.push({
           id: ap.id,
@@ -223,7 +223,7 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
         // Use opened_at for time filtering
         if (!isDateInPeriod(cc.opened_at, timePeriod, customDateRange)) continue;
         
-        const premium = cc.premium_per_contract * cc.contracts * 100;
+        const premium = parseFloat(String(cc.premium_per_contract)) * cc.contracts * 100;
         const symbol = (cc.assigned_positions as any)?.symbol || 'UNKNOWN';
         
         if (cc.is_active) {
