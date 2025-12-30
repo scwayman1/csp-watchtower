@@ -28,15 +28,30 @@ export const useLearningExpiredPositions = (userId?: string) => {
     queryFn: async () => {
       if (!userId) return [];
       
-      const { data, error } = await supabase
+      // Get closed positions
+      const { data: positions, error: posError } = await supabase
         .from('learning_positions' as any)
         .select('*')
         .eq('user_id', userId)
         .eq('is_active', false)
         .order('expiration', { ascending: false });
 
-      if (error) throw error;
-      return (data || []) as unknown as LearningExpiredPosition[];
+      if (posError) throw posError;
+      
+      // Get assigned position IDs to exclude (these are tracked separately)
+      const { data: assignedPositions, error: apError } = await supabase
+        .from('learning_assigned_positions' as any)
+        .select('original_learning_position_id')
+        .eq('user_id', userId)
+        .not('original_learning_position_id', 'is', null);
+
+      if (apError) throw apError;
+      
+      // Filter out positions that were assigned (to avoid double-counting premiums)
+      const assignedIds = new Set((assignedPositions || []).map((ap: any) => ap.original_learning_position_id));
+      const expiredOnly = (positions || []).filter((p: any) => !assignedIds.has(p.id));
+      
+      return expiredOnly as unknown as LearningExpiredPosition[];
     },
     enabled: !!userId,
   });
