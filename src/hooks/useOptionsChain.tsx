@@ -37,21 +37,32 @@ export const useOptionsChain = (symbol: string | null, optionType: 'PUT' | 'CALL
       });
 
       if (error) {
-        // Check if it's an invalid ticker error
-        const errorMessage = error.message || JSON.stringify(error);
-        if (errorMessage.includes('No quote data found')) {
-          toast({
-            title: "Invalid Ticker Symbol",
-            description: `"${symbol}" is not a valid ticker symbol. Please check the symbol and try again.`,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Error Loading Options",
-            description: errorMessage,
-            variant: "destructive",
-          });
+        // Parse the error response to get the actual message
+        let errorMessage = 'Failed to load options data';
+        let isInvalidSymbol = false;
+        
+        try {
+          // The error context may contain the response body
+          const errorBody = error.context?.body || error.message;
+          if (typeof errorBody === 'string') {
+            const parsed = JSON.parse(errorBody);
+            errorMessage = parsed.error || errorMessage;
+            isInvalidSymbol = parsed.invalidSymbol === true;
+          } else if (errorBody?.error) {
+            errorMessage = errorBody.error;
+            isInvalidSymbol = errorBody.invalidSymbol === true;
+          }
+        } catch {
+          // If parsing fails, check the message directly
+          errorMessage = error.message || errorMessage;
+          isInvalidSymbol = errorMessage.includes('not a valid ticker');
         }
+        
+        toast({
+          title: isInvalidSymbol ? "Invalid Ticker Symbol" : "Error Loading Options",
+          description: errorMessage,
+          variant: "destructive",
+        });
         throw error;
       }
 
