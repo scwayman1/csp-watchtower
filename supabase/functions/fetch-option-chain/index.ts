@@ -33,15 +33,25 @@ serve(async (req) => {
     const { symbol, optionType = 'PUT' } = await req.json();
 
     if (!symbol) {
-      throw new Error('Symbol is required');
+      return new Response(
+        JSON.stringify({ error: 'Symbol is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
     if (optionType !== 'PUT' && optionType !== 'CALL') {
-      throw new Error('optionType must be either PUT or CALL');
+      return new Response(
+        JSON.stringify({ error: 'optionType must be either PUT or CALL' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     if (!FINNHUB_API_KEY) {
-      throw new Error('FINNHUB_API_KEY not configured');
+      console.error('FINNHUB_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ error: 'Market data service not configured' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log(`Fetching option chain for ${symbol} (${optionType})`);
@@ -65,13 +75,25 @@ serve(async (req) => {
     const quoteResponse = await fetch(quoteUrl);
     
     if (!quoteResponse.ok) {
-      throw new Error(`Failed to fetch stock quote: ${quoteResponse.status}`);
+      console.error(`Failed to fetch stock quote: ${quoteResponse.status}`);
+      return new Response(
+        JSON.stringify({ error: `Unable to fetch quote for "${symbol}". Please try again.` }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
     const quoteData = await quoteResponse.json();
     
-    if (!quoteData.c) {
-      throw new Error(`Invalid ticker symbol: "${symbol}"`);
+    // Finnhub returns { c: 0, d: null, dp: null, h: 0, l: 0, o: 0, pc: 0, t: 0 } for invalid symbols
+    if (!quoteData.c || quoteData.c === 0) {
+      console.log(`Invalid ticker symbol: "${symbol}" - no quote data found`);
+      return new Response(
+        JSON.stringify({ 
+          error: `"${symbol}" is not a valid ticker symbol. Please check the symbol and try again.`,
+          invalidSymbol: true 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
     const underlyingPrice = quoteData.c;
@@ -84,11 +106,28 @@ serve(async (req) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
     
-    const optionsResponse = await fetch(optionsUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
+    let optionsResponse;
+    try {
+      optionsResponse = await fetch(optionsUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error(`Options fetch timed out for ${symbol}`);
+        return new Response(
+          JSON.stringify({ error: 'Request timed out. Please try again.' }),
+          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw fetchError;
+    }
     
     if (!optionsResponse.ok) {
-      throw new Error(`Failed to fetch options: ${optionsResponse.status}`);
+      console.error(`Failed to fetch options: ${optionsResponse.status}`);
+      return new Response(
+        JSON.stringify({ error: `Unable to fetch options data for "${symbol}". The symbol may not have options available.` }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
     const optionsData = await optionsResponse.json();
