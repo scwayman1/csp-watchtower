@@ -36,9 +36,10 @@ serve(async (req) => {
 
     const data = await response.json();
     
-    // Filter and format results - prioritize US stocks
+    // Filter and format results - prioritize US stocks (including ADRs like TSM)
+    const validTypes = ['Common Stock', 'ADR', 'ETP', 'ETF'];
     const results = (data.result || [])
-      .filter((item: any) => item.type === 'Common Stock' && item.symbol && !item.symbol.includes('.'))
+      .filter((item: any) => validTypes.includes(item.type) && item.symbol && !item.symbol.includes('.'))
       .slice(0, 10)
       .map((item: any) => ({
         symbol: item.symbol,
