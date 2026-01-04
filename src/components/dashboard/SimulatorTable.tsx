@@ -127,17 +127,22 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
   // Total premiums collected across all sources
   const totalPremiums = totalPutPremiums + totalCallPremiums + totalExpiredPremiums + totalAssignedPutPremiums;
   
-  // Capital gains from sold assigned positions (shares sold - cost basis)
-  const totalCapitalGains = closedPositions.reduce((sum, cp) => {
+  // Capital gains and proceeds from sold assigned positions
+  const { totalCapitalGains, totalSaleProceeds } = closedPositions.reduce((acc, cp) => {
     if (cp.sold_price && cp.shares) {
       const proceeds = cp.sold_price * cp.shares;
-      return sum + (proceeds - cp.cost_basis);
+      const gain = proceeds - cp.cost_basis;
+      return {
+        totalCapitalGains: acc.totalCapitalGains + gain,
+        totalSaleProceeds: acc.totalSaleProceeds + proceeds,
+      };
     }
-    return sum;
-  }, 0);
+    return acc;
+  }, { totalCapitalGains: 0, totalSaleProceeds: 0 });
   
-  // Available Capital = Starting Capital - Cash Secured - Assigned Cost Basis + All Premiums + Realized Gains
-  const availableCapital = (parseFloat(capital) || 0) - totalCashSecured - totalAssignedCostBasis + totalPremiums + totalCapitalGains;
+  // Available Capital = Starting Capital - Cash Secured - Assigned Cost Basis + All Premiums + Sale Proceeds
+  // Note: Sale proceeds already include the cost basis recovery + capital gain
+  const availableCapital = (parseFloat(capital) || 0) - totalCashSecured - totalAssignedCostBasis + totalPremiums + totalSaleProceeds;
   const totalPortfolioValue = parseFloat(capital) + totalPremiums + totalCapitalGains;
 
   const handleAssign = async (position: any) => {
