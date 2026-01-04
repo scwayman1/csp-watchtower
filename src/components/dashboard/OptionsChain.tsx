@@ -31,6 +31,7 @@ interface OptionsChainProps {
 }
 
 type StrikeRangeOption = '5' | '10' | '15' | '20' | '30' | 'all';
+type DeltaRangeOption = 'all' | '0.10-0.20' | '0.20-0.30' | '0.30-0.40' | '0.40-0.50' | '0.10-0.30' | '0.20-0.40';
 
 const STRIKE_RANGE_OPTIONS: { value: StrikeRangeOption; label: string }[] = [
   { value: '5', label: '±5% from current' },
@@ -39,6 +40,16 @@ const STRIKE_RANGE_OPTIONS: { value: StrikeRangeOption; label: string }[] = [
   { value: '20', label: '±20% from current' },
   { value: '30', label: '±30% from current' },
   { value: 'all', label: 'Show all strikes' },
+];
+
+const DELTA_RANGE_OPTIONS: { value: DeltaRangeOption; label: string; description: string }[] = [
+  { value: 'all', label: 'All deltas', description: 'Show all options' },
+  { value: '0.10-0.20', label: 'Δ 0.10-0.20', description: 'Low probability (~10-20%)' },
+  { value: '0.20-0.30', label: 'Δ 0.20-0.30', description: 'Conservative (~20-30%)' },
+  { value: '0.30-0.40', label: 'Δ 0.30-0.40', description: 'Balanced (~30-40%)' },
+  { value: '0.40-0.50', label: 'Δ 0.40-0.50', description: 'Aggressive (~40-50%)' },
+  { value: '0.10-0.30', label: 'Δ 0.10-0.30', description: 'Safe range (~10-30%)' },
+  { value: '0.20-0.40', label: 'Δ 0.20-0.40', description: 'Sweet spot (~20-40%)' },
 ];
 
 export const OptionsChain = ({ 
@@ -52,6 +63,7 @@ export const OptionsChain = ({
   optionType = 'PUT'
 }: OptionsChainProps) => {
   const [strikeRange, setStrikeRange] = useState<StrikeRangeOption>('20');
+  const [deltaRange, setDeltaRange] = useState<DeltaRangeOption>('all');
   
   const calculateMetrics = (option: OptionRow) => {
     // Safely handle undefined values with defaults
@@ -108,16 +120,29 @@ export const OptionsChain = ({
     };
   };
 
-  // Filter options based on strike range
+  // Filter options based on strike range and delta range
   const filteredOptions = useMemo(() => {
-    if (strikeRange === 'all') return options;
+    let result = options;
     
-    const rangePercent = parseInt(strikeRange) / 100;
-    const minStrike = underlyingPrice * (1 - rangePercent);
-    const maxStrike = underlyingPrice * (1 + rangePercent);
+    // Apply strike range filter
+    if (strikeRange !== 'all') {
+      const rangePercent = parseInt(strikeRange) / 100;
+      const minStrike = underlyingPrice * (1 - rangePercent);
+      const maxStrike = underlyingPrice * (1 + rangePercent);
+      result = result.filter(opt => opt.strike >= minStrike && opt.strike <= maxStrike);
+    }
     
-    return options.filter(opt => opt.strike >= minStrike && opt.strike <= maxStrike);
-  }, [options, underlyingPrice, strikeRange]);
+    // Apply delta range filter
+    if (deltaRange !== 'all') {
+      const [minDelta, maxDelta] = deltaRange.split('-').map(parseFloat);
+      result = result.filter(opt => {
+        const absDelta = Math.abs(opt.delta ?? 0);
+        return absDelta >= minDelta && absDelta <= maxDelta;
+      });
+    }
+    
+    return result;
+  }, [options, underlyingPrice, strikeRange, deltaRange]);
 
   const enhancedOptions = useMemo(() => 
     filteredOptions.map(opt => ({
@@ -138,23 +163,45 @@ export const OptionsChain = ({
   return (
     <TooltipProvider>
       <div className="space-y-4">
-        {/* Strike Range Filter */}
-        <div className="flex items-center gap-3 px-1">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Strike Range:</span>
-          <Select value={strikeRange} onValueChange={(v) => setStrikeRange(v as StrikeRangeOption)}>
-            <SelectTrigger className="w-[180px] h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {STRIKE_RANGE_OPTIONS.map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span className="text-xs text-muted-foreground">
+        {/* Filters Row */}
+        <div className="flex flex-wrap items-center gap-4 px-1">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Strike:</span>
+            <Select value={strikeRange} onValueChange={(v) => setStrikeRange(v as StrikeRangeOption)}>
+              <SelectTrigger className="w-[160px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STRIKE_RANGE_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Delta:</span>
+            <Select value={deltaRange} onValueChange={(v) => setDeltaRange(v as DeltaRangeOption)}>
+              <SelectTrigger className="w-[160px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DELTA_RANGE_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <div className="flex flex-col">
+                      <span>{opt.label}</span>
+                      <span className="text-xs text-muted-foreground">{opt.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <span className="text-xs text-muted-foreground ml-auto">
             Showing {enhancedOptions.length} of {options.length} strikes
           </span>
         </div>
