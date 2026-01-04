@@ -195,23 +195,26 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
     setSelectedAssignedPosition(null);
   };
 
-  const handleSellAssignedShares = async (position: typeof enhancedAssignedPositions[0]) => {
+  const handleSellAssignedShares = async (position: typeof enhancedAssignedPositions[0], sharesToSell: number) => {
     const soldPrice = position.currentPrice;
-    if (soldPrice <= 0) return;
+    if (soldPrice <= 0 || sharesToSell <= 0) return;
     
-    closeAssignedPosition({ id: position.id, sold_price: soldPrice });
+    closeAssignedPosition({ id: position.id, sold_price: soldPrice, shares_to_sell: sharesToSell });
     
     // Record snapshot for selling shares
-    const proceeds = soldPrice * position.shares;
-    const capitalGain = proceeds - position.cost_basis;
+    const proceeds = soldPrice * sharesToSell;
+    const costBasisForShares = (position.cost_basis / position.shares) * sharesToSell;
+    const capitalGain = proceeds - costBasisForShares;
+    const marketValueSold = soldPrice * sharesToSell;
+    
     await recordSnapshot({
       portfolio_value: totalPortfolioValue + capitalGain,
       cash_balance: availableCapital + proceeds,
       positions_value: totalCashSecured,
-      assigned_shares_value: totalAssignedValue - position.marketValue,
+      assigned_shares_value: totalAssignedValue - marketValueSold,
       total_premiums_collected: totalPremiums,
       event_type: 'shares_sold',
-      event_description: `Sold ${position.shares} shares of ${position.symbol} at $${soldPrice.toFixed(2)} - P/L: $${capitalGain.toFixed(2)}`,
+      event_description: `Sold ${sharesToSell} shares of ${position.symbol} at $${soldPrice.toFixed(2)} - P/L: $${capitalGain.toFixed(2)}`,
     });
   };
 
