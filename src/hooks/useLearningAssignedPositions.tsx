@@ -169,6 +169,9 @@ export const useLearningAssignedPositions = (userId?: string) => {
       const currentShares = (position as any).shares;
       const sharesToSell = data.shares_to_sell || currentShares;
       const remainingShares = currentShares - sharesToSell;
+      const currentCostBasis = (position as any).cost_basis;
+      const currentPutPremium = (position as any).original_put_premium || 0;
+      const proportionSold = sharesToSell / currentShares;
 
       if (remainingShares <= 0) {
         // Close entire position
@@ -183,21 +186,40 @@ export const useLearningAssignedPositions = (userId?: string) => {
 
         if (error) throw error;
       } else {
-        // Partial sale - reduce shares and cost basis proportionally
-        const currentCostBasis = (position as any).cost_basis;
-        const currentPutPremium = (position as any).original_put_premium || 0;
-        const proportionRemaining = remainingShares / currentShares;
+        // Partial sale - reduce original position and create a closed record for sold shares
+        const soldCostBasis = currentCostBasis * proportionSold;
+        const soldPutPremium = currentPutPremium * proportionSold;
         
-        const { error } = await supabase
+        // Update original position with remaining shares
+        const { error: updateError } = await supabase
           .from('learning_assigned_positions' as any)
           .update({
             shares: remainingShares,
-            cost_basis: currentCostBasis * proportionRemaining,
-            original_put_premium: currentPutPremium * proportionRemaining,
+            cost_basis: currentCostBasis - soldCostBasis,
+            original_put_premium: currentPutPremium - soldPutPremium,
           })
           .eq('id', data.id);
 
-        if (error) throw error;
+        if (updateError) throw updateError;
+
+        // Create a closed record for the sold portion to track capital gains
+        const { error: insertError } = await supabase
+          .from('learning_assigned_positions' as any)
+          .insert([{
+            user_id: (position as any).user_id,
+            symbol: (position as any).symbol,
+            shares: sharesToSell,
+            assignment_date: (position as any).assignment_date,
+            assignment_price: (position as any).assignment_price,
+            cost_basis: soldCostBasis,
+            original_put_premium: soldPutPremium,
+            original_learning_position_id: (position as any).original_learning_position_id,
+            is_active: false,
+            sold_price: data.sold_price,
+            closed_at: new Date().toISOString(),
+          }]);
+
+        if (insertError) throw insertError;
       }
       
       return { sharesToSell, soldPrice: data.sold_price };
