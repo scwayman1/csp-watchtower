@@ -33,6 +33,22 @@ interface OptionsChainProps {
 type StrikeRangeOption = '5' | '10' | '15' | '20' | '30' | 'all';
 type DeltaRangeOption = 'all' | '0.10-0.20' | '0.20-0.30' | '0.30-0.40' | '0.40-0.50' | '0.10-0.30' | '0.20-0.40';
 
+interface FilterPreset {
+  id: string;
+  label: string;
+  description: string;
+  strikeRange: StrikeRangeOption;
+  deltaRange: DeltaRangeOption;
+}
+
+const FILTER_PRESETS: FilterPreset[] = [
+  { id: 'conservative', label: 'Conservative OTM', description: '±20% strike, Δ 0.20-0.30', strikeRange: '20', deltaRange: '0.20-0.30' },
+  { id: 'safe', label: 'Safe & Far OTM', description: '±30% strike, Δ 0.10-0.20', strikeRange: '30', deltaRange: '0.10-0.20' },
+  { id: 'balanced', label: 'Balanced', description: '±15% strike, Δ 0.30-0.40', strikeRange: '15', deltaRange: '0.30-0.40' },
+  { id: 'aggressive', label: 'Aggressive', description: '±10% strike, Δ 0.40-0.50', strikeRange: '10', deltaRange: '0.40-0.50' },
+  { id: 'sweetspot', label: 'Sweet Spot', description: '±20% strike, Δ 0.20-0.40', strikeRange: '20', deltaRange: '0.20-0.40' },
+];
+
 const STRIKE_RANGE_OPTIONS: { value: StrikeRangeOption; label: string }[] = [
   { value: '5', label: '±5% from current' },
   { value: '10', label: '±10% from current' },
@@ -64,6 +80,17 @@ export const OptionsChain = ({
 }: OptionsChainProps) => {
   const [strikeRange, setStrikeRange] = useState<StrikeRangeOption>('20');
   const [deltaRange, setDeltaRange] = useState<DeltaRangeOption>('all');
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+
+  const applyPreset = (preset: FilterPreset) => {
+    setStrikeRange(preset.strikeRange);
+    setDeltaRange(preset.deltaRange);
+    setActivePreset(preset.id);
+  };
+
+  const clearPreset = () => {
+    setActivePreset(null);
+  };
   
   const calculateMetrics = (option: OptionRow) => {
     // Safely handle undefined values with defaults
@@ -163,12 +190,44 @@ export const OptionsChain = ({
   return (
     <TooltipProvider>
       <div className="space-y-4">
+        {/* Quick Filter Presets */}
+        <div className="flex flex-wrap items-center gap-2 px-1">
+          <span className="text-sm font-medium text-muted-foreground mr-1">Quick:</span>
+          {FILTER_PRESETS.map(preset => (
+            <Tooltip key={preset.id}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={activePreset === preset.id ? "default" : "outline"}
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => applyPreset(preset)}
+                >
+                  {preset.label}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{preset.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          ))}
+          {activePreset && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-muted-foreground"
+              onClick={clearPreset}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+
         {/* Filters Row */}
         <div className="flex flex-wrap items-center gap-4 px-1">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Strike:</span>
-            <Select value={strikeRange} onValueChange={(v) => setStrikeRange(v as StrikeRangeOption)}>
+            <Select value={strikeRange} onValueChange={(v) => { setStrikeRange(v as StrikeRangeOption); clearPreset(); }}>
               <SelectTrigger className="w-[160px] h-8">
                 <SelectValue />
               </SelectTrigger>
@@ -184,7 +243,7 @@ export const OptionsChain = ({
 
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Delta:</span>
-            <Select value={deltaRange} onValueChange={(v) => setDeltaRange(v as DeltaRangeOption)}>
+            <Select value={deltaRange} onValueChange={(v) => { setDeltaRange(v as DeltaRangeOption); clearPreset(); }}>
               <SelectTrigger className="w-[160px] h-8">
                 <SelectValue />
               </SelectTrigger>
