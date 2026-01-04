@@ -21,6 +21,7 @@ import CycleSheetPage from "./pages/advisor/CycleSheetPage";
 import OrdersPage from "./pages/advisor/OrdersPage";
 import Messages from "./pages/Messages";
 import MessagesPage from "./pages/advisor/MessagesPage";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -89,7 +90,14 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/accept-invite/:token" element={<AcceptInvite />} />
           <Route path="/accept-client-invite/:token" element={<AcceptClientInvite />} />
-          <Route path="/*" element={<AppContent />} />
+          <Route
+            path="/*"
+            element={
+              <ErrorBoundary>
+                <AppContent />
+              </ErrorBoundary>
+            }
+          />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
@@ -97,3 +105,4 @@ const App = () => (
 );
 
 export default App;
+
