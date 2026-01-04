@@ -20,5 +20,15 @@ export default defineConfig(({ mode }) => ({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      include: ["src/hooks/**/*.{ts,tsx}"],
+      exclude: [
+        "src/hooks/**/*.test.{ts,tsx}",
+        "src/hooks/**/index.ts",
+        "src/hooks/**/types.ts",
+      ],
+    },
   },
 }));
