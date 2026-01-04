@@ -4,14 +4,16 @@ import { usePremiumAudit } from "@/hooks/usePremiumAudit";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts";
-import { format, parseISO, startOfMonth, getMonth, getYear } from "date-fns";
-import { DollarSign, TrendingUp, ArrowLeft } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend, PieChart, Pie, Cell, Tooltip } from "recharts";
+import { format, parseISO, startOfMonth, subMonths, subDays, isAfter, startOfYear, getYear } from "date-fns";
+import { DollarSign, TrendingUp, TrendingDown, ArrowLeft, PieChartIcon, BarChart3, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
 
 interface MonthlyData {
   month: string;
+  monthKey: string;
   putPremium: number;
   callPremium: number;
   total: number;
@@ -59,17 +61,14 @@ export default function PremiumAnalytics() {
 
     // Convert to array and sort by date
     const result: MonthlyData[] = Array.from(monthMap.entries())
-      .map(([month, data]) => ({
-        month: format(parseISO(month + "-01"), "MMM yyyy"),
+      .map(([monthKey, data]) => ({
+        month: format(parseISO(monthKey + "-01"), "MMM yyyy"),
+        monthKey,
         putPremium: Math.round(data.putPremium),
         callPremium: Math.round(data.callPremium),
         total: Math.round(data.putPremium + data.callPremium),
       }))
-      .sort((a, b) => {
-        const dateA = new Date(a.month);
-        const dateB = new Date(b.month);
-        return dateA.getTime() - dateB.getTime();
-      });
+      .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
 
     return result;
   }, [breakdown?.auditRecords, symbolFilter]);
@@ -85,6 +84,107 @@ export default function PremiumAnalytics() {
       { putPremium: 0, callPremium: 0, total: 0 }
     );
   }, [monthlyData]);
+
+  // Performance Comparison - MoM and YoY
+  const performanceComparison = useMemo(() => {
+    if (!breakdown?.auditRecords) return null;
+
+    const now = new Date();
+    const thisMonth = format(startOfMonth(now), "yyyy-MM");
+    const lastMonth = format(startOfMonth(subMonths(now, 1)), "yyyy-MM");
+    const lastYearSameMonth = format(startOfMonth(new Date(now.getFullYear() - 1, now.getMonth())), "yyyy-MM");
+    const thisYear = now.getFullYear();
+    const lastYear = thisYear - 1;
+
+    const thisMonthData = monthlyData.find(m => m.monthKey === thisMonth);
+    const lastMonthData = monthlyData.find(m => m.monthKey === lastMonth);
+    const lastYearMonthData = monthlyData.find(m => m.monthKey === lastYearSameMonth);
+
+    // YTD calculations
+    const ytdThisYear = monthlyData
+      .filter(m => m.monthKey.startsWith(String(thisYear)))
+      .reduce((sum, m) => sum + m.total, 0);
+    const ytdLastYear = monthlyData
+      .filter(m => m.monthKey.startsWith(String(lastYear)))
+      .reduce((sum, m) => sum + m.total, 0);
+
+    const momChange = lastMonthData && lastMonthData.total > 0
+      ? ((thisMonthData?.total || 0) - lastMonthData.total) / lastMonthData.total * 100
+      : null;
+
+    const yoyChange = lastYearMonthData && lastYearMonthData.total > 0
+      ? ((thisMonthData?.total || 0) - lastYearMonthData.total) / lastYearMonthData.total * 100
+      : null;
+
+    const ytdChange = ytdLastYear > 0
+      ? (ytdThisYear - ytdLastYear) / ytdLastYear * 100
+      : null;
+
+    return {
+      thisMonth: thisMonthData?.total || 0,
+      lastMonth: lastMonthData?.total || 0,
+      lastYearMonth: lastYearMonthData?.total || 0,
+      momChange,
+      yoyChange,
+      ytdThisYear,
+      ytdLastYear,
+      ytdChange
+    };
+  }, [breakdown?.auditRecords, monthlyData]);
+
+  // Distribution by symbol
+  const symbolDistribution = useMemo(() => {
+    if (!breakdown?.auditRecords || symbolFilter !== "all") return [];
+
+    const symbolMap = new Map<string, number>();
+    breakdown.auditRecords.forEach(record => {
+      const existing = symbolMap.get(record.symbol) || 0;
+      symbolMap.set(record.symbol, existing + record.premium);
+    });
+
+    return Array.from(symbolMap.entries())
+      .map(([symbol, premium]) => ({ name: symbol, value: Math.round(premium) }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8); // Top 8 symbols
+  }, [breakdown?.auditRecords, symbolFilter]);
+
+  // Put vs Call distribution for pie chart
+  const typeDistribution = useMemo(() => {
+    return [
+      { name: 'Put Premium', value: filteredTotals.putPremium, color: '#ec4899' },
+      { name: 'Call Premium', value: filteredTotals.callPremium, color: '#10b981' }
+    ].filter(d => d.value > 0);
+  }, [filteredTotals]);
+
+  // Rolling averages (30-day and 90-day)
+  const rollingAverages = useMemo(() => {
+    if (!breakdown?.auditRecords) return { avg30: 0, avg90: 0 };
+
+    const now = new Date();
+    const thirtyDaysAgo = subDays(now, 30);
+    const ninetyDaysAgo = subDays(now, 90);
+
+    const filtered = symbolFilter === "all"
+      ? breakdown.auditRecords
+      : breakdown.auditRecords.filter(r => r.symbol === symbolFilter);
+
+    const last30 = filtered.filter(r => isAfter(parseISO(r.date), thirtyDaysAgo));
+    const last90 = filtered.filter(r => isAfter(parseISO(r.date), ninetyDaysAgo));
+
+    const sum30 = last30.reduce((sum, r) => sum + r.premium, 0);
+    const sum90 = last90.reduce((sum, r) => sum + r.premium, 0);
+
+    return {
+      avg30: Math.round(sum30),
+      avg90: Math.round(sum90),
+      dailyAvg30: Math.round(sum30 / 30),
+      dailyAvg90: Math.round(sum90 / 90),
+      monthlyAvg30: Math.round((sum30 / 30) * 30),
+      monthlyAvg90: Math.round((sum90 / 90) * 30)
+    };
+  }, [breakdown?.auditRecords, symbolFilter]);
+
+  const PIE_COLORS = ['#f472b6', '#34d399', '#60a5fa', '#fbbf24', '#a78bfa', '#fb7185', '#22d3ee', '#f97316'];
 
   const chartConfig = {
     putPremium: {
@@ -159,6 +259,242 @@ export default function PremiumAnalytics() {
             </CardTitle>
           </CardHeader>
         </Card>
+      </div>
+
+      {/* Performance Comparison Cards */}
+      {performanceComparison && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="border-l-4 border-l-primary">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-1">
+                <BarChart3 className="h-3.5 w-3.5" />
+                Month-over-Month
+              </CardDescription>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xl">
+                  ${performanceComparison.thisMonth.toLocaleString()}
+                </CardTitle>
+                {performanceComparison.momChange !== null && (
+                  <Badge 
+                    variant={performanceComparison.momChange >= 0 ? "default" : "destructive"}
+                    className="flex items-center gap-0.5"
+                  >
+                    {performanceComparison.momChange >= 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    {performanceComparison.momChange >= 0 ? '+' : ''}{performanceComparison.momChange.toFixed(1)}%
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                vs ${performanceComparison.lastMonth.toLocaleString()} last month
+              </p>
+            </CardHeader>
+          </Card>
+
+          <Card className="border-l-4 border-l-chart-2">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-1">
+                <BarChart3 className="h-3.5 w-3.5" />
+                Year-over-Year
+              </CardDescription>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xl">
+                  ${performanceComparison.thisMonth.toLocaleString()}
+                </CardTitle>
+                {performanceComparison.yoyChange !== null && (
+                  <Badge 
+                    variant={performanceComparison.yoyChange >= 0 ? "default" : "destructive"}
+                    className="flex items-center gap-0.5"
+                  >
+                    {performanceComparison.yoyChange >= 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    {performanceComparison.yoyChange >= 0 ? '+' : ''}{performanceComparison.yoyChange.toFixed(1)}%
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                vs ${performanceComparison.lastYearMonth.toLocaleString()} same month last year
+              </p>
+            </CardHeader>
+          </Card>
+
+          <Card className="border-l-4 border-l-chart-1">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-1">
+                <TrendingUp className="h-3.5 w-3.5" />
+                YTD Comparison
+              </CardDescription>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xl">
+                  ${performanceComparison.ytdThisYear.toLocaleString()}
+                </CardTitle>
+                {performanceComparison.ytdChange !== null && (
+                  <Badge 
+                    variant={performanceComparison.ytdChange >= 0 ? "default" : "destructive"}
+                    className="flex items-center gap-0.5"
+                  >
+                    {performanceComparison.ytdChange >= 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    {performanceComparison.ytdChange >= 0 ? '+' : ''}{performanceComparison.ytdChange.toFixed(1)}%
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                vs ${performanceComparison.ytdLastYear.toLocaleString()} YTD last year
+              </p>
+            </CardHeader>
+          </Card>
+
+          <Card className="border-l-4 border-l-amber-500">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-1">
+                <Activity className="h-3.5 w-3.5" />
+                Rolling Averages
+              </CardDescription>
+              <CardTitle className="text-xl">
+                ${rollingAverages.avg30.toLocaleString()}
+              </CardTitle>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <p>30-day: ${rollingAverages.avg30.toLocaleString()} (${rollingAverages.dailyAvg30}/day)</p>
+                <p>90-day: ${rollingAverages.avg90.toLocaleString()} (${rollingAverages.dailyAvg90}/day)</p>
+              </div>
+            </CardHeader>
+          </Card>
+        </div>
+      )}
+
+      {/* Distribution Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Put vs Call Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PieChartIcon className="h-5 w-5" />
+              Put vs Call Split
+            </CardTitle>
+            <CardDescription>Distribution of premium by option type</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {typeDistribution.length === 0 ? (
+              <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+                No data available
+              </div>
+            ) : (
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={typeDistribution}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      innerRadius={50}
+                      paddingAngle={2}
+                      animationDuration={800}
+                    >
+                      {typeDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => `$${value.toLocaleString()}`}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            <div className="mt-4 grid grid-cols-2 gap-4 text-center">
+              <div>
+                <p className="text-xs text-muted-foreground">Put %</p>
+                <p className="text-lg font-bold text-chart-1">
+                  {filteredTotals.total > 0 
+                    ? ((filteredTotals.putPremium / filteredTotals.total) * 100).toFixed(1) 
+                    : 0}%
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Call %</p>
+                <p className="text-lg font-bold text-chart-2">
+                  {filteredTotals.total > 0 
+                    ? ((filteredTotals.callPremium / filteredTotals.total) * 100).toFixed(1) 
+                    : 0}%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Symbol Distribution */}
+        {symbolFilter === "all" && symbolDistribution.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <PieChartIcon className="h-5 w-5" />
+                Premium by Symbol
+              </CardTitle>
+              <CardDescription>Top 8 symbols by premium collected</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={symbolDistribution}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      innerRadius={50}
+                      paddingAngle={2}
+                      animationDuration={800}
+                    >
+                      {symbolDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => `$${value.toLocaleString()}`}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-4 grid grid-cols-4 gap-2">
+                {symbolDistribution.slice(0, 4).map((item, idx) => (
+                  <div key={item.name} className="text-center">
+                    <p className="text-xs text-muted-foreground">{item.name}</p>
+                    <p className="text-sm font-medium" style={{ color: PIE_COLORS[idx] }}>
+                      ${(item.value / 1000).toFixed(1)}k
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Bar Chart */}
