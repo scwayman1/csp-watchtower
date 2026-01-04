@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Info, Filter, Star, TrendingUp } from "lucide-react";
+import { Plus, Info, Filter, Star, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+
+type SortColumn = 'roc' | 'delta' | 'premium' | 'strike' | null;
+type SortDirection = 'asc' | 'desc';
 
 interface OptionRow {
   strike: number;
@@ -81,6 +84,31 @@ export const OptionsChain = ({
   const [strikeRange, setStrikeRange] = useState<StrikeRangeOption>('20');
   const [deltaRange, setDeltaRange] = useState<DeltaRangeOption>('all');
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'desc') {
+        setSortDirection('asc');
+      } else {
+        setSortColumn(null);
+        setSortDirection('desc');
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
+
+  const SortIcon = ({ column }: { column: SortColumn }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    return sortDirection === 'desc' 
+      ? <ArrowDown className="h-3 w-3 ml-1" />
+      : <ArrowUp className="h-3 w-3 ml-1" />;
+  };
 
   const applyPreset = (preset: FilterPreset) => {
     setStrikeRange(preset.strikeRange);
@@ -207,16 +235,45 @@ export const OptionsChain = ({
     });
   }, [enhancedOptions]);
 
-  // Find top 3 best value options
-  const bestValueIds = useMemo(() => {
+  // Sort options based on selected column
+  const sortedOptions = useMemo(() => {
+    if (!sortColumn) return optionsWithScore;
+    
+    return [...optionsWithScore].sort((a, b) => {
+      let aVal = 0, bVal = 0;
+      
+      switch (sortColumn) {
+        case 'roc':
+          aVal = a.roc;
+          bVal = b.roc;
+          break;
+        case 'delta':
+          aVal = Math.abs(a.delta ?? 0);
+          bVal = Math.abs(b.delta ?? 0);
+          break;
+        case 'premium':
+          aVal = a.mid;
+          bVal = b.mid;
+          break;
+        case 'strike':
+          aVal = a.strike;
+          bVal = b.strike;
+          break;
+      }
+      
+      return sortDirection === 'desc' ? bVal - aVal : aVal - bVal;
+    });
+  }, [optionsWithScore, sortColumn, sortDirection]);
+
+  // Find top 3 best value options (based on unsorted for consistent ranking)
+  const bestValueStrikes = useMemo(() => {
     if (optionsWithScore.length === 0) return new Set<number>();
     
     const sorted = [...optionsWithScore]
-      .map((opt, idx) => ({ idx, score: opt.valueScore }))
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => b.valueScore - a.valueScore)
       .slice(0, 3);
     
-    return new Set(sorted.map(s => s.idx));
+    return new Set(sorted.map(s => s.strike));
   }, [optionsWithScore]);
 
   if (options.length === 0) {
@@ -327,7 +384,15 @@ export const OptionsChain = ({
                     </TooltipContent>
                   </Tooltip>
                 </TableHead>
-                <TableHead className="text-right">Strike</TableHead>
+                <TableHead className="text-right">
+                  <button 
+                    onClick={() => handleSort('strike')}
+                    className="flex items-center justify-end gap-1 hover:text-foreground transition-colors w-full"
+                  >
+                    Strike
+                    <SortIcon column="strike" />
+                  </button>
+                </TableHead>
                 <TableHead className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     % From Current
@@ -342,17 +407,21 @@ export const OptionsChain = ({
                   </div>
                 </TableHead>
                 <TableHead className="text-right">
-                  <div className="flex items-center justify-end gap-1">
+                  <button 
+                    onClick={() => handleSort('premium')}
+                    className="flex items-center justify-end gap-1 hover:text-foreground transition-colors w-full"
+                  >
                     Bid/Ask/Mid
+                    <SortIcon column="premium" />
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info className="h-3 w-3" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        NBBO quotes; Mid = (Bid + Ask) / 2
+                        NBBO quotes; Mid = (Bid + Ask) / 2. Click to sort by Mid.
                       </TooltipContent>
                     </Tooltip>
-                  </div>
+                  </button>
                 </TableHead>
                 <TableHead className="text-right">
                   <div className="flex items-center justify-end gap-1">
@@ -383,42 +452,50 @@ export const OptionsChain = ({
                 </TableHead>
                 <TableHead className="text-right">Max Profit</TableHead>
                 <TableHead className="text-right">
-                  <div className="flex items-center justify-end gap-1">
+                  <button 
+                    onClick={() => handleSort('roc')}
+                    className="flex items-center justify-end gap-1 hover:text-foreground transition-colors w-full"
+                  >
                     ROC %
+                    <SortIcon column="roc" />
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info className="h-3 w-3" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        Max Profit / Capital Required
+                        Max Profit / Capital Required. Click to sort.
                       </TooltipContent>
                     </Tooltip>
-                  </div>
+                  </button>
                 </TableHead>
                 <TableHead className="text-right">Vol/OI</TableHead>
                 <TableHead className="text-right">IV</TableHead>
                 <TableHead className="text-right">
-                  <div className="flex items-center justify-end gap-1">
+                  <button 
+                    onClick={() => handleSort('delta')}
+                    className="flex items-center justify-end gap-1 hover:text-foreground transition-colors w-full"
+                  >
                     Δ
+                    <SortIcon column="delta" />
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info className="h-3 w-3" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        Delta (assignment probability proxy)
+                        Delta (assignment probability proxy). Click to sort.
                       </TooltipContent>
                     </Tooltip>
-                  </div>
+                  </button>
                 </TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {optionsWithScore.map((option, idx) => {
-                const isBestValue = bestValueIds.has(idx);
-                const isTopPick = [...bestValueIds][0] === idx;
-                
+              {sortedOptions.map((option, idx) => {
+                const isBestValue = bestValueStrikes.has(option.strike);
+                const topPick = [...optionsWithScore].sort((a, b) => b.valueScore - a.valueScore)[0];
+                const isTopPick = topPick && option.strike === topPick.strike;
                 return (
                   <TableRow 
                     key={idx}
