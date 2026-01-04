@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +71,25 @@ const DELTA_RANGE_OPTIONS: { value: DeltaRangeOption; label: string; description
   { value: '0.20-0.40', label: 'Δ 0.20-0.40', description: 'Sweet spot (~20-40%)' },
 ];
 
+const STORAGE_KEY = 'options-chain-filters';
+
+interface StoredFilters {
+  strikeRange: StrikeRangeOption;
+  deltaRange: DeltaRangeOption;
+  activePreset: string | null;
+  sortColumn: SortColumn;
+  sortDirection: SortDirection;
+}
+
+const getStoredFilters = (): Partial<StoredFilters> => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
 export const OptionsChain = ({ 
   underlyingPrice, 
   options, 
@@ -81,11 +100,25 @@ export const OptionsChain = ({
   isStale = false,
   optionType = 'PUT'
 }: OptionsChainProps) => {
-  const [strikeRange, setStrikeRange] = useState<StrikeRangeOption>('20');
-  const [deltaRange, setDeltaRange] = useState<DeltaRangeOption>('all');
-  const [activePreset, setActivePreset] = useState<string | null>(null);
-  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const storedFilters = getStoredFilters();
+  
+  const [strikeRange, setStrikeRange] = useState<StrikeRangeOption>(storedFilters.strikeRange ?? '20');
+  const [deltaRange, setDeltaRange] = useState<DeltaRangeOption>(storedFilters.deltaRange ?? 'all');
+  const [activePreset, setActivePreset] = useState<string | null>(storedFilters.activePreset ?? null);
+  const [sortColumn, setSortColumn] = useState<SortColumn>(storedFilters.sortColumn ?? null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(storedFilters.sortDirection ?? 'desc');
+
+  // Persist filters to localStorage
+  useEffect(() => {
+    const filters: StoredFilters = {
+      strikeRange,
+      deltaRange,
+      activePreset,
+      sortColumn,
+      sortDirection
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+  }, [strikeRange, deltaRange, activePreset, sortColumn, sortDirection]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
