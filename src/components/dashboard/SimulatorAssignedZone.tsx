@@ -16,9 +16,10 @@ interface SimulatorAssignedZoneProps {
     coveredCallPremiums: number;
   })[];
   onSellCall: (position: any) => void;
+  onSellShares: (position: any) => void;
 }
 
-export function SimulatorAssignedZone({ assignedPositions, onSellCall }: SimulatorAssignedZoneProps) {
+export function SimulatorAssignedZone({ assignedPositions, onSellCall, onSellShares }: SimulatorAssignedZoneProps) {
   // Calculate zone metrics
   const metrics = useMemo(() => {
     const totalShares = assignedPositions.reduce((sum, ap) => sum + ap.shares, 0);
@@ -234,6 +235,7 @@ export function SimulatorAssignedZone({ assignedPositions, onSellCall }: Simulat
                     key={ap.id}
                     position={ap}
                     onSellCall={onSellCall}
+                    onSellShares={onSellShares}
                   />
                 ))}
               </TableBody>

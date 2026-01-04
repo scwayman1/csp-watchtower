@@ -27,7 +27,7 @@ interface SimulatorTableProps {
 }
 
 export const SimulatorTable = ({ positions, onClose, onDelete, userId }: SimulatorTableProps) => {
-  const { assignedPositions, assignPosition, sellCoveredCall } = useLearningAssignedPositions(userId);
+  const { assignedPositions, assignPosition, sellCoveredCall, closeAssignedPosition } = useLearningAssignedPositions(userId);
   const { settings, updateSettings } = useSimulatorSettings(userId);
   const { history, recordSnapshot } = useSimulatorPortfolioHistory(userId);
   const { batches: expiredBatches, expiredPositions } = useLearningExpiredPositions(userId);
@@ -180,6 +180,26 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
       event_description: `Sold covered call on ${selectedPosition?.symbol} - Premium: $${premium.toFixed(2)}`,
     });
     setSelectedAssignedPosition(null);
+  };
+
+  const handleSellAssignedShares = async (position: typeof enhancedAssignedPositions[0]) => {
+    const soldPrice = position.currentPrice;
+    if (soldPrice <= 0) return;
+    
+    closeAssignedPosition({ id: position.id, sold_price: soldPrice });
+    
+    // Record snapshot for selling shares
+    const proceeds = soldPrice * position.shares;
+    const capitalGain = proceeds - position.cost_basis;
+    await recordSnapshot({
+      portfolio_value: totalPortfolioValue + capitalGain,
+      cash_balance: availableCapital + proceeds,
+      positions_value: totalCashSecured,
+      assigned_shares_value: totalAssignedValue - position.marketValue,
+      total_premiums_collected: totalPremiums,
+      event_type: 'shares_sold',
+      event_description: `Sold ${position.shares} shares of ${position.symbol} at $${soldPrice.toFixed(2)} - P/L: $${capitalGain.toFixed(2)}`,
+    });
   };
 
   const handleCapitalUpdate = () => {
@@ -467,6 +487,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
       <SimulatorAssignedZone
         assignedPositions={enhancedAssignedPositions}
         onSellCall={(pos) => setSelectedAssignedPosition(pos.id)}
+        onSellShares={handleSellAssignedShares}
       />
 
       {/* Expired Positions (Vintage Cards) */}
