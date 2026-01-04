@@ -4,6 +4,10 @@ import { PremiumAnalysisDialog } from "./PremiumAnalysisDialog";
 import { AssignPositionDialog } from "./AssignPositionDialog";
 import { MatrixTableRow } from "./MatrixTableRow";
 import { useState, createContext, useContext } from "react";
+import type { Position } from "@/hooks/positions/types";
+
+// Re-export for backwards compatibility
+export type { Position } from "@/hooks/positions/types";
 
 interface AnalysisCache {
   [positionId: string]: {
@@ -19,26 +23,6 @@ const AnalysisCacheContext = createContext<{
   cache: {},
   setCache: () => {},
 });
-
-export interface Position {
-  id: string;
-  symbol: string;
-  underlyingName: string;
-  strikePrice: number;
-  underlyingPrice: number;
-  expiration: string;
-  contracts: number;
-  premiumPerContract: number;
-  totalPremium: number;
-  contractValue: number;
-  unrealizedPnL: number;
-  daysToExp: number;
-  pctAboveStrike: number;
-  probAssignment: number;
-  statusBand: "success" | "warning" | "destructive";
-  dayChangePct?: number;
-  intradayPrices?: number[];
-}
 
 interface PositionsTableProps {
   positions: Position[];
