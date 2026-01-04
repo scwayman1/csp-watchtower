@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Info, Filter, Star, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Info, Filter, Star, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw } from "lucide-react";
 
 type SortColumn = 'roc' | 'delta' | 'premium' | 'strike' | null;
 type SortDirection = 'asc' | 'desc';
@@ -119,6 +119,16 @@ export const OptionsChain = ({
   const clearPreset = () => {
     setActivePreset(null);
   };
+
+  const resetAllFilters = () => {
+    setStrikeRange('20');
+    setDeltaRange('all');
+    setActivePreset(null);
+    setSortColumn(null);
+    setSortDirection('desc');
+  };
+
+  const hasActiveFilters = strikeRange !== '20' || deltaRange !== 'all' || activePreset !== null || sortColumn !== null;
   
   const calculateMetrics = (option: OptionRow) => {
     // Safely handle undefined values with defaults
@@ -357,9 +367,29 @@ export const OptionsChain = ({
             </Select>
           </div>
 
-          <span className="text-xs text-muted-foreground ml-auto">
-            Showing {optionsWithScore.length} of {options.length} strikes
-          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            {hasActiveFilters && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={resetAllFilters}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                    Reset All
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Clear all filters and sorting
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <span className="text-xs text-muted-foreground">
+              Showing {optionsWithScore.length} of {options.length} strikes
+            </span>
+          </div>
         </div>
 
         {optionsWithScore.length === 0 ? (
