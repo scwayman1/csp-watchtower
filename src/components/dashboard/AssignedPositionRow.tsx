@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { LearningAssignedPosition, LearningCoveredCall } from "@/hooks/useLearningAssignedPositions";
+import { SellSharesDialog } from "./SellSharesDialog";
 
 interface AssignedPositionRowProps {
   position: LearningAssignedPosition & {
@@ -15,15 +16,20 @@ interface AssignedPositionRowProps {
     coveredCallPremiums: number;
   };
   onSellCall: (position: any) => void;
-  onSellShares: (position: any) => void;
+  onSellShares: (position: any, sharesToSell: number) => void;
 }
 
 export const AssignedPositionRow = ({ position, onSellCall, onSellShares }: AssignedPositionRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [sellDialogOpen, setSellDialogOpen] = useState(false);
   
   const activeCalls = position.covered_calls?.filter(call => call.is_active) || [];
   const sharesUnderCall = activeCalls.reduce((sum, call) => sum + (call.contracts * 100), 0);
   const freeShares = position.shares - sharesUnderCall;
+
+  const handleSellConfirm = (sharesToSell: number) => {
+    onSellShares(position, sharesToSell);
+  };
 
   const getTrendIcon = () => {
     if (!position.dayChangePct) return <Minus className="w-3 h-3 text-muted-foreground" />;
@@ -155,9 +161,15 @@ export const AssignedPositionRow = ({ position, onSellCall, onSellShares }: Assi
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onSellShares(position)}
-              disabled={position.currentPrice <= 0}
-              title={position.currentPrice <= 0 ? "Market price unavailable" : `Sell all shares at $${position.currentPrice.toFixed(2)}`}
+              onClick={() => setSellDialogOpen(true)}
+              disabled={position.currentPrice <= 0 || freeShares <= 0}
+              title={
+                position.currentPrice <= 0 
+                  ? "Market price unavailable" 
+                  : freeShares <= 0 
+                    ? "All shares are under call"
+                    : `Sell shares at $${position.currentPrice.toFixed(2)}`
+              }
             >
               Sell Shares
             </Button>
@@ -172,6 +184,14 @@ export const AssignedPositionRow = ({ position, onSellCall, onSellShares }: Assi
           </div>
         </TableCell>
       </TableRow>
+
+      {/* Sell Shares Dialog */}
+      <SellSharesDialog
+        open={sellDialogOpen}
+        onOpenChange={setSellDialogOpen}
+        position={position}
+        onConfirm={handleSellConfirm}
+      />
       
       {/* Expanded Covered Calls Details */}
       {isExpanded && activeCalls.length > 0 && (

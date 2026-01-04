@@ -156,23 +156,58 @@ export const useLearningAssignedPositions = (userId?: string) => {
   });
 
   const closeAssignedPosition = useMutation({
-    mutationFn: async (data: { id: string; sold_price: number }) => {
-      const { error } = await supabase
+    mutationFn: async (data: { id: string; sold_price: number; shares_to_sell?: number }) => {
+      // Get the current position to check shares
+      const { data: position, error: fetchError } = await supabase
         .from('learning_assigned_positions' as any)
-        .update({
-          is_active: false,
-          sold_price: data.sold_price,
-          closed_at: new Date().toISOString()
-        })
-        .eq('id', data.id);
+        .select('*')
+        .eq('id', data.id)
+        .single();
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
+
+      const currentShares = (position as any).shares;
+      const sharesToSell = data.shares_to_sell || currentShares;
+      const remainingShares = currentShares - sharesToSell;
+
+      if (remainingShares <= 0) {
+        // Close entire position
+        const { error } = await supabase
+          .from('learning_assigned_positions' as any)
+          .update({
+            is_active: false,
+            sold_price: data.sold_price,
+            closed_at: new Date().toISOString()
+          })
+          .eq('id', data.id);
+
+        if (error) throw error;
+      } else {
+        // Partial sale - reduce shares and cost basis proportionally
+        const currentCostBasis = (position as any).cost_basis;
+        const currentPutPremium = (position as any).original_put_premium || 0;
+        const proportionRemaining = remainingShares / currentShares;
+        
+        const { error } = await supabase
+          .from('learning_assigned_positions' as any)
+          .update({
+            shares: remainingShares,
+            cost_basis: currentCostBasis * proportionRemaining,
+            original_put_premium: currentPutPremium * proportionRemaining,
+          })
+          .eq('id', data.id);
+
+        if (error) throw error;
+      }
+      
+      return { sharesToSell, soldPrice: data.sold_price };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['learning-assigned-positions', userId] });
+      queryClient.invalidateQueries({ queryKey: ['learning-assigned-positions-closed', userId] });
       toast({
-        title: "Position closed",
-        description: "Assigned position sold",
+        title: "Shares sold",
+        description: `Sold ${result.sharesToSell} shares at $${result.soldPrice.toFixed(2)}`,
       });
     },
   });
