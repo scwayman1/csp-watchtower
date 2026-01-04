@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Info, Filter } from "lucide-react";
+import { Plus, Info, Filter, Star, TrendingUp } from "lucide-react";
 
 interface OptionRow {
   strike: number;
@@ -179,6 +179,46 @@ export const OptionsChain = ({
     [filteredOptions, underlyingPrice, contracts]
   );
 
+  // Calculate "Best Value" score for each option
+  // High ROC + Low Delta = Best Value (balance of return vs risk)
+  const optionsWithScore = useMemo(() => {
+    if (enhancedOptions.length === 0) return [];
+    
+    // Normalize ROC and delta for scoring
+    const maxRoc = Math.max(...enhancedOptions.map(o => o.roc));
+    const minRoc = Math.min(...enhancedOptions.map(o => o.roc));
+    const rocRange = maxRoc - minRoc || 1;
+    
+    return enhancedOptions.map(opt => {
+      const absDelta = Math.abs(opt.delta ?? 0.5);
+      // ROC score: higher is better (0-1 scale)
+      const rocScore = (opt.roc - minRoc) / rocRange;
+      // Delta score: lower delta is better for safety (invert so lower delta = higher score)
+      const deltaScore = 1 - absDelta;
+      // Combined score: weight ROC at 60%, safety at 40%
+      const valueScore = (rocScore * 0.6) + (deltaScore * 0.4);
+      
+      return {
+        ...opt,
+        valueScore,
+        rocScore,
+        deltaScore
+      };
+    });
+  }, [enhancedOptions]);
+
+  // Find top 3 best value options
+  const bestValueIds = useMemo(() => {
+    if (optionsWithScore.length === 0) return new Set<number>();
+    
+    const sorted = [...optionsWithScore]
+      .map((opt, idx) => ({ idx, score: opt.valueScore }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+    
+    return new Set(sorted.map(s => s.idx));
+  }, [optionsWithScore]);
+
   if (options.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -261,11 +301,11 @@ export const OptionsChain = ({
           </div>
 
           <span className="text-xs text-muted-foreground ml-auto">
-            Showing {enhancedOptions.length} of {options.length} strikes
+            Showing {optionsWithScore.length} of {options.length} strikes
           </span>
         </div>
 
-        {enhancedOptions.length === 0 ? (
+        {optionsWithScore.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             No strikes within selected range. Try expanding the filter.
           </div>
@@ -275,6 +315,18 @@ export const OptionsChain = ({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[50px]">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center justify-center">
+                        <Star className="h-3.5 w-3.5 text-amber-500" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Best value based on ROC vs assignment risk
+                    </TooltipContent>
+                  </Tooltip>
+                </TableHead>
                 <TableHead className="text-right">Strike</TableHead>
                 <TableHead className="text-right">
                   <div className="flex items-center justify-end gap-1">
@@ -363,21 +415,57 @@ export const OptionsChain = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {enhancedOptions.map((option, idx) => (
-                <TableRow 
-                  key={idx}
-                  className={
-                    option.pctFromSpot >= 10 
-                      ? "bg-success/5 hover:bg-success/10" 
-                      : option.pctFromSpot >= 5 
-                      ? "bg-warning/5 hover:bg-warning/10"
-                      : "bg-destructive/5 hover:bg-destructive/10"
-                  }
-                >
-                  <TableCell className="text-right font-medium">
-                    ${(option.strike ?? 0).toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right">
+              {optionsWithScore.map((option, idx) => {
+                const isBestValue = bestValueIds.has(idx);
+                const isTopPick = [...bestValueIds][0] === idx;
+                
+                return (
+                  <TableRow 
+                    key={idx}
+                    className={`
+                      ${isBestValue 
+                        ? "bg-amber-500/10 hover:bg-amber-500/15 ring-1 ring-inset ring-amber-500/30" 
+                        : option.pctFromSpot >= 10 
+                          ? "bg-success/5 hover:bg-success/10" 
+                          : option.pctFromSpot >= 5 
+                          ? "bg-warning/5 hover:bg-warning/10"
+                          : "bg-destructive/5 hover:bg-destructive/10"
+                      }
+                    `}
+                  >
+                    <TableCell className="text-center">
+                      {isBestValue && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className={`flex items-center justify-center gap-0.5 ${isTopPick ? 'text-amber-500' : 'text-amber-400/70'}`}>
+                              {isTopPick ? (
+                                <>
+                                  <Star className="h-4 w-4 fill-amber-500" />
+                                  <TrendingUp className="h-3 w-3" />
+                                </>
+                              ) : (
+                                <Star className="h-4 w-4" />
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[200px]">
+                            <div className="space-y-1">
+                              <p className="font-medium">{isTopPick ? '🏆 Top Pick' : '⭐ Best Value'}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Score: {(option.valueScore * 100).toFixed(0)}%
+                              </p>
+                              <p className="text-xs">
+                                ROC {option.roc.toFixed(1)}% with {(Math.abs(option.delta ?? 0) * 100).toFixed(0)}% assignment risk
+                              </p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      ${(option.strike ?? 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right">
                     <span className={
                       option.pctFromSpot >= 10 
                         ? "text-success" 
@@ -443,7 +531,8 @@ export const OptionsChain = ({
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </div>
