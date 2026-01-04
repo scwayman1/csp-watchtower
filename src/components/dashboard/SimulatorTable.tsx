@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, CheckCircle, TrendingUp, TrendingDown, Minus, DollarSign } from "lucide-react";
+import { X, CheckCircle, TrendingUp, TrendingDown, Minus, DollarSign, ChevronRight } from "lucide-react";
 import { LearningPosition } from "@/hooks/useLearningPositions";
 import { useLearningAssignedPositions } from "@/hooks/useLearningAssignedPositions";
 import { useLearningMarketData } from "@/hooks/useLearningMarketData";
@@ -18,6 +18,9 @@ import { SimulatorPerformanceChart } from "./SimulatorPerformanceChart";
 import { SimulatorMetrics } from "./SimulatorMetrics";
 import { LearningExpiredBatches } from "./LearningExpiredBatches";
 import { SimulatorAssignedZone } from "./SimulatorAssignedZone";
+import { MetricBreakdownDialog } from "./MetricBreakdownDialog";
+
+type BreakdownType = 'portfolio' | 'premiums' | 'capitalGains' | 'availableCash' | null;
 
 interface SimulatorTableProps {
   positions: LearningPosition[];
@@ -33,6 +36,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
   const { batches: expiredBatches, expiredPositions } = useLearningExpiredPositions(userId);
   const [capital, setCapital] = useState(settings?.starting_capital?.toString() || "100000");
   const [selectedAssignedPosition, setSelectedAssignedPosition] = useState<string | null>(null);
+  const [breakdownOpen, setBreakdownOpen] = useState<BreakdownType>(null);
 
   // Auto-process expired covered calls to free up shares
   useLearningCallExpiration(userId, assignedPositions);
@@ -363,7 +367,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
         </CardContent>
       </Card>
 
-      {/* Portfolio Summary */}
+      {/* Portfolio Summary - Clickable Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-6">
@@ -371,35 +375,122 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
             <p className="text-2xl font-bold">${parseFloat(capital).toLocaleString('en-US', { minimumFractionDigits: 0 })}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className="cursor-pointer hover:bg-accent/50 transition-colors group"
+          onClick={() => setBreakdownOpen('portfolio')}
+        >
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Portfolio Value</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">Portfolio Value</p>
+              <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
             <p className="text-2xl font-bold">${totalPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className="cursor-pointer hover:bg-accent/50 transition-colors group"
+          onClick={() => setBreakdownOpen('premiums')}
+        >
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Total Premiums</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">Total Premiums</p>
+              <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
             <p className="text-2xl font-bold text-success">${totalPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className="cursor-pointer hover:bg-accent/50 transition-colors group"
+          onClick={() => setBreakdownOpen('capitalGains')}
+        >
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Capital Gains</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">Capital Gains</p>
+              <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
             <p className={`text-2xl font-bold ${totalCapitalGains >= 0 ? 'text-success' : 'text-destructive'}`}>
               {totalCapitalGains >= 0 ? '+' : ''}${totalCapitalGains.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className="cursor-pointer hover:bg-accent/50 transition-colors group"
+          onClick={() => setBreakdownOpen('availableCash')}
+        >
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Available Cash</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">Available Cash</p>
+              <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
             <p className={`text-2xl font-bold ${availableCapital >= 0 ? 'text-success' : 'text-destructive'}`}>
               ${availableCapital.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Metric Breakdown Dialogs */}
+      <MetricBreakdownDialog
+        open={breakdownOpen === 'portfolio'}
+        onOpenChange={(open) => !open && setBreakdownOpen(null)}
+        title="Portfolio Value Breakdown"
+        description="Your total portfolio value combines your starting capital with all realized gains."
+        formula="Starting Capital + Total Premiums + Capital Gains"
+        items={[
+          { label: 'Starting Capital', value: parseFloat(capital) || 0 },
+          { label: 'Total Premiums Collected', value: totalPremiums, type: 'add' },
+          { label: 'Capital Gains (Stock Sales)', value: totalCapitalGains, type: 'add' },
+          { label: 'Portfolio Value', value: totalPortfolioValue, type: 'result' },
+        ]}
+      />
+
+      <MetricBreakdownDialog
+        open={breakdownOpen === 'premiums'}
+        onOpenChange={(open) => !open && setBreakdownOpen(null)}
+        title="Total Premiums Breakdown"
+        description="All premium income collected from selling options."
+        items={[
+          { label: 'Active Put Premiums', value: totalPutPremiums },
+          { label: 'Expired Put Premiums', value: totalExpiredPremiums, type: 'add' },
+          { label: 'Assigned Position Premiums', value: totalAssignedPutPremiums, type: 'add' },
+          { label: 'Covered Call Premiums', value: totalCallPremiums, type: 'add' },
+          { label: 'Total Premiums', value: totalPremiums, type: 'result' },
+        ]}
+      />
+
+      <MetricBreakdownDialog
+        open={breakdownOpen === 'capitalGains'}
+        onOpenChange={(open) => !open && setBreakdownOpen(null)}
+        title="Capital Gains Breakdown"
+        description="Realized gains or losses from selling assigned shares."
+        items={closedPositions.length > 0 ? [
+          ...closedPositions.map(cp => ({
+            label: `${cp.symbol} (${cp.shares} shares @ $${cp.sold_price?.toFixed(2)})`,
+            value: cp.sold_price && cp.shares ? (cp.sold_price * cp.shares) - cp.cost_basis : 0,
+            indent: true,
+          })),
+          { label: 'Total Capital Gains', value: totalCapitalGains, type: 'result' as const },
+        ] : [
+          { label: 'No positions sold yet', value: 0 },
+          { label: 'Total Capital Gains', value: 0, type: 'result' as const },
+        ]}
+      />
+
+      <MetricBreakdownDialog
+        open={breakdownOpen === 'availableCash'}
+        onOpenChange={(open) => !open && setBreakdownOpen(null)}
+        title="Available Cash Breakdown"
+        description="Cash available for new trades after accounting for capital tied up in positions."
+        formula="Starting Capital − Cash Secured − Assigned Cost Basis + Premiums + Sale Proceeds"
+        items={[
+          { label: 'Starting Capital', value: parseFloat(capital) || 0 },
+          { label: 'Cash Secured (Active Puts)', value: totalCashSecured, type: 'subtract' },
+          { label: 'Assigned Shares Cost Basis', value: totalAssignedCostBasis, type: 'subtract' },
+          { label: 'Total Premiums Collected', value: totalPremiums, type: 'add' },
+          { label: 'Sale Proceeds (Shares Sold)', value: totalSaleProceeds, type: 'add' },
+          { label: 'Available Cash', value: availableCapital, type: 'result' },
+        ]}
+      />
 
       {/* Active Put Positions */}
       {positions.length > 0 && (
