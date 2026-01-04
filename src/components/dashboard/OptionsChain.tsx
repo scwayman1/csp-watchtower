@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Info } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Info, Filter } from "lucide-react";
 
 interface OptionRow {
   strike: number;
@@ -29,6 +30,17 @@ interface OptionsChainProps {
   optionType?: 'PUT' | 'CALL';
 }
 
+type StrikeRangeOption = '5' | '10' | '15' | '20' | '30' | 'all';
+
+const STRIKE_RANGE_OPTIONS: { value: StrikeRangeOption; label: string }[] = [
+  { value: '5', label: '±5% from current' },
+  { value: '10', label: '±10% from current' },
+  { value: '15', label: '±15% from current' },
+  { value: '20', label: '±20% from current' },
+  { value: '30', label: '±30% from current' },
+  { value: 'all', label: 'Show all strikes' },
+];
+
 export const OptionsChain = ({ 
   underlyingPrice, 
   options, 
@@ -39,6 +51,7 @@ export const OptionsChain = ({
   isStale = false,
   optionType = 'PUT'
 }: OptionsChainProps) => {
+  const [strikeRange, setStrikeRange] = useState<StrikeRangeOption>('20');
   
   const calculateMetrics = (option: OptionRow) => {
     // Safely handle undefined values with defaults
@@ -95,12 +108,23 @@ export const OptionsChain = ({
     };
   };
 
+  // Filter options based on strike range
+  const filteredOptions = useMemo(() => {
+    if (strikeRange === 'all') return options;
+    
+    const rangePercent = parseInt(strikeRange) / 100;
+    const minStrike = underlyingPrice * (1 - rangePercent);
+    const maxStrike = underlyingPrice * (1 + rangePercent);
+    
+    return options.filter(opt => opt.strike >= minStrike && opt.strike <= maxStrike);
+  }, [options, underlyingPrice, strikeRange]);
+
   const enhancedOptions = useMemo(() => 
-    options.map(opt => ({
+    filteredOptions.map(opt => ({
       ...opt,
       ...calculateMetrics(opt)
     })),
-    [options, underlyingPrice, contracts]
+    [filteredOptions, underlyingPrice, contracts]
   );
 
   if (options.length === 0) {
@@ -113,7 +137,34 @@ export const OptionsChain = ({
 
   return (
     <TooltipProvider>
-      <div className="rounded-md border">
+      <div className="space-y-4">
+        {/* Strike Range Filter */}
+        <div className="flex items-center gap-3 px-1">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Strike Range:</span>
+          <Select value={strikeRange} onValueChange={(v) => setStrikeRange(v as StrikeRangeOption)}>
+            <SelectTrigger className="w-[180px] h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STRIKE_RANGE_OPTIONS.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-xs text-muted-foreground">
+            Showing {enhancedOptions.length} of {options.length} strikes
+          </span>
+        </div>
+
+        {enhancedOptions.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No strikes within selected range. Try expanding the filter.
+          </div>
+        ) : (
+        <div className="rounded-md border">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -290,6 +341,8 @@ export const OptionsChain = ({
             </TableBody>
           </Table>
         </div>
+        </div>
+        )}
       </div>
     </TooltipProvider>
   );
