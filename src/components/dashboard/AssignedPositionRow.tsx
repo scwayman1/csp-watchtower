@@ -15,9 +15,10 @@ interface AssignedPositionRowProps {
     coveredCallPremiums: number;
   };
   onSellCall: (position: any) => void;
+  onSellShares: (position: any) => void;
 }
 
-export const AssignedPositionRow = ({ position, onSellCall }: AssignedPositionRowProps) => {
+export const AssignedPositionRow = ({ position, onSellCall, onSellShares }: AssignedPositionRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
   const activeCalls = position.covered_calls?.filter(call => call.is_active) || [];
@@ -150,14 +151,25 @@ export const AssignedPositionRow = ({ position, onSellCall }: AssignedPositionRo
           </span>
         </TableCell>
         <TableCell className="text-right">
-          <Button
-            size="sm"
-            onClick={() => onSellCall(position)}
-            disabled={freeShares < 100}
-            title={freeShares < 100 ? "All shares are under call" : "Sell covered call"}
-          >
-            Sell Call
-          </Button>
+          <div className="flex items-center gap-2 justify-end">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onSellShares(position)}
+              disabled={position.currentPrice <= 0}
+              title={position.currentPrice <= 0 ? "Market price unavailable" : `Sell all shares at $${position.currentPrice.toFixed(2)}`}
+            >
+              Sell Shares
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => onSellCall(position)}
+              disabled={freeShares < 100}
+              title={freeShares < 100 ? "All shares are under call" : "Sell covered call"}
+            >
+              Sell Call
+            </Button>
+          </div>
         </TableCell>
       </TableRow>
       
