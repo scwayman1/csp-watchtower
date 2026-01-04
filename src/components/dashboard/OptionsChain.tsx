@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Info, Filter, Star, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, Info, Filter, Star, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Pin, PinOff, X, GitCompare } from "lucide-react";
 
 type SortColumn = 'roc' | 'delta' | 'premium' | 'strike' | null;
 type SortDirection = 'asc' | 'desc';
@@ -20,6 +21,22 @@ interface OptionRow {
   delta?: number;
   inTheMoney: boolean;
   lastPrice: number;
+}
+
+interface EnhancedOption extends OptionRow {
+  credit: number;
+  breakeven: number;
+  totalPremium: number;
+  capitalReq: number;
+  maxProfit: number;
+  roc: number;
+  pctFromSpot: number;
+  probAssign: number;
+  status: string;
+  statusVariant: 'default' | 'secondary' | 'destructive';
+  valueScore: number;
+  rocScore: number;
+  deltaScore: number;
 }
 
 interface OptionsChainProps {
@@ -107,6 +124,8 @@ export const OptionsChain = ({
   const [activePreset, setActivePreset] = useState<string | null>(storedFilters.activePreset ?? null);
   const [sortColumn, setSortColumn] = useState<SortColumn>(storedFilters.sortColumn ?? null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(storedFilters.sortDirection ?? 'desc');
+  const [pinnedOptions, setPinnedOptions] = useState<EnhancedOption[]>([]);
+  const [showComparison, setShowComparison] = useState(false);
 
   // Persist filters to localStorage
   useEffect(() => {
@@ -162,6 +181,28 @@ export const OptionsChain = ({
   };
 
   const hasActiveFilters = strikeRange !== '20' || deltaRange !== 'all' || activePreset !== null || sortColumn !== null;
+
+  const togglePinOption = useCallback((option: EnhancedOption) => {
+    setPinnedOptions(prev => {
+      const isAlreadyPinned = prev.some(p => p.strike === option.strike);
+      if (isAlreadyPinned) {
+        return prev.filter(p => p.strike !== option.strike);
+      }
+      if (prev.length >= 4) {
+        return prev; // Max 4 pinned options
+      }
+      return [...prev, option];
+    });
+  }, []);
+
+  const clearPinnedOptions = useCallback(() => {
+    setPinnedOptions([]);
+    setShowComparison(false);
+  }, []);
+
+  const isOptionPinned = useCallback((strike: number) => {
+    return pinnedOptions.some(p => p.strike === strike);
+  }, [pinnedOptions]);
   
   const calculateMetrics = (option: OptionRow) => {
     // Safely handle undefined values with defaults
@@ -422,8 +463,98 @@ export const OptionsChain = ({
             <span className="text-xs text-muted-foreground">
               Showing {optionsWithScore.length} of {options.length} strikes
             </span>
+            {pinnedOptions.length > 0 && (
+              <Button
+                variant={showComparison ? "default" : "outline"}
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => setShowComparison(!showComparison)}
+              >
+                <GitCompare className="h-3.5 w-3.5 mr-1" />
+                Compare ({pinnedOptions.length})
+              </Button>
+            )}
           </div>
         </div>
+
+        {/* Comparison Panel */}
+        {showComparison && pinnedOptions.length > 0 && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <GitCompare className="h-4 w-4" />
+                  Comparing {pinnedOptions.length} Options
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={clearPinnedOptions} className="h-7 text-xs">
+                  <X className="h-3 w-3 mr-1" />
+                  Clear All
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                {pinnedOptions.map((option, idx) => (
+                  <div 
+                    key={option.strike} 
+                    className="relative p-3 rounded-lg border bg-background/80 space-y-2"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                      onClick={() => togglePinOption(option)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">#{idx + 1}</Badge>
+                      <span className="font-bold text-lg">${option.strike.toFixed(2)}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                      <div className="text-muted-foreground">ROC</div>
+                      <div className="font-medium text-right">{option.roc.toFixed(2)}%</div>
+                      <div className="text-muted-foreground">Premium</div>
+                      <div className="font-medium text-right">${option.totalPremium.toFixed(2)}</div>
+                      <div className="text-muted-foreground">Delta</div>
+                      <div className="font-medium text-right">{option.delta?.toFixed(2) ?? 'N/A'}</div>
+                      <div className="text-muted-foreground">% From Current</div>
+                      <div className={`font-medium text-right ${option.pctFromSpot >= 10 ? 'text-success' : option.pctFromSpot >= 5 ? 'text-warning' : 'text-destructive'}`}>
+                        {option.pctFromSpot >= 0 ? '+' : ''}{option.pctFromSpot.toFixed(1)}%
+                      </div>
+                      <div className="text-muted-foreground">Break-Even</div>
+                      <div className="font-medium text-right">${option.breakeven.toFixed(2)}</div>
+                      <div className="text-muted-foreground">Capital Req</div>
+                      <div className="font-medium text-right">${option.capitalReq.toFixed(2)}</div>
+                    </div>
+                    <div className="pt-1">
+                      <Badge variant={option.statusVariant} className="w-full justify-center">
+                        {option.status}
+                      </Badge>
+                    </div>
+                    {onAddToSimulator && (
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => onAddToSimulator({
+                          symbol,
+                          strike_price: option.strike,
+                          expiration,
+                          contracts,
+                          premium_per_contract: option.mid,
+                          notes: `ROC: ${option.roc.toFixed(2)}%, Δ: ${option.delta?.toFixed(2) || 'N/A'}`
+                        })}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add to Simulator
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {optionsWithScore.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
@@ -551,6 +682,18 @@ export const OptionsChain = ({
                   </button>
                 </TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-[50px]">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center justify-center">
+                        <Pin className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Pin options to compare side-by-side
+                    </TooltipContent>
+                  </Tooltip>
+                </TableHead>
                 <TableHead>Action</TableHead>
               </TableRow>
             </TableHeader>
@@ -649,6 +792,32 @@ export const OptionsChain = ({
                     <Badge variant={option.statusVariant}>
                       {option.status}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`h-7 w-7 p-0 ${isOptionPinned(option.strike) ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                          onClick={() => togglePinOption(option)}
+                          disabled={!isOptionPinned(option.strike) && pinnedOptions.length >= 4}
+                        >
+                          {isOptionPinned(option.strike) ? (
+                            <PinOff className="h-4 w-4" />
+                          ) : (
+                            <Pin className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isOptionPinned(option.strike) 
+                          ? 'Unpin from comparison' 
+                          : pinnedOptions.length >= 4 
+                            ? 'Max 4 options' 
+                            : 'Pin to compare'}
+                      </TooltipContent>
+                    </Tooltip>
                   </TableCell>
                   <TableCell>
                     {onAddToSimulator ? (
