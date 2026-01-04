@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
+
+// Mock the subscription hook to prevent realtime setup
+vi.mock('../learningPositions/useLearningPositionsSubscriptions', () => ({
+  useLearningPositionsSubscriptions: vi.fn(),
+}));
 
 // Mock supabase client
 vi.mock('@/integrations/supabase/client', () => ({
