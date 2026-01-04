@@ -4,7 +4,7 @@ import { usePremiumAudit } from "@/hooks/usePremiumAudit";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend, PieChart, Pie, Cell, Tooltip } from "recharts";
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { format, parseISO, startOfMonth, subMonths, subDays, isAfter, startOfYear, getYear } from "date-fns";
 import { DollarSign, TrendingUp, TrendingDown, ArrowLeft, PieChartIcon, BarChart3, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ interface MonthlyData {
   putPremium: number;
   callPremium: number;
   total: number;
+  cumulative: number;
 }
 
 export default function PremiumAnalytics() {
@@ -60,15 +61,23 @@ export default function PremiumAnalytics() {
     });
 
     // Convert to array and sort by date
-    const result: MonthlyData[] = Array.from(monthMap.entries())
+    const sorted = Array.from(monthMap.entries())
       .map(([monthKey, data]) => ({
         month: format(parseISO(monthKey + "-01"), "MMM yyyy"),
         monthKey,
         putPremium: Math.round(data.putPremium),
         callPremium: Math.round(data.callPremium),
         total: Math.round(data.putPremium + data.callPremium),
+        cumulative: 0,
       }))
       .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+
+    // Calculate cumulative totals
+    let runningTotal = 0;
+    const result: MonthlyData[] = sorted.map(item => {
+      runningTotal += item.total;
+      return { ...item, cumulative: runningTotal };
+    });
 
     return result;
   }, [breakdown?.auditRecords, symbolFilter]);
@@ -194,6 +203,10 @@ export default function PremiumAnalytics() {
     callPremium: {
       label: "Call Premium", 
       color: "hsl(var(--chart-2))",
+    },
+    cumulative: {
+      label: "Cumulative",
+      color: "hsl(var(--chart-3))",
     },
   };
 
@@ -516,7 +529,7 @@ export default function PremiumAnalytics() {
           ) : (
             <ChartContainer config={chartConfig} className="h-[400px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <ComposedChart data={monthlyData} margin={{ top: 20, right: 60, left: 20, bottom: 5 }}>
                   <defs>
                     <linearGradient id="putGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#f472b6" stopOpacity={1} />
@@ -528,8 +541,15 @@ export default function PremiumAnalytics() {
                       <stop offset="50%" stopColor="#10b981" stopOpacity={0.9} />
                       <stop offset="100%" stopColor="#059669" stopOpacity={0.8} />
                     </linearGradient>
+                    <linearGradient id="cumulativeGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#60a5fa" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={1} />
+                    </linearGradient>
                     <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
                       <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3" />
+                    </filter>
+                    <filter id="lineShadow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#3b82f6" floodOpacity="0.4" />
                     </filter>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted/50" vertical={false} />
@@ -541,7 +561,17 @@ export default function PremiumAnalytics() {
                     tickLine={false}
                   />
                   <YAxis 
+                    yAxisId="left"
                     tickFormatter={(value) => `$${value.toLocaleString()}`}
+                    tick={{ fontSize: 12 }}
+                    className="fill-muted-foreground"
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
                     tick={{ fontSize: 12 }}
                     className="fill-muted-foreground"
                     axisLine={false}
@@ -557,6 +587,7 @@ export default function PremiumAnalytics() {
                     iconType="circle"
                   />
                   <Bar 
+                    yAxisId="left"
                     dataKey="putPremium" 
                     name="Put Premium" 
                     fill="url(#putGradient)" 
@@ -566,6 +597,7 @@ export default function PremiumAnalytics() {
                     animationEasing="ease-out"
                   />
                   <Bar 
+                    yAxisId="left"
                     dataKey="callPremium" 
                     name="Call Premium" 
                     fill="url(#callGradient)" 
@@ -575,7 +607,21 @@ export default function PremiumAnalytics() {
                     animationEasing="ease-out"
                     animationBegin={200}
                   />
-                </BarChart>
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="cumulative"
+                    name="Cumulative Total"
+                    stroke="url(#cumulativeGradient)"
+                    strokeWidth={3}
+                    dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4, stroke: '#fff' }}
+                    activeDot={{ r: 6, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }}
+                    filter="url(#lineShadow)"
+                    animationDuration={1000}
+                    animationEasing="ease-out"
+                    animationBegin={400}
+                  />
+                </ComposedChart>
               </ResponsiveContainer>
             </ChartContainer>
           )}
