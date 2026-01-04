@@ -27,7 +27,7 @@ interface SimulatorTableProps {
 }
 
 export const SimulatorTable = ({ positions, onClose, onDelete, userId }: SimulatorTableProps) => {
-  const { assignedPositions, assignPosition, sellCoveredCall, closeAssignedPosition } = useLearningAssignedPositions(userId);
+  const { assignedPositions, closedPositions, assignPosition, sellCoveredCall, closeAssignedPosition } = useLearningAssignedPositions(userId);
   const { settings, updateSettings } = useSimulatorSettings(userId);
   const { history, recordSnapshot } = useSimulatorPortfolioHistory(userId);
   const { batches: expiredBatches, expiredPositions } = useLearningExpiredPositions(userId);
@@ -118,14 +118,27 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
   const totalAssignedValue = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.marketValue, 0);
   const totalAssignedCostBasis = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.cost_basis, 0);
   const totalCallPremiums = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.coveredCallPremiums, 0);
+  const totalAssignedPutPremiums = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.original_put_premium, 0);
   const totalAssignedPnL = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.unrealizedPnL, 0);
 
   // Include expired positions premium in totals
   const totalExpiredPremiums = expiredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
 
-  const totalPremiums = totalPutPremiums + totalCallPremiums + totalExpiredPremiums;
-  const availableCapital = (parseFloat(capital) || 0) - totalCashSecured - totalAssignedCostBasis + totalPremiums;
-  const totalPortfolioValue = parseFloat(capital) + totalPremiums;
+  // Total premiums collected across all sources
+  const totalPremiums = totalPutPremiums + totalCallPremiums + totalExpiredPremiums + totalAssignedPutPremiums;
+  
+  // Capital gains from sold assigned positions (shares sold - cost basis)
+  const totalCapitalGains = closedPositions.reduce((sum, cp) => {
+    if (cp.sold_price && cp.shares) {
+      const proceeds = cp.sold_price * cp.shares;
+      return sum + (proceeds - cp.cost_basis);
+    }
+    return sum;
+  }, 0);
+  
+  // Available Capital = Starting Capital - Cash Secured - Assigned Cost Basis + All Premiums + Realized Gains
+  const availableCapital = (parseFloat(capital) || 0) - totalCashSecured - totalAssignedCostBasis + totalPremiums + totalCapitalGains;
+  const totalPortfolioValue = parseFloat(capital) + totalPremiums + totalCapitalGains;
 
   const handleAssign = async (position: any) => {
     assignPosition({
@@ -343,7 +356,7 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
       </Card>
 
       {/* Portfolio Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Total Capital</p>
@@ -360,6 +373,14 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Total Premiums</p>
             <p className="text-2xl font-bold text-success">${totalPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">Capital Gains</p>
+            <p className={`text-2xl font-bold ${totalCapitalGains >= 0 ? 'text-success' : 'text-destructive'}`}>
+              {totalCapitalGains >= 0 ? '+' : ''}${totalCapitalGains.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            </p>
           </CardContent>
         </Card>
         <Card>

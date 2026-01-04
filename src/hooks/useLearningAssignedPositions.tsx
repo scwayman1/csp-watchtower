@@ -59,6 +59,26 @@ export const useLearningAssignedPositions = (userId?: string) => {
     enabled: !!userId,
   });
 
+  // Fetch closed/sold positions for capital gains calculation
+  const { data: closedPositions = [] } = useQuery({
+    queryKey: ['learning-assigned-positions-closed', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      
+      const { data, error } = await supabase
+        .from('learning_assigned_positions' as any)
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_active', false)
+        .not('sold_price', 'is', null)
+        .order('closed_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as unknown as LearningAssignedPosition[];
+    },
+    enabled: !!userId,
+  });
+
   const assignPosition = useMutation({
     mutationFn: async (data: {
       symbol: string;
@@ -159,6 +179,7 @@ export const useLearningAssignedPositions = (userId?: string) => {
 
   return {
     assignedPositions,
+    closedPositions,
     isLoading,
     assignPosition: assignPosition.mutate,
     sellCoveredCall: sellCoveredCall.mutate,
