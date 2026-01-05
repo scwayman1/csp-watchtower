@@ -339,7 +339,7 @@ export default function ClientsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate(`/advisor?client=${client.id}`)}
+                          onClick={() => navigate(`/advisor/clients/${client.id}`)}
                         >
                           <Eye className="h-4 w-4 mr-1" />
                           View
