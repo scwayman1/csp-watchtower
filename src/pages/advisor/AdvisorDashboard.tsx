@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, TrendingUp, DollarSign, Activity } from "lucide-react";
-import { ProfileViewer } from "@/components/advisor/ProfileViewer";
 import { ClientFilter } from "@/components/advisor/ClientFilter";
 import { FirstTimeUserGuide } from "@/components/onboarding/FirstTimeUserGuide";
 import { AdvisorSetupChecklist } from "@/components/onboarding/AdvisorSetupChecklist";
@@ -237,8 +236,6 @@ export default function AdvisorDashboard() {
           </div>
         </CardContent>
       </Card>
-
-      <ProfileViewer />
 
       {/* First-time advisor guide */}
       {showGuide && (
