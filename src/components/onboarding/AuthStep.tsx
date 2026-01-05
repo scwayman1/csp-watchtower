@@ -29,6 +29,23 @@ export function AuthStep({
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Call repair endpoint to ensure user data is complete
+  const repairUserData = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await supabase.functions.invoke('repair-user-data', {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('User data repair check failed:', error);
+      // Non-fatal - continue with login
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -44,9 +61,20 @@ export function AuthStep({
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          // Handle specific signup errors
+          if (error.message.includes('already registered')) {
+            toast.error("This email is already registered. Try signing in instead.");
+            onModeChange("login");
+            return;
+          }
+          throw error;
+        }
         
         if (data.user) {
+          // Give the trigger a moment to run, then verify/repair data
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await repairUserData();
           toast.success("Account created successfully!");
           onSuccess(data.user.id);
         }
@@ -56,16 +84,29 @@ export function AuthStep({
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          // Handle specific login errors with friendly messages
+          if (error.message.includes('Invalid login credentials')) {
+            toast.error("Invalid email or password. Please try again.");
+            return;
+          }
+          if (error.message.includes('Email not confirmed')) {
+            toast.error("Please check your email to confirm your account.");
+            return;
+          }
+          throw error;
+        }
         
         if (data.user) {
+          // Repair any missing user data on login
+          await repairUserData();
           toast.success("Welcome back!");
           onSuccess(data.user.id);
         }
       }
     } catch (error: any) {
       console.error("Auth error:", error);
-      toast.error(error.message || "Authentication failed");
+      toast.error(error.message || "Authentication failed. Please try again.");
     } finally {
       setLoading(false);
     }

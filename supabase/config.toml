@@ -3,6 +3,9 @@ project_id = "jjalbfuofnznouwgtxql"
 [functions.analyze-premium]
 verify_jwt = true
 
+[functions.bootstrap-admin]
+verify_jwt = false
+
 [functions.calculate-metrics]
 verify_jwt = true
 
@@ -22,6 +25,9 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.reconcile-statement]
+verify_jwt = true
+
+[functions.repair-user-data]
 verify_jwt = true
 
 [functions.send-client-invite]
