@@ -214,7 +214,7 @@ export default function AdvisorDashboard() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button 
-              onClick={() => navigate('/advisor/cycle-sheet')}
+              onClick={() => navigate('/advisor/cyclesheet')}
               className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left"
             >
               <h3 className="font-semibold mb-1">Create New Cycle</h3>
@@ -228,7 +228,7 @@ export default function AdvisorDashboard() {
               <p className="text-sm text-muted-foreground">Onboard a new client</p>
             </button>
             <button 
-              onClick={() => navigate('/advisor/cycle-sheet')}
+              onClick={() => navigate('/advisor/cyclesheet')}
               className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left"
             >
               <h3 className="font-semibold mb-1">Upload CycleSheet</h3>
