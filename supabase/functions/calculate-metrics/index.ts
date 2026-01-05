@@ -114,20 +114,36 @@ serve(async (req) => {
       statusBand = 'destructive';
     }
 
-    // Calculate contract value
+    const totalPremium = position.premium_per_contract * 100 * position.contracts;
+    
+    // Calculate contract value (what it would cost to buy back the option now)
     let contractValue: number;
     if (markPrice && markPrice > 0) {
+      // Use real market data if available
       contractValue = markPrice * 100 * position.contracts;
     } else {
-      // Fallback to Black-Scholes
+      // Fallback: For newly opened positions without market data, estimate based on 
+      // the relationship between underlying price and strike price
+      // If underlying is above strike (OTM for puts), option value decreases
+      // If underlying is below strike (ITM for puts), option value increases
       const T = daysToExp / 365;
-      const r = 0.05; // Risk-free rate assumption
-      const sigma = settings.volatility_sensitivity * 2; // Convert to implied volatility estimate
-      const bsPrice = blackScholesPut(underlyingPrice, position.strike_price, T, r, sigma);
-      contractValue = bsPrice * 100 * position.contracts;
+      
+      if (T > 0) {
+        // Use a more realistic implied volatility estimate (30% is market average)
+        const r = 0.05;
+        const sigma = 0.30; // 30% IV is a reasonable market average
+        const bsPrice = blackScholesPut(underlyingPrice, position.strike_price, T, r, sigma);
+        contractValue = bsPrice * 100 * position.contracts;
+      } else {
+        // At expiration, intrinsic value only
+        const intrinsicValue = Math.max(0, position.strike_price - underlyingPrice);
+        contractValue = intrinsicValue * 100 * position.contracts;
+      }
     }
 
-    const totalPremium = position.premium_per_contract * 100 * position.contracts;
+    // Unrealized P/L = Premium received - Current value to close - Fees
+    // Positive = profit (option worth less than premium received)
+    // Negative = loss (option worth more than premium received)
     const unrealizedPnL = totalPremium - contractValue - (position.open_fees || 0);
 
     // Calculate probability of assignment based on user's selected model
