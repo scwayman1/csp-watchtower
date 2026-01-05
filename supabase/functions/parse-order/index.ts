@@ -25,36 +25,76 @@ serve(async (req) => {
     const positions = [];
     const calls = [];
     
+    // Format 0: Broker activity format (multi-line blocks)
+    // Example:
+    // CALL (AMZN) AMAZON.COM INC JAN 30 26 $245 (100 SHS)
+    // Sell
+    // 1/5/2026
+    // Shares: -2
+    // Price: $2.20
+    // -$439.95
+    const brokerActivityPattern = /(PUT|CALL)\s+\(([A-Z]+)\)[^\n]+([A-Z]{3})\s+(\d{1,2})\s+(\d{2})\s+\$(\d+(?:\.\d+)?)[^\n]*\n[^\n]*\n[^\n]*\nShares:\s*-?(\d+)\nPrice:\s*\$(\d+(?:\.\d+)?)/gi;
+    
+    let brokerMatch;
+    while ((brokerMatch = brokerActivityPattern.exec(orderText)) !== null) {
+      const [, optionType, symbol, monthStr, day, year, strike, contracts, premium] = brokerMatch;
+      
+      // Convert month name to number
+      const monthMap: Record<string, string> = {
+        'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
+        'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
+        'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+      };
+      const month = monthMap[monthStr.toUpperCase()] || '01';
+      const fullYear = '20' + year;
+      
+      const parsedOption = {
+        symbol: symbol.toUpperCase(),
+        strike,
+        exp: `${fullYear}-${month}-${day.padStart(2, '0')}`,
+        premium,
+        contracts,
+      };
+      
+      if (optionType.toUpperCase() === 'PUT') {
+        positions.push(parsedOption);
+      } else {
+        calls.push(parsedOption);
+      }
+    }
+    
     // Format 1: Portfolio format (multi-line, possibly multiple positions)
     // Supports both PUTs and CALLs
     // Example PUT: UBER251128P87
     // Example CALL: UBER251128C87
     // Split by position blocks (each starts with a symbol pattern for PUT or CALL)
-    const portfolioBlocks = orderText.split(/(?=^[A-Z]+\d{6}[PC]\d+)/gm).filter(b => b.trim());
-    
-    for (const block of portfolioBlocks) {
-      // Match both PUT and CALL
-      const portfolioMatch = block.match(/^([A-Z]+)(\d{6})([PC])(\d+(?:\.\d+)?)\s*\n.*?\n\$?([\d.]+)\s*\n-?([\d.]+)/m);
-      if (portfolioMatch) {
-        const [, symbol, dateStr, optionType, strike, premium, contracts] = portfolioMatch;
-        
-        // Parse date: YYMMDD format
-        const year = '20' + dateStr.substring(0, 2);
-        const month = dateStr.substring(2, 4);
-        const day = dateStr.substring(4, 6);
-        
-        const parsedOption = {
-          symbol,
-          strike,
-          exp: `${year}-${month}-${day}`,
-          premium,
-          contracts: Math.abs(parseFloat(contracts)).toString(),
-        };
-        
-        if (optionType === 'P') {
-          positions.push(parsedOption);
-        } else {
-          calls.push(parsedOption);
+    if (positions.length === 0 && calls.length === 0) {
+      const portfolioBlocks = orderText.split(/(?=^[A-Z]+\d{6}[PC]\d+)/gm).filter(b => b.trim());
+      
+      for (const block of portfolioBlocks) {
+        // Match both PUT and CALL
+        const portfolioMatch = block.match(/^([A-Z]+)(\d{6})([PC])(\d+(?:\.\d+)?)\s*\n.*?\n\$?([\d.]+)\s*\n-?([\d.]+)/m);
+        if (portfolioMatch) {
+          const [, symbol, dateStr, optionType, strike, premium, contracts] = portfolioMatch;
+          
+          // Parse date: YYMMDD format
+          const year = '20' + dateStr.substring(0, 2);
+          const month = dateStr.substring(2, 4);
+          const day = dateStr.substring(4, 6);
+          
+          const parsedOption = {
+            symbol,
+            strike,
+            exp: `${year}-${month}-${day}`,
+            premium,
+            contracts: Math.abs(parseFloat(contracts)).toString(),
+          };
+          
+          if (optionType === 'P') {
+            positions.push(parsedOption);
+          } else {
+            calls.push(parsedOption);
+          }
         }
       }
     }
