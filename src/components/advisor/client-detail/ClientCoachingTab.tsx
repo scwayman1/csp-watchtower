@@ -7,9 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageSquare, Send, StickyNote, TrendingUp, Target, CheckCircle2 } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { AICoachingInsights } from "./AICoachingInsights";
 
 interface ClientCoachingTabProps {
   client: Tables<"clients">;
@@ -58,41 +59,73 @@ export function ClientCoachingTab({ client }: ClientCoachingTabProps) {
     enabled: !!thread,
   });
 
-  // Learning progress metrics for coaching insights
-  const { data: learningStats } = useQuery({
-    queryKey: ["client-learning-stats", client.user_id],
+  // Get full learning data for AI analysis
+  const { data: learningPositions } = useQuery({
+    queryKey: ["client-learning-positions-full", client.user_id],
     queryFn: async () => {
-      if (!client.user_id) return null;
-
-      const [positionsResult, assignedResult] = await Promise.all([
-        supabase
-          .from("learning_positions")
-          .select("*")
-          .eq("user_id", client.user_id),
-        supabase
-          .from("learning_assigned_positions")
-          .select("*")
-          .eq("user_id", client.user_id),
-      ]);
-
-      const positions = positionsResult.data || [];
-      const assigned = assignedResult.data || [];
-
-      const totalTrades = positions.length;
-      const closedTrades = positions.filter(p => !p.is_active).length;
-      const assignmentRate = totalTrades > 0 ? (assigned.length / totalTrades * 100) : 0;
-      const totalPremium = positions.reduce((sum, p) => sum + (p.premium_per_contract * p.contracts * 100), 0);
-
-      return {
-        totalTrades,
-        closedTrades,
-        assignmentRate,
-        totalPremium,
-        hasActivity: totalTrades > 0,
-      };
+      if (!client.user_id) return [];
+      const { data, error } = await supabase
+        .from("learning_positions")
+        .select("*")
+        .eq("user_id", client.user_id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
     },
     enabled: !!client.user_id,
   });
+
+  const { data: learningAssigned } = useQuery({
+    queryKey: ["client-learning-assigned-full", client.user_id],
+    queryFn: async () => {
+      if (!client.user_id) return [];
+      const { data, error } = await supabase
+        .from("learning_assigned_positions")
+        .select("*")
+        .eq("user_id", client.user_id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!client.user_id,
+  });
+
+  const { data: simulatorSettings } = useQuery({
+    queryKey: ["client-simulator-settings-coaching", client.user_id],
+    queryFn: async () => {
+      if (!client.user_id) return null;
+      const { data, error } = await supabase
+        .from("simulator_settings")
+        .select("*")
+        .eq("user_id", client.user_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!client.user_id,
+  });
+
+  // Calculate days active
+  const daysActive = learningPositions?.length
+    ? differenceInDays(
+        new Date(),
+        learningPositions.reduce((earliest, p) => {
+          const pDate = new Date(p.created_at);
+          return pDate < earliest ? pDate : earliest;
+        }, new Date())
+      )
+    : 0;
+
+  // Learning progress metrics for coaching insights
+  const learningStats = {
+    totalTrades: learningPositions?.length || 0,
+    closedTrades: learningPositions?.filter(p => !p.is_active).length || 0,
+    assignmentRate: learningPositions?.length 
+      ? ((learningAssigned?.length || 0) / learningPositions.length * 100) 
+      : 0,
+    totalPremium: learningPositions?.reduce((sum, p) => sum + (p.premium_per_contract * p.contracts * 100), 0) || 0,
+    hasActivity: (learningPositions?.length || 0) > 0,
+  };
 
   // Send message mutation
   const sendMessage = useMutation({
@@ -236,50 +269,57 @@ export function ClientCoachingTab({ client }: ClientCoachingTabProps) {
 
       {/* Sidebar */}
       <div className="space-y-4">
-        {/* Coaching Insights */}
-        {learningStats && (
-          <Card className="bg-card/50 border-border/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Learning Insights
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {learningStats.hasActivity ? (
-                <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total Trades</span>
-                    <Badge variant="secondary">{learningStats.totalTrades}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Closed Trades</span>
-                    <Badge variant="secondary">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      {learningStats.closedTrades}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Assignment Rate</span>
-                    <Badge variant={learningStats.assignmentRate > 30 ? "destructive" : "secondary"}>
-                      {learningStats.assignmentRate.toFixed(1)}%
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total Premium</span>
-                    <span className="text-sm font-medium text-green-500">
-                      ${learningStats.totalPremium.toLocaleString()}
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No learning activity yet.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        {/* AI Coaching Insights */}
+        <AICoachingInsights
+          client={client}
+          positions={learningPositions}
+          assignedPositions={learningAssigned}
+          startingCapital={simulatorSettings?.starting_capital || 100000}
+          daysActive={daysActive}
+        />
+
+        {/* Quick Learning Stats */}
+        <Card className="bg-card/50 border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Learning Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {learningStats.hasActivity ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total Trades</span>
+                  <Badge variant="secondary">{learningStats.totalTrades}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Closed Trades</span>
+                  <Badge variant="secondary">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    {learningStats.closedTrades}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Assignment Rate</span>
+                  <Badge variant={learningStats.assignmentRate > 30 ? "destructive" : "secondary"}>
+                    {learningStats.assignmentRate.toFixed(1)}%
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total Premium</span>
+                  <span className="text-sm font-medium text-green-500">
+                    ${learningStats.totalPremium.toLocaleString()}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No learning activity yet.
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Coaching Notes */}
         <Card className="bg-card/50 border-border/50">
