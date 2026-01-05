@@ -357,7 +357,7 @@ export function ClientProfileTab({ client, profile }: ClientProfileTabProps) {
                       <TrendingUp className="h-4 w-4 text-muted-foreground" />
                       <p className="text-sm font-medium text-muted-foreground">Total Premium</p>
                     </div>
-                    <p className="text-xl font-bold text-green-500">{formatCurrency(realTotalPremium)}</p>
+                    <p className="text-xl font-bold text-success">{formatCurrency(realTotalPremium)}</p>
                   </div>
 
                   <div className="p-4 rounded-lg bg-background/50 border border-border/30">
