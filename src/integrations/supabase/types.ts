@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      advisor_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          id: string
+          invite_token: string
+          invited_by: string | null
+          name: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          invite_token?: string
+          invited_by?: string | null
+          name: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          invite_token?: string
+          invited_by?: string | null
+          name?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       ai_recommendation_outcomes: {
         Row: {
           actual_outcome: string
