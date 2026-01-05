@@ -18,7 +18,7 @@ export function useUserRole() {
     fetchUserRoles();
   }, []);
 
-  const fetchUserRoles = async () => {
+  const fetchUserRoles = async (retryCount = 0) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -33,7 +33,42 @@ export function useUserRole() {
 
       if (error) throw error;
 
-      const userRoles = data?.map(r => r.role as AppRole) || ["investor"];
+      const userRoles = data?.map(r => r.role as AppRole) || [];
+      
+      // If no roles found, try to repair user data
+      if (userRoles.length === 0) {
+        console.warn("No roles found for user, attempting repair...");
+        
+        // Call repair endpoint
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            const { data: repairData } = await supabase.functions.invoke('repair-user-data', {
+              headers: {
+                Authorization: `Bearer ${session.access_token}`
+              }
+            });
+            
+            console.log("Repair result:", repairData);
+            
+            // Retry fetching roles after repair (max 2 retries)
+            if (retryCount < 2) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+              return fetchUserRoles(retryCount + 1);
+            }
+          }
+        } catch (repairError) {
+          console.error("Failed to repair user data:", repairError);
+        }
+        
+        // Fallback to investor role
+        setRoles(["investor"]);
+        setActiveRole("investor");
+        localStorage.setItem("activeRole", "investor");
+        setLoading(false);
+        return;
+      }
+      
       setRoles(userRoles);
       
       // Check localStorage for saved role preference
@@ -49,6 +84,7 @@ export function useUserRole() {
     } catch (error) {
       console.error("Error fetching user roles:", error);
       setRoles(["investor"]);
+      setActiveRole("investor");
     } finally {
       setLoading(false);
     }
