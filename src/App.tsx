@@ -17,6 +17,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { useUserRole } from "@/hooks/useUserRole";
 import AdvisorDashboard from "./pages/advisor/AdvisorDashboard";
 import ClientsPage from "./pages/advisor/ClientsPage";
+import ClientDetailPage from "./pages/advisor/ClientDetailPage";
 import CycleSheetPage from "./pages/advisor/CycleSheetPage";
 import OrdersPage from "./pages/advisor/OrdersPage";
 import Messages from "./pages/Messages";
@@ -54,6 +55,7 @@ const AppContent = () => {
                 <Route path="/" element={<AdvisorDashboard />} />
                 <Route path="/advisor" element={<AdvisorDashboard />} />
                 <Route path="/advisor/clients" element={<ClientsPage />} />
+                <Route path="/advisor/clients/:clientId" element={<ClientDetailPage />} />
                 <Route path="/advisor/cyclesheet" element={<CycleSheetPage />} />
                 <Route path="/advisor/trades" element={<div className="p-6">Model Trades (Coming Soon)</div>} />
                 <Route path="/advisor/orders" element={<OrdersPage />} />
