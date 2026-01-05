@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Loader2, Eye, EyeOff, ArrowLeft, Mail, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -29,6 +29,8 @@ export function AuthStep({
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
 
   // Call repair endpoint to ensure user data is complete
   const repairUserData = async () => {
@@ -44,6 +46,27 @@ export function AuthStep({
     } catch (error) {
       console.warn('User data repair check failed:', error);
       // Non-fatal - continue with login
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setResendingVerification(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}${returnUrl}`,
+        }
+      });
+
+      if (error) throw error;
+      toast.success("Verification email sent! Check your inbox.");
+    } catch (error: any) {
+      console.error("Resend verification error:", error);
+      toast.error(error.message || "Failed to resend verification email.");
+    } finally {
+      setResendingVerification(false);
     }
   };
 
@@ -99,6 +122,21 @@ export function AuthStep({
         }
         
         if (data.user) {
+          // Check if email confirmation is required
+          if (data.user.identities?.length === 0) {
+            // User already exists but email not confirmed
+            toast.error("This email is already registered but not confirmed. Check your inbox or resend verification.");
+            setPendingVerification(true);
+            return;
+          }
+          
+          if (!data.session) {
+            // Email confirmation required - no session returned
+            toast.success("Account created! Please check your email to verify your account.");
+            setPendingVerification(true);
+            return;
+          }
+          
           // Give the trigger a moment to run, then verify/repair data
           await new Promise(resolve => setTimeout(resolve, 500));
           await repairUserData();
@@ -118,7 +156,8 @@ export function AuthStep({
             return;
           }
           if (error.message.includes('Email not confirmed')) {
-            toast.error("Please check your email to confirm your account.");
+            toast.error("Please verify your email before signing in.");
+            setPendingVerification(true);
             return;
           }
           throw error;
@@ -138,6 +177,65 @@ export function AuthStep({
       setLoading(false);
     }
   };
+
+  // Email verification pending view
+  if (pendingVerification) {
+    return (
+      <div className="space-y-6 animate-in fade-in-50 duration-500">
+        <div className="text-center space-y-2">
+          <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-4">
+            <Mail className="w-6 h-6 text-amber-500" />
+          </div>
+          <h2 className="text-2xl font-bold">Verify your email</h2>
+          <p className="text-muted-foreground">
+            We've sent a verification link to <strong className="text-foreground">{email}</strong>
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Please check your inbox and click the link to activate your account.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleResendVerification}
+            disabled={resendingVerification}
+          >
+            {resendingVerification ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Resend verification email
+              </>
+            )}
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            onClick={() => {
+              setPendingVerification(false);
+              onModeChange("login");
+            }}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to sign in
+          </Button>
+        </div>
+
+        <p className="text-xs text-center text-muted-foreground">
+          Didn't receive the email? Check your spam folder or try resending.
+        </p>
+      </div>
+    );
+  }
 
   // Reset password sent confirmation view
   if (mode === "reset" && resetSent) {
