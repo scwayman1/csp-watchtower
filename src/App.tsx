@@ -9,6 +9,7 @@ import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import AcceptInvite from "./pages/AcceptInvite";
 import AcceptClientInvite from "./pages/AcceptClientInvite";
+import AcceptAdvisorInvite from "./pages/AcceptAdvisorInvite";
 import NotFound from "./pages/NotFound";
 import { AppSidebar } from "./components/AppSidebar";
 import { AdvisorSidebar } from "./components/AdvisorSidebar";
@@ -92,6 +93,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/accept-invite/:token" element={<AcceptInvite />} />
           <Route path="/accept-client-invite/:token" element={<AcceptClientInvite />} />
+          <Route path="/accept-advisor-invite/:token" element={<AcceptAdvisorInvite />} />
           <Route
             path="/*"
             element={

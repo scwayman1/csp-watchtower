@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.calculate-metrics]
 verify_jwt = true
 
+[functions.complete-advisor-signup]
+verify_jwt = false
+
 [functions.fetch-market-data]
 verify_jwt = true
 
@@ -30,6 +33,9 @@ verify_jwt = true
 [functions.repair-user-data]
 verify_jwt = true
 
+[functions.send-advisor-invite]
+verify_jwt = true
+
 [functions.send-client-invite]
 verify_jwt = false
 
@@ -46,4 +52,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.twilio-webhook]
+verify_jwt = false
+
+[functions.validate-advisor-invite]
 verify_jwt = false
