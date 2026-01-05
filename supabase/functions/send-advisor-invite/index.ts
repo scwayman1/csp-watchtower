@@ -115,7 +115,34 @@ const handler = async (req: Request): Promise<Response> => {
       console.log(`Created new invite for ${advisorEmail} with token ${inviteToken}`);
     }
 
-    const baseUrl = appUrl || "https://wheel-terminal.lovable.app";
+    // Prefer an explicit appUrl from the caller; otherwise fall back to request headers.
+    // This avoids sending links to an unpublished default domain.
+    const safeOriginFromHeaders = (() => {
+      const origin = req.headers.get("origin");
+      if (origin) return origin;
+
+      const referer = req.headers.get("referer");
+      if (referer) {
+        try {
+          return new URL(referer).origin;
+        } catch {
+          // ignore
+        }
+      }
+
+      return null;
+    })();
+
+    const baseUrl = (appUrl || safeOriginFromHeaders || "").trim();
+
+    if (!baseUrl || !/^https?:\/\//i.test(baseUrl)) {
+      console.error("Missing/invalid baseUrl for advisor invite", { appUrl, origin: req.headers.get("origin"), referer: req.headers.get("referer") });
+      return new Response(
+        JSON.stringify({ error: "Missing app URL for invitation link" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const inviteUrl = `${baseUrl}/accept-advisor-invite/${inviteToken}`;
 
     const emailResponse = await resend.sendEmail({
