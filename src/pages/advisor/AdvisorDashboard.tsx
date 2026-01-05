@@ -9,6 +9,7 @@ import { FirstTimeUserGuide } from "@/components/onboarding/FirstTimeUserGuide";
 import { AdvisorSetupChecklist } from "@/components/onboarding/AdvisorSetupChecklist";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import Dashboard from "@/pages/Dashboard";
+import { ClientLearningInsightsWidget } from "@/components/advisor/ClientLearningInsightsWidget";
 
 interface AdvisorStats {
   totalClients: number;
@@ -206,36 +207,41 @@ export default function AdvisorDashboard() {
       {/* Setup Checklist for new advisors */}
       <AdvisorSetupChecklist />
 
-      <Card className="bg-card/50 border-border/50">
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button 
-              onClick={() => navigate('/advisor/cyclesheet')}
-              className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left"
-            >
-              <h3 className="font-semibold mb-1">Create New Cycle</h3>
-              <p className="text-sm text-muted-foreground">Start a new trading cycle</p>
-            </button>
-            <button 
-              onClick={() => navigate('/advisor/clients')}
-              className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left"
-            >
-              <h3 className="font-semibold mb-1">Add Client</h3>
-              <p className="text-sm text-muted-foreground">Onboard a new client</p>
-            </button>
-            <button 
-              onClick={() => navigate('/advisor/cyclesheet')}
-              className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left"
-            >
-              <h3 className="font-semibold mb-1">Upload CycleSheet</h3>
-              <p className="text-sm text-muted-foreground">Import trades from spreadsheet</p>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Client Learning Insights */}
+        <ClientLearningInsightsWidget />
+
+        <Card className="bg-card/50 border-border/50">
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4">
+              <button 
+                onClick={() => navigate('/advisor/cyclesheet')}
+                className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left"
+              >
+                <h3 className="font-semibold mb-1">Create New Cycle</h3>
+                <p className="text-sm text-muted-foreground">Start a new trading cycle</p>
+              </button>
+              <button 
+                onClick={() => navigate('/advisor/clients')}
+                className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left"
+              >
+                <h3 className="font-semibold mb-1">Add Client</h3>
+                <p className="text-sm text-muted-foreground">Onboard a new client</p>
+              </button>
+              <button 
+                onClick={() => navigate('/advisor/cyclesheet')}
+                className="p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors text-left"
+              >
+                <h3 className="font-semibold mb-1">Upload CycleSheet</h3>
+                <p className="text-sm text-muted-foreground">Import trades from spreadsheet</p>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* First-time advisor guide */}
       {showGuide && (
