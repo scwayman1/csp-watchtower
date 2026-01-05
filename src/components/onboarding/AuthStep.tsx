@@ -2,13 +2,13 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface AuthStepProps {
-  mode: "signup" | "login";
-  onModeChange: (mode: "signup" | "login") => void;
+  mode: "signup" | "login" | "reset";
+  onModeChange: (mode: "signup" | "login" | "reset") => void;
   onSuccess: (userId: string) => void;
   email?: string;
   disableEmailEdit?: boolean;
@@ -28,6 +28,7 @@ export function AuthStep({
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   // Call repair endpoint to ensure user data is complete
   const repairUserData = async () => {
@@ -46,8 +47,34 @@ export function AuthStep({
     }
   };
 
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?reset=true`,
+      });
+
+      if (error) throw error;
+
+      toast.success("Password reset email sent! Check your inbox.");
+      setResetSent(true);
+    } catch (error: any) {
+      console.error("Password reset error:", error);
+      toast.error(error.message || "Failed to send reset email. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (mode === "reset") {
+      return handlePasswordReset(e);
+    }
+    
     setLoading(true);
 
     try {
@@ -112,16 +139,64 @@ export function AuthStep({
     }
   };
 
+  // Reset password sent confirmation view
+  if (mode === "reset" && resetSent) {
+    return (
+      <div className="space-y-6 animate-in fade-in-50 duration-500">
+        <div className="text-center space-y-2">
+          <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+            <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold">Check your email</h2>
+          <p className="text-muted-foreground">
+            We've sent a password reset link to <strong>{email}</strong>
+          </p>
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={() => {
+            setResetSent(false);
+            onModeChange("login");
+          }}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to sign in
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-500">
       <div className="text-center space-y-2">
+        {mode === "reset" && (
+          <button
+            type="button"
+            onClick={() => onModeChange("login")}
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors mb-2"
+          >
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back to sign in
+          </button>
+        )}
         <h2 className="text-2xl font-bold">
-          {mode === "signup" ? "Create your account" : "Welcome back"}
+          {mode === "signup" 
+            ? "Create your account" 
+            : mode === "reset" 
+              ? "Reset your password" 
+              : "Welcome back"}
         </h2>
         <p className="text-muted-foreground">
           {mode === "signup" 
             ? "Enter your details to get started"
-            : "Sign in to continue to your dashboard"}
+            : mode === "reset"
+              ? "Enter your email and we'll send you a reset link"
+              : "Sign in to continue to your dashboard"}
         </p>
       </div>
 
@@ -155,53 +230,76 @@ export function AuthStep({
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              placeholder={mode === "signup" ? "Create a password (min 6 characters)" : "Enter your password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              className="pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
+        {mode !== "reset" && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              {mode === "login" && (
+                <button
+                  type="button"
+                  onClick={() => onModeChange("reset")}
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Forgot password?
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder={mode === "signup" ? "Create a password (min 6 characters)" : "Enter your password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         <Button type="submit" className="w-full" size="lg" disabled={loading}>
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {mode === "signup" ? "Creating account..." : "Signing in..."}
+              {mode === "signup" 
+                ? "Creating account..." 
+                : mode === "reset" 
+                  ? "Sending reset link..."
+                  : "Signing in..."}
             </>
           ) : (
-            mode === "signup" ? "Create Account" : "Sign In"
+            mode === "signup" 
+              ? "Create Account" 
+              : mode === "reset"
+                ? "Send Reset Link"
+                : "Sign In"
           )}
         </Button>
       </form>
 
-      <div className="text-center">
-        <button
-          type="button"
-          onClick={() => onModeChange(mode === "signup" ? "login" : "signup")}
-          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-        >
-          {mode === "signup" 
-            ? "Already have an account? Sign in"
-            : "Don't have an account? Sign up"}
-        </button>
-      </div>
+      {mode !== "reset" && (
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => onModeChange(mode === "signup" ? "login" : "signup")}
+            className="text-sm text-muted-foreground hover:text-primary transition-colors"
+          >
+            {mode === "signup" 
+              ? "Already have an account? Sign in"
+              : "Don't have an account? Sign up"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

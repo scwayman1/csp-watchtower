@@ -8,20 +8,30 @@ import { WelcomeStep } from "@/components/onboarding/WelcomeStep";
 import { RoleSelectionStep } from "@/components/onboarding/RoleSelectionStep";
 import { AuthStep } from "@/components/onboarding/AuthStep";
 import { OnboardingComplete } from "@/components/onboarding/OnboardingComplete";
+import { UpdatePasswordStep } from "@/components/onboarding/UpdatePasswordStep";
 import { toast } from "sonner";
 
-type OnboardingStep = "welcome" | "role" | "auth" | "complete";
+type OnboardingStep = "welcome" | "role" | "auth" | "complete" | "update-password";
 
 const Auth = () => {
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [selectedRole, setSelectedRole] = useState<"investor" | "advisor" | null>(null);
-  const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
+  const [authMode, setAuthMode] = useState<"signup" | "login" | "reset">("signup");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get("returnUrl") || "/";
   const isDirectLogin = searchParams.get("mode") === "login";
+  const isPasswordReset = searchParams.get("reset") === "true";
 
   useEffect(() => {
+    // Handle password reset flow from email link
+    if (isPasswordReset) {
+      // The user clicked a password reset link - Supabase handles the token exchange automatically
+      // We just need to show the update password form
+      setStep("update-password");
+      return;
+    }
+
     // Check if user is already authenticated
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -31,12 +41,21 @@ const Auth = () => {
     };
     checkAuth();
 
+    // Listen for password recovery event
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setStep("update-password");
+      }
+    });
+
     // If direct login mode, skip to auth step
     if (isDirectLogin) {
       setStep("auth");
       setAuthMode("login");
     }
-  }, [navigate, returnUrl, isDirectLogin]);
+
+    return () => subscription.unsubscribe();
+  }, [navigate, returnUrl, isDirectLogin, isPasswordReset]);
 
   const steps = ["Welcome", "Role", "Account", "Complete"];
   const currentStepIndex = {
@@ -44,6 +63,7 @@ const Auth = () => {
     role: 1,
     auth: 2,
     complete: 3,
+    "update-password": 2,
   }[step];
 
   const handleWelcomeContinue = () => {
@@ -89,12 +109,20 @@ const Auth = () => {
     }
   };
 
-  const handleModeChange = (mode: "signup" | "login") => {
+  const handleModeChange = (mode: "signup" | "login" | "reset") => {
     setAuthMode(mode);
-    if (mode === "login") {
-      // Skip role selection for login
+    if (mode === "login" || mode === "reset") {
+      // Skip role selection for login and reset
       setStep("auth");
     }
+  };
+
+  const handlePasswordUpdateSuccess = () => {
+    toast.success("Your password has been updated. You can now sign in.");
+    setStep("auth");
+    setAuthMode("login");
+    // Clear the reset param from URL
+    navigate("/auth", { replace: true });
   };
 
   return (
@@ -116,7 +144,7 @@ const Auth = () => {
           </div>
 
           {/* Progress indicator - only show for signup flow */}
-          {authMode === "signup" && step !== "welcome" && (
+          {authMode === "signup" && step !== "welcome" && step !== "update-password" && (
             <OnboardingProgress
               currentStep={currentStepIndex}
               totalSteps={steps.length}
@@ -145,6 +173,10 @@ const Auth = () => {
             />
           )}
 
+          {step === "update-password" && (
+            <UpdatePasswordStep onSuccess={handlePasswordUpdateSuccess} />
+          )}
+
           {step === "complete" && selectedRole && (
             <OnboardingComplete
               userType={selectedRole}
@@ -153,7 +185,7 @@ const Auth = () => {
           )}
 
           {/* Back button for non-login flows */}
-          {step !== "welcome" && step !== "complete" && authMode === "signup" && (
+          {step !== "welcome" && step !== "complete" && step !== "update-password" && authMode === "signup" && (
             <button
               onClick={() => {
                 if (step === "role") setStep("welcome");
