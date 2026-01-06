@@ -53,16 +53,35 @@ export function usePositionsQueries(userId?: string) {
         }]) || []
       );
 
+      // Fetch option data for real-time option prices
+      const positionIds = positionsData.map(p => p.id);
+      const { data: optionData } = await supabase
+        .from('option_data')
+        .select('*')
+        .in('position_id', positionIds);
+
+      const optionDataMap = new Map(
+        optionData?.map(o => [o.position_id, {
+          markPrice: o.mark_price,
+          bidPrice: o.bid_price,
+          askPrice: o.ask_price,
+          delta: o.delta,
+          impliedVolatility: o.implied_volatility,
+        }]) || []
+      );
+
       // Calculate metrics for each position
       const enrichedPositions = await Promise.all(
         positionsData.map(async (pos) => {
           const marketInfo = marketDataMap.get(pos.symbol);
+          const optionInfo = optionDataMap.get(pos.id);
           const underlyingPrice = marketInfo?.price || pos.strike_price * 1.1;
 
           const { data: metrics } = await supabase.functions.invoke('calculate-metrics', {
             body: { 
               position: pos, 
               underlyingPrice,
+              markPrice: optionInfo?.markPrice, // Pass real option price
               userId: effectiveUserId
             },
           });

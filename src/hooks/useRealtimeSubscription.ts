@@ -16,6 +16,8 @@ export interface RealtimeSubscriptionOptions {
   onDataChange: () => void;
   /** Whether to refresh market data periodically */
   refreshMarketData?: boolean;
+  /** Whether to refresh option prices periodically */
+  refreshOptionPrices?: boolean;
   /** Market data refresh interval in ms (default: 60000) */
   refreshInterval?: number;
   /** Whether to call onDataChange immediately on mount */
@@ -27,6 +29,7 @@ export function useRealtimeSubscription({
   tables,
   onDataChange,
   refreshMarketData = false,
+  refreshOptionPrices = false,
   refreshInterval = 60000,
   fetchOnMount = true,
 }: RealtimeSubscriptionOptions) {
@@ -58,7 +61,8 @@ export function useRealtimeSubscription({
       return channel;
     });
 
-    let intervalId: ReturnType<typeof setInterval> | undefined;
+    let marketDataIntervalId: ReturnType<typeof setInterval> | undefined;
+    let optionPricesIntervalId: ReturnType<typeof setInterval> | undefined;
 
     if (refreshMarketData) {
       const doRefresh = async () => {
@@ -74,14 +78,34 @@ export function useRealtimeSubscription({
       doRefresh();
 
       // Periodic refresh
-      intervalId = setInterval(doRefresh, refreshInterval);
+      marketDataIntervalId = setInterval(doRefresh, refreshInterval);
+    }
+
+    if (refreshOptionPrices) {
+      const doRefreshOptions = async () => {
+        try {
+          await supabase.functions.invoke("refresh-option-prices");
+          onDataChangeRef.current();
+        } catch (error) {
+          console.error("Error refreshing option prices:", error);
+        }
+      };
+
+      // Initial refresh (with slight delay to avoid overwhelming the API)
+      setTimeout(doRefreshOptions, 2000);
+
+      // Periodic refresh (every 2 minutes for option prices to avoid rate limiting)
+      optionPricesIntervalId = setInterval(doRefreshOptions, 120000);
     }
 
     return () => {
       channels.forEach((channel) => supabase.removeChannel(channel));
-      if (intervalId) {
-        clearInterval(intervalId);
+      if (marketDataIntervalId) {
+        clearInterval(marketDataIntervalId);
+      }
+      if (optionPricesIntervalId) {
+        clearInterval(optionPricesIntervalId);
       }
     };
-  }, [channelName, refreshMarketData, refreshInterval, fetchOnMount, tables.length]);
+  }, [channelName, refreshMarketData, refreshOptionPrices, refreshInterval, fetchOnMount, tables.length]);
 }

@@ -3,7 +3,7 @@ import { useRealtimeSubscription, TableSubscription } from "@/hooks/useRealtimeS
 
 export function usePositionsSubscriptions(refetch: () => Promise<void>) {
   const tables: TableSubscription[] = useMemo(
-    () => [{ table: "positions" }],
+    () => [{ table: "positions" }, { table: "option_data" }],
     []
   );
 
@@ -12,6 +12,7 @@ export function usePositionsSubscriptions(refetch: () => Promise<void>) {
     tables,
     onDataChange: refetch,
     refreshMarketData: true,
+    refreshOptionPrices: true,
     fetchOnMount: true,
   });
 }
