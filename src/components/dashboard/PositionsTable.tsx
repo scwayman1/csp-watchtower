@@ -1,4 +1,4 @@
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PremiumAnalysisDialog } from "./PremiumAnalysisDialog";
 import { AssignPositionDialog } from "./AssignPositionDialog";
@@ -113,6 +113,17 @@ export function PositionsTable({ positions, onRefetch, onRefetchAssigned }: Posi
                   getPremiumColorClass={getPremiumColorClass}
                 />
               ))}
+              {positions.length > 0 && (
+                <TableRow className="border-t-2 border-border bg-muted/30 font-semibold">
+                  <TableCell colSpan={3} className="text-right text-muted-foreground">
+                    Total Premium
+                  </TableCell>
+                  <TableCell className="text-success">
+                    {formatCurrency(positions.reduce((sum, p) => sum + (p.totalPremium || 0), 0))}
+                  </TableCell>
+                  <TableCell colSpan={4}></TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
