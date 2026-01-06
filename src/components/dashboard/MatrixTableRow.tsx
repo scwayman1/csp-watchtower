@@ -46,7 +46,12 @@ export function MatrixTableRow({
     <TableRow className={`transition-all border-b border-border/50 ${getRiskBackgroundClass()}`}>
       <TableCell className="font-semibold">
         <div className="flex flex-col">
-          <span className="text-base">{position.symbol}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-base">{position.symbol}</span>
+            <span className="text-[10px] font-medium text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+              {position.contracts}x
+            </span>
+          </div>
           <span className="text-xs text-muted-foreground">
             {(() => {
               // Parse as local date to avoid timezone shift
@@ -72,7 +77,10 @@ export function MatrixTableRow({
         {formatCurrency(position.strikePrice)}
       </TableCell>
       <TableCell className={getPremiumColorClass(position.id)}>
-        {formatCurrency(position.premiumPerContract)}
+        <div className="flex flex-col">
+          <span>{formatCurrency(position.premiumPerContract)}</span>
+          <span className="text-[10px] text-muted-foreground">{formatCurrency(position.totalPremium)} total</span>
+        </div>
       </TableCell>
       <TableCell className="text-sm font-medium">{position.daysToExp}</TableCell>
       <TableCell>
