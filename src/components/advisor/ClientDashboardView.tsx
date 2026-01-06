@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { DollarSign, TrendingUp, Activity, Calendar } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useClientMetrics } from "@/hooks/useClientMetrics";
 
 interface ClientDashboardViewProps {
   clientId: string;
@@ -33,7 +34,10 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
     },
   });
 
-  // Fetch client positions
+  // Use centralized metrics hook for accurate calculations
+  const metrics = useClientMetrics(client?.user_id);
+
+  // Fetch client positions for the table
   const { data: positions, isLoading: positionsLoading } = useQuery({
     queryKey: ["client-positions", clientId],
     queryFn: async () => {
@@ -76,7 +80,7 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
     enabled: !!client?.user_id,
   });
 
-  if (clientLoading) {
+  if (clientLoading || metrics.isLoading) {
     return <div className="p-6 text-center">Loading client data...</div>;
   }
 
@@ -84,30 +88,34 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
     return <div className="p-6 text-center text-muted-foreground">Client not found</div>;
   }
 
+  const formatCurrency = (value: number) => 
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+
   const statCards = [
     {
       title: "Portfolio Value",
-      value: `$${(client.portfolio_value || 0).toLocaleString()}`,
+      value: formatCurrency(metrics.realPortfolioValue),
       icon: DollarSign,
       description: "Total account value",
     },
     {
+      title: "Total Premium",
+      value: formatCurrency(metrics.realTotalPremium),
+      icon: TrendingUp,
+      description: "All-time collected",
+      valueClass: "text-success",
+    },
+    {
       title: "Available Cash",
-      value: `$${(client.available_cash || 0).toLocaleString()}`,
+      value: formatCurrency(metrics.realCashBalance),
       icon: DollarSign,
       description: "Liquid capital",
     },
     {
-      title: "Premium YTD",
-      value: `$${(client.premium_ytd || 0).toLocaleString()}`,
-      icon: TrendingUp,
-      description: "Collected this year",
-    },
-    {
-      title: "Open Positions",
-      value: client.open_csp_count || 0,
+      title: "Open CSPs",
+      value: metrics.realOpenCspCount,
       icon: Activity,
-      description: "Active CSP contracts",
+      description: "Active positions",
     },
   ];
 
@@ -128,7 +136,7 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
           <p className="text-sm text-muted-foreground">{client.email}</p>
         </div>
         <div className="flex gap-2">
-          <Badge variant="outline">{client.risk_level || "MODERATE"}</Badge>
+          <Badge variant="outline">{client.risk_level || "MEDIUM"}</Badge>
           {client.segment && <Badge variant="secondary">{client.segment}</Badge>}
         </div>
       </div>
@@ -146,7 +154,9 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
                 <Icon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
+                <div className={`text-2xl font-bold ${stat.valueClass || ''}`}>
+                  {stat.value}
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {stat.description}
                 </p>
@@ -180,15 +190,12 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
                     <TableHead>Contracts</TableHead>
                     <TableHead>Premium</TableHead>
                     <TableHead>Moneyness</TableHead>
-                    <TableHead>Current</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {positions.map((position) => {
-                    const moneyness = getMoneyness(
-                      null,
-                      position.strike_price
-                    );
+                    const moneyness = getMoneyness(null, position.strike_price);
+                    const totalPremium = position.premium_per_contract * position.contracts * 100;
                     return (
                       <TableRow key={position.id}>
                         <TableCell className="font-medium">{position.symbol}</TableCell>
@@ -199,13 +206,10 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
                         </TableCell>
                         <TableCell>{position.contracts}</TableCell>
                         <TableCell className="text-success">
-                          ${(position.premium_per_contract * position.contracts).toFixed(2)}
+                          {formatCurrency(totalPremium)}
                         </TableCell>
                         <TableCell>
                           <Badge variant={moneyness.variant}>{moneyness.label}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          N/A
                         </TableCell>
                       </TableRow>
                     );
@@ -237,7 +241,6 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
                       <TableHead>Symbol</TableHead>
                       <TableHead>Shares</TableHead>
                       <TableHead>Assignment Price</TableHead>
-                      <TableHead>Current Price</TableHead>
                       <TableHead>Cost Basis</TableHead>
                       <TableHead>Assignment Date</TableHead>
                     </TableRow>
@@ -249,10 +252,7 @@ export function ClientDashboardView({ clientId }: ClientDashboardViewProps) {
                           <TableCell className="font-medium">{position.symbol}</TableCell>
                           <TableCell>{position.shares}</TableCell>
                           <TableCell>${position.assignment_price}</TableCell>
-                          <TableCell>
-                            N/A
-                          </TableCell>
-                          <TableCell>${position.cost_basis.toFixed(2)}</TableCell>
+                          <TableCell>{formatCurrency(position.cost_basis)}</TableCell>
                           <TableCell>
                             {formatDistanceToNow(new Date(position.assignment_date), { addSuffix: true })}
                           </TableCell>
