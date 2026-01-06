@@ -793,7 +793,7 @@ export type Database = {
           {
             foreignKeyName: "option_data_position_id_fkey"
             columns: ["position_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "positions"
             referencedColumns: ["id"]
           },
