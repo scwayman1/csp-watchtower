@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight } from "lucide-react";
-import { startOfYear } from "date-fns";
 
 interface ClientPerformance {
   id: string;
@@ -16,7 +15,6 @@ interface ClientPerformance {
 
 export function ClientPerformanceRankings() {
   const navigate = useNavigate();
-  const yearStart = startOfYear(new Date()).toISOString();
 
   // Get current advisor's clients
   const { data: clients } = useQuery({
@@ -40,14 +38,14 @@ export function ClientPerformanceRankings() {
     .map(c => c.user_id)
     .filter((id): id is string => id !== null);
 
-  // Fetch positions for all clients
+  // Fetch positions for all clients (include expiration and id for proper filtering)
   const { data: positions } = useQuery({
     queryKey: ["advisor-client-positions-rankings", clientUserIds],
     queryFn: async () => {
       if (clientUserIds.length === 0) return [];
       const { data, error } = await supabase
         .from("positions")
-        .select("user_id, premium_per_contract, contracts, opened_at")
+        .select("id, user_id, premium_per_contract, contracts, expiration")
         .in("user_id", clientUserIds);
       if (error) throw error;
       return data || [];
@@ -55,14 +53,14 @@ export function ClientPerformanceRankings() {
     enabled: clientUserIds.length > 0,
   });
 
-  // Fetch assigned positions
+  // Fetch assigned positions (include original_position_id to avoid double-counting)
   const { data: assignedPositions } = useQuery({
     queryKey: ["advisor-client-assigned-rankings", clientUserIds],
     queryFn: async () => {
       if (clientUserIds.length === 0) return [];
       const { data, error } = await supabase
         .from("assigned_positions")
-        .select("user_id, original_put_premium, assignment_date, id")
+        .select("user_id, original_put_premium, id, original_position_id")
         .in("user_id", clientUserIds);
       if (error) throw error;
       return data || [];
@@ -108,53 +106,61 @@ export function ClientPerformanceRankings() {
     assignedToUser.set(ap.id, ap.user_id);
   });
 
-  // Calculate performance per client
+  // Build set of position IDs that became assigned (to avoid double-counting)
+  const assignedPositionIds = new Set(
+    (assignedPositions || [])
+      .map(ap => ap.original_position_id)
+      .filter(Boolean)
+  );
+
+  const today = new Date().toISOString().split('T')[0];
+
+  // Calculate performance per client using same logic as usePremiumAudit
   const performances: ClientPerformance[] = (clients || [])
     .filter(c => c.user_id)
     .map(client => {
       const userId = client.user_id!;
       
-      // Position premiums
+      // Get client's positions
       const clientPositions = (positions || []).filter(p => p.user_id === userId);
-      const positionPremiumAll = clientPositions.reduce((sum, p) => 
-        sum + parseFloat(String(p.premium_per_contract)) * parseFloat(String(p.contracts)) * 100, 0);
-      const positionPremiumYTD = clientPositions
-        .filter(p => p.opened_at >= yearStart)
+      
+      // Active put premium (not expired)
+      const activePutPremium = clientPositions
+        .filter(p => p.expiration >= today)
+        .reduce((sum, p) => sum + parseFloat(String(p.premium_per_contract)) * parseFloat(String(p.contracts)) * 100, 0);
+      
+      // Expired put premium (expired but NOT assigned - to avoid double-counting)
+      const expiredPutPremium = clientPositions
+        .filter(p => p.expiration < today && !assignedPositionIds.has(p.id))
         .reduce((sum, p) => sum + parseFloat(String(p.premium_per_contract)) * parseFloat(String(p.contracts)) * 100, 0);
 
-      // Assigned premiums
+      // Assigned put premium (from assigned_positions table)
       const clientAssigned = (assignedPositions || []).filter(ap => ap.user_id === userId);
-      const assignedPremiumAll = clientAssigned.reduce((sum, ap) => 
-        sum + parseFloat(String(ap.original_put_premium)), 0);
-      const assignedPremiumYTD = clientAssigned
-        .filter(ap => ap.assignment_date >= yearStart)
-        .reduce((sum, ap) => sum + parseFloat(String(ap.original_put_premium)), 0);
+      const assignedPutPremium = clientAssigned.reduce((sum, ap) => 
+        sum + parseFloat(String(ap.original_put_premium || 0)), 0);
 
       // Covered call premiums
       const clientAssignedIds = clientAssigned.map(ap => ap.id);
       const clientCalls = (coveredCalls || []).filter(cc => clientAssignedIds.includes(cc.assigned_position_id));
-      const callsPremiumAll = clientCalls.reduce((sum, cc) => 
+      const callPremium = clientCalls.reduce((sum, cc) => 
         sum + parseFloat(String(cc.premium_per_contract)) * parseFloat(String(cc.contracts)) * 100, 0);
-      const callsPremiumYTD = clientCalls
-        .filter(cc => cc.opened_at >= yearStart)
-        .reduce((sum, cc) => sum + parseFloat(String(cc.premium_per_contract)) * parseFloat(String(cc.contracts)) * 100, 0);
 
-      const premiumAllTime = positionPremiumAll + assignedPremiumAll + callsPremiumAll;
-      const premiumYTD = positionPremiumYTD + assignedPremiumYTD + callsPremiumYTD;
+      // Total Premium = active puts + expired puts + assigned puts + calls (no double-counting)
+      const totalPremium = activePutPremium + expiredPutPremium + assignedPutPremium + callPremium;
 
       // Calculate AUM for YTD return
       const settings = (userSettings || []).find(s => s.user_id === userId);
       const cashBalance = parseFloat(String(settings?.cash_balance || 0));
       const otherHoldings = parseFloat(String(settings?.other_holdings_value || 0));
-      const clientAUM = cashBalance + otherHoldings + premiumAllTime;
+      const clientAUM = cashBalance + otherHoldings;
       
-      const ytdReturn = clientAUM > 0 ? (premiumYTD / clientAUM) * 100 : null;
+      const ytdReturn = clientAUM > 0 ? (totalPremium / clientAUM) * 100 : null;
 
       return {
         id: client.id,
         name: client.name,
-        premiumYTD,
-        premiumAllTime,
+        premiumYTD: totalPremium, // This is now Total Premium (all-time)
+        premiumAllTime: totalPremium,
         contributionPct: 0, // Will calculate after
         ytdReturn,
       };
@@ -166,8 +172,8 @@ export function ClientPerformanceRankings() {
     p.contributionPct = totalPremiumAllTime > 0 ? (p.premiumAllTime / totalPremiumAllTime) * 100 : 0;
   });
 
-  // Sort by premium YTD (descending)
-  const ranked = [...performances].sort((a, b) => b.premiumYTD - a.premiumYTD);
+  // Sort by total premium (descending)
+  const ranked = [...performances].sort((a, b) => b.premiumAllTime - a.premiumAllTime);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000) return `$${(value / 1000000).toFixed(2)}M`;
@@ -194,10 +200,13 @@ export function ClientPerformanceRankings() {
   return (
     <Card className="bg-card/50 border-border/50">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2">
-          <Trophy className="h-5 w-5 text-warning" />
-          Client Performance Rankings
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-warning" />
+            Client Performance
+          </CardTitle>
+          <span className="text-xs text-muted-foreground">Total Premium</span>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {ranked.map((client, index) => {
@@ -222,7 +231,7 @@ export function ClientPerformanceRankings() {
               </div>
               <div className="flex items-center gap-2">
                 <div className="text-right">
-                  <p className="font-semibold">{formatCurrency(client.premiumYTD)}</p>
+                  <p className="font-semibold">{formatCurrency(client.premiumAllTime)}</p>
                   <div className="flex items-center justify-end gap-1 text-xs">
                     {client.ytdReturn !== null ? (
                       <>
