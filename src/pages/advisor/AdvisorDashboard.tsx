@@ -11,6 +11,7 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import Dashboard from "@/pages/Dashboard";
 import { ClientLearningInsightsWidget } from "@/components/advisor/ClientLearningInsightsWidget";
 import { ClientPerformanceRankings } from "@/components/advisor/ClientPerformanceRankings";
+import { MonthlyPremiumTrendChart } from "@/components/advisor/MonthlyPremiumTrendChart";
 import { useAdvisorMetrics } from "@/hooks/useAdvisorMetrics";
 
 export default function AdvisorDashboard() {
@@ -186,76 +187,82 @@ export default function AdvisorDashboard() {
       {/* Setup Checklist for new advisors */}
       <AdvisorSetupChecklist />
 
-      {/* Premium Breakdown Card */}
-      <Card className="bg-card/50 border-border/50">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">Premium Breakdown (All-Time)</CardTitle>
-          <PieChart className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          {(() => {
-            const { puts, assignedPuts, coveredCalls } = metrics.premiumBreakdown;
-            const total = puts + assignedPuts + coveredCalls;
-            const putsPercent = total > 0 ? (puts / total) * 100 : 0;
-            const assignedPercent = total > 0 ? (assignedPuts / total) * 100 : 0;
-            const callsPercent = total > 0 ? (coveredCalls / total) * 100 : 0;
+      {/* Premium Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Premium Breakdown Card */}
+        <Card className="bg-card/50 border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Premium Breakdown (All-Time)</CardTitle>
+            <PieChart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const { puts, assignedPuts, coveredCalls } = metrics.premiumBreakdown;
+              const total = puts + assignedPuts + coveredCalls;
+              const putsPercent = total > 0 ? (puts / total) * 100 : 0;
+              const assignedPercent = total > 0 ? (assignedPuts / total) * 100 : 0;
+              const callsPercent = total > 0 ? (coveredCalls / total) * 100 : 0;
 
-            return (
-              <div className="space-y-4">
-                {/* Visual bar */}
-                <div className="h-3 w-full rounded-full overflow-hidden flex bg-muted">
-                  {putsPercent > 0 && (
-                    <div 
-                      className="h-full bg-primary transition-all" 
-                      style={{ width: `${putsPercent}%` }}
-                    />
-                  )}
-                  {assignedPercent > 0 && (
-                    <div 
-                      className="h-full bg-warning transition-all" 
-                      style={{ width: `${assignedPercent}%` }}
-                    />
-                  )}
-                  {callsPercent > 0 && (
-                    <div 
-                      className="h-full bg-success transition-all" 
-                      style={{ width: `${callsPercent}%` }}
-                    />
-                  )}
-                </div>
+              return (
+                <div className="space-y-4">
+                  {/* Visual bar */}
+                  <div className="h-3 w-full rounded-full overflow-hidden flex bg-muted">
+                    {putsPercent > 0 && (
+                      <div 
+                        className="h-full bg-primary transition-all" 
+                        style={{ width: `${putsPercent}%` }}
+                      />
+                    )}
+                    {assignedPercent > 0 && (
+                      <div 
+                        className="h-full bg-warning transition-all" 
+                        style={{ width: `${assignedPercent}%` }}
+                      />
+                    )}
+                    {callsPercent > 0 && (
+                      <div 
+                        className="h-full bg-success transition-all" 
+                        style={{ width: `${callsPercent}%` }}
+                      />
+                    )}
+                  </div>
 
-                {/* Legend with values */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-primary" />
-                      <span className="text-xs text-muted-foreground">Active Puts</span>
+                  {/* Legend with values */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-primary" />
+                        <span className="text-xs text-muted-foreground">Active Puts</span>
+                      </div>
+                      <p className="text-lg font-semibold">{formatCurrency(puts)}</p>
+                      <p className="text-xs text-muted-foreground">{putsPercent.toFixed(1)}%</p>
                     </div>
-                    <p className="text-lg font-semibold">{formatCurrency(puts)}</p>
-                    <p className="text-xs text-muted-foreground">{putsPercent.toFixed(1)}%</p>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-warning" />
-                      <span className="text-xs text-muted-foreground">Assigned Puts</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-warning" />
+                        <span className="text-xs text-muted-foreground">Assigned Puts</span>
+                      </div>
+                      <p className="text-lg font-semibold">{formatCurrency(assignedPuts)}</p>
+                      <p className="text-xs text-muted-foreground">{assignedPercent.toFixed(1)}%</p>
                     </div>
-                    <p className="text-lg font-semibold">{formatCurrency(assignedPuts)}</p>
-                    <p className="text-xs text-muted-foreground">{assignedPercent.toFixed(1)}%</p>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-success" />
-                      <span className="text-xs text-muted-foreground">Covered Calls</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-success" />
+                        <span className="text-xs text-muted-foreground">Covered Calls</span>
+                      </div>
+                      <p className="text-lg font-semibold">{formatCurrency(coveredCalls)}</p>
+                      <p className="text-xs text-muted-foreground">{callsPercent.toFixed(1)}%</p>
                     </div>
-                    <p className="text-lg font-semibold">{formatCurrency(coveredCalls)}</p>
-                    <p className="text-xs text-muted-foreground">{callsPercent.toFixed(1)}%</p>
                   </div>
                 </div>
-              </div>
-            );
-          })()}
-        </CardContent>
-      </Card>
+              );
+            })()}
+          </CardContent>
+        </Card>
+
+        {/* Monthly Premium Trends Chart */}
+        <MonthlyPremiumTrendChart />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Client Learning Insights */}
