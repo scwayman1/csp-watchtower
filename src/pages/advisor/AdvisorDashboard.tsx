@@ -10,6 +10,7 @@ import { AdvisorSetupChecklist } from "@/components/onboarding/AdvisorSetupCheck
 import { useOnboarding } from "@/hooks/useOnboarding";
 import Dashboard from "@/pages/Dashboard";
 import { ClientLearningInsightsWidget } from "@/components/advisor/ClientLearningInsightsWidget";
+import { ClientPerformanceRankings } from "@/components/advisor/ClientPerformanceRankings";
 import { useAdvisorMetrics } from "@/hooks/useAdvisorMetrics";
 
 export default function AdvisorDashboard() {
@@ -260,6 +261,11 @@ export default function AdvisorDashboard() {
         {/* Client Learning Insights */}
         <ClientLearningInsightsWidget />
 
+        {/* Client Performance Rankings */}
+        <ClientPerformanceRankings />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="bg-card/50 border-border/50">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
