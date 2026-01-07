@@ -2,6 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfMonth, startOfYear, subMonths } from "date-fns";
 
+export interface PremiumBreakdown {
+  puts: number;
+  assignedPuts: number;
+  coveredCalls: number;
+}
+
 export interface AdvisorMetrics {
   // Client counts
   totalClients: number;
@@ -16,6 +22,9 @@ export interface AdvisorMetrics {
   totalPremiumYTD: number;
   totalPremiumMTD: number;
   totalPremiumLastMonth: number;
+  
+  // Premium breakdown by type
+  premiumBreakdown: PremiumBreakdown;
   
   // Growth metrics
   momGrowthPct: number | null;  // Month over month premium growth
@@ -180,27 +189,34 @@ export function useAdvisorMetrics(): AdvisorMetrics {
     return totalAUM;
   };
 
-  // Calculate premiums with time filters
+  // Calculate premiums with time filters and breakdown by type
   const calculatePremiums = () => {
     let allTime = 0;
     let ytd = 0;
     let mtd = 0;
     let lastMonth = 0;
+    
+    // Breakdown by type (all-time)
+    let putsPremium = 0;
+    let assignedPutsPremium = 0;
+    let coveredCallsPremium = 0;
 
-    // Position premiums
+    // Position premiums (active puts)
     for (const pos of (allPositions || [])) {
       const premium = parseFloat(String(pos.premium_per_contract)) * parseFloat(String(pos.contracts)) * 100;
       allTime += premium;
+      putsPremium += premium;
       
       if (pos.opened_at >= yearStart) ytd += premium;
       if (pos.opened_at >= monthStart) mtd += premium;
       if (pos.opened_at >= lastMonthStart && pos.opened_at < lastMonthEnd) lastMonth += premium;
     }
 
-    // Assigned position premiums
+    // Assigned position premiums (puts that got assigned)
     for (const ap of (allAssignedPositions || [])) {
       const premium = parseFloat(String(ap.original_put_premium));
       allTime += premium;
+      assignedPutsPremium += premium;
       
       if (ap.assignment_date >= yearStart) ytd += premium;
       if (ap.assignment_date >= monthStart) mtd += premium;
@@ -211,13 +227,24 @@ export function useAdvisorMetrics(): AdvisorMetrics {
     for (const cc of (allCoveredCalls || [])) {
       const premium = parseFloat(String(cc.premium_per_contract)) * parseFloat(String(cc.contracts)) * 100;
       allTime += premium;
+      coveredCallsPremium += premium;
       
       if (cc.opened_at >= yearStart) ytd += premium;
       if (cc.opened_at >= monthStart) mtd += premium;
       if (cc.opened_at >= lastMonthStart && cc.opened_at < lastMonthEnd) lastMonth += premium;
     }
 
-    return { allTime, ytd, mtd, lastMonth };
+    return { 
+      allTime, 
+      ytd, 
+      mtd, 
+      lastMonth,
+      breakdown: {
+        puts: putsPremium,
+        assignedPuts: assignedPutsPremium,
+        coveredCalls: coveredCallsPremium,
+      }
+    };
   };
 
   const totalAUM = calculateAUM();
@@ -244,6 +271,7 @@ export function useAdvisorMetrics(): AdvisorMetrics {
     totalPremiumYTD: premiums.ytd,
     totalPremiumMTD: premiums.mtd,
     totalPremiumLastMonth: premiums.lastMonth,
+    premiumBreakdown: premiums.breakdown,
     momGrowthPct,
     ytdGrowthPct,
     isLoading,
