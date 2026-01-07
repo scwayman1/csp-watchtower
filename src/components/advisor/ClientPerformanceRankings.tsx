@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight } from "lucide-react";
@@ -14,7 +14,7 @@ interface ClientPerformance {
 }
 
 export function ClientPerformanceRankings() {
-  const navigate = useNavigate();
+  const [, setSearchParams] = useSearchParams();
 
   // Get current advisor's clients
   const { data: clients } = useQuery({
@@ -215,7 +215,8 @@ export function ClientPerformanceRankings() {
           return (
             <button
               key={client.id}
-              onClick={() => navigate(`/?client=${client.id}`)}
+              onClick={() => setSearchParams({ client: client.id })}
+              type="button"
               className="w-full flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors text-left group"
             >
               <div className="flex items-center gap-3">
