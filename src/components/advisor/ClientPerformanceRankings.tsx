@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight } from "lucide-react";
 import { startOfYear } from "date-fns";
 
 interface ClientPerformance {
@@ -14,6 +15,7 @@ interface ClientPerformance {
 }
 
 export function ClientPerformanceRankings() {
+  const navigate = useNavigate();
   const yearStart = startOfYear(new Date()).toISOString();
 
   // Get current advisor's clients
@@ -202,43 +204,47 @@ export function ClientPerformanceRankings() {
           const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : null;
           
           return (
-            <div 
-              key={client.id} 
-              className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+            <button
+              key={client.id}
+              onClick={() => navigate(`/?client=${client.id}`)}
+              className="w-full flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors text-left group"
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 flex items-center justify-center text-lg font-bold">
                   {medal || <span className="text-sm text-muted-foreground">#{index + 1}</span>}
                 </div>
                 <div>
-                  <p className="font-medium">{client.name}</p>
+                  <p className="font-medium group-hover:text-primary transition-colors">{client.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {client.contributionPct.toFixed(1)}% of total premium
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-semibold">{formatCurrency(client.premiumYTD)}</p>
-                <div className="flex items-center justify-end gap-1 text-xs">
-                  {client.ytdReturn !== null ? (
-                    <>
-                      {client.ytdReturn > 0 ? (
-                        <TrendingUp className="h-3 w-3 text-success" />
-                      ) : client.ytdReturn < 0 ? (
-                        <TrendingDown className="h-3 w-3 text-destructive" />
-                      ) : (
-                        <Minus className="h-3 w-3 text-muted-foreground" />
-                      )}
-                      <span className={client.ytdReturn >= 0 ? "text-success" : "text-destructive"}>
-                        {client.ytdReturn >= 0 ? "+" : ""}{client.ytdReturn.toFixed(1)}% YTD
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">N/A</span>
-                  )}
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <p className="font-semibold">{formatCurrency(client.premiumYTD)}</p>
+                  <div className="flex items-center justify-end gap-1 text-xs">
+                    {client.ytdReturn !== null ? (
+                      <>
+                        {client.ytdReturn > 0 ? (
+                          <TrendingUp className="h-3 w-3 text-success" />
+                        ) : client.ytdReturn < 0 ? (
+                          <TrendingDown className="h-3 w-3 text-destructive" />
+                        ) : (
+                          <Minus className="h-3 w-3 text-muted-foreground" />
+                        )}
+                        <span className={client.ytdReturn >= 0 ? "text-success" : "text-destructive"}>
+                          {client.ytdReturn >= 0 ? "+" : ""}{client.ytdReturn.toFixed(1)}% YTD
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">N/A</span>
+                    )}
+                  </div>
                 </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
-            </div>
+            </button>
           );
         })}
       </CardContent>
