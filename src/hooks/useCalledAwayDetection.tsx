@@ -1,17 +1,11 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import type { AssignedPosition } from "@/hooks/useAssignedPositions";
+import type { AssignedPosition, CoveredCall } from "@/hooks/assigned/types";
 
-interface CalledAwayEvent {
+export interface PendingCalledAway {
   position: AssignedPosition;
-  coveredCall: {
-    id: string;
-    strike_price: number;
-    expiration: string;
-    premium_per_contract: number;
-    contracts: number;
-  };
+  coveredCall: CoveredCall;
   realizedGain: number;
 }
 
@@ -20,8 +14,10 @@ export function useCalledAwayDetection(
   onCalledAway: () => void
 ) {
   const processedCallsRef = useRef<Set<string>>(new Set());
+  const dismissedCallsRef = useRef<Set<string>>(new Set());
+  const [pendingEvents, setPendingEvents] = useState<PendingCalledAway[]>([]);
 
-  const processCalledAway = useCallback(async (event: CalledAwayEvent) => {
+  const confirmCalledAway = useCallback(async (event: PendingCalledAway) => {
     const { position, coveredCall, realizedGain } = event;
     
     try {
@@ -49,7 +45,6 @@ export function useCalledAwayDetection(
           })
           .eq('id', position.id);
 
-        // Show success notification
         toast({
           title: "📞 Shares Called Away!",
           description: (
@@ -86,7 +81,8 @@ export function useCalledAwayDetection(
         });
       }
 
-      // Trigger refetch
+      // Remove from pending and trigger refetch
+      setPendingEvents(prev => prev.filter(e => e.coveredCall.id !== coveredCall.id));
       onCalledAway();
     } catch (error: any) {
       console.error('Error processing called away:', error);
@@ -98,48 +94,46 @@ export function useCalledAwayDetection(
     }
   }, [onCalledAway]);
 
+  const dismissEvent = useCallback((callId: string) => {
+    dismissedCallsRef.current.add(callId);
+    setPendingEvents(prev => prev.filter(e => e.coveredCall.id !== callId));
+  }, []);
+
   const checkForCalledAway = useCallback(async () => {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const todayStr = now.toISOString().split('T')[0];
     
-    console.log('[CalledAwayDetection] Checking positions:', assignedPositions.length);
+    const newPendingEvents: PendingCalledAway[] = [];
     
     for (const position of assignedPositions) {
       if (!position.covered_calls?.length) continue;
       
       const currentPrice = position.current_price || 0;
-      console.log(`[CalledAwayDetection] ${position.symbol}: price=${currentPrice}, calls=${position.covered_calls.length}`);
       
       for (const call of position.covered_calls) {
-        // Skip if already processed, not active, or already closed
-        if (!call.is_active || call.closed_at || processedCallsRef.current.has(call.id)) {
-          console.log(`[CalledAwayDetection] Skipping call ${call.id}: is_active=${call.is_active}, closed_at=${call.closed_at}, processed=${processedCallsRef.current.has(call.id)}`);
+        // Skip if already processed, dismissed, not active, or already closed
+        if (
+          !call.is_active || 
+          call.closed_at || 
+          processedCallsRef.current.has(call.id) ||
+          dismissedCallsRef.current.has(call.id)
+        ) {
           continue;
         }
         
-        // Check if expiration date is today or in the past
-        const expirationStr = call.expiration; // YYYY-MM-DD format
+        const expirationStr = call.expiration;
         const isExpiredOrExpiringToday = expirationStr <= todayStr;
         const isITM = currentPrice >= call.strike_price;
         
-        console.log(`[CalledAwayDetection] Call ${call.id}: expiration=${expirationStr}, today=${todayStr}, expired=${isExpiredOrExpiringToday}, strike=${call.strike_price}, ITM=${isITM}`);
-        
         if (isExpiredOrExpiringToday && isITM) {
-          console.log(`[CalledAwayDetection] TRIGGERING called away for ${position.symbol}!`);
-          // Mark as processed to prevent duplicate processing
           processedCallsRef.current.add(call.id);
           
-          // Calculate realized gain
-          // Note: cost_basis already has put premium deducted, so capital gain includes that benefit
           const sharesCalledAway = call.contracts * 100;
           const callPremium = call.premium_per_contract * 100 * call.contracts;
           const capitalGain = (call.strike_price - position.cost_basis) * sharesCalledAway;
-          // Don't add put premium again - it's already reflected in the lower cost_basis
           const realizedGain = capitalGain + callPremium;
           
-          console.log(`[CalledAwayDetection] Realized gain breakdown: capitalGain=$${capitalGain}, callPremium=$${callPremium}, total=$${realizedGain}`);
-          
-          await processCalledAway({
+          newPendingEvents.push({
             position,
             coveredCall: call,
             realizedGain
@@ -147,14 +141,22 @@ export function useCalledAwayDetection(
         }
       }
     }
-  }, [assignedPositions, processCalledAway]);
+
+    if (newPendingEvents.length > 0) {
+      setPendingEvents(prev => [...prev, ...newPendingEvents]);
+    }
+  }, [assignedPositions]);
 
   useEffect(() => {
-    // Check on mount and whenever positions change
     if (assignedPositions.length > 0) {
       checkForCalledAway();
     }
   }, [assignedPositions, checkForCalledAway]);
 
-  return { checkForCalledAway };
+  return { 
+    pendingEvents, 
+    confirmCalledAway, 
+    dismissEvent,
+    checkForCalledAway 
+  };
 }

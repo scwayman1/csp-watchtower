@@ -16,6 +16,7 @@ import { ExpirationCalendar } from "@/components/dashboard/ExpirationCalendar";
 import { AIPerformanceTracker } from "@/components/dashboard/AIPerformanceTracker";
 import { LearningCenter } from "@/components/dashboard/LearningCenter";
 import { CalledAwayPositions } from "@/components/dashboard/CalledAwayPositions";
+import { CalledAwayConfirmDialog } from "@/components/dashboard/CalledAwayConfirmDialog";
 import { AssignedCapitalDialog } from "@/components/dashboard/AssignedCapitalDialog";
 import { ActivePositionsBatchHeader } from "@/components/dashboard/ActivePositionsBatchHeader";
 import { MiniSparkline } from "@/components/dashboard/MiniSparkline";
@@ -53,8 +54,8 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions(effectiveUserId);
   const { assignedPositions, closedPositions, loading: assignedLoading, refetch: refetchAssigned } = useAssignedPositions(effectiveUserId);
   
-  // Auto-detect called away positions
-  useCalledAwayDetection(assignedPositions, refetchAssigned);
+  // Auto-detect called away positions with confirmation
+  const { pendingEvents, confirmCalledAway, dismissEvent } = useCalledAwayDetection(assignedPositions, refetchAssigned);
   const { settings } = useSettings(effectiveUserId);
   const { history: portfolioHistory, recordSnapshot } = usePortfolioHistory(effectiveUserId);
   
@@ -980,6 +981,13 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
         onOpenChange={setAssignedCapitalDialogOpen}
         assignedPositions={filteredAssignedPositions}
         totalAssignedCapital={assignedSharesMarketValue}
+      />
+
+      {/* Called Away Confirmation Dialog */}
+      <CalledAwayConfirmDialog
+        pendingEvents={pendingEvents}
+        onConfirm={confirmCalledAway}
+        onDismiss={dismissEvent}
       />
 
       {/* First-time user guide */}
