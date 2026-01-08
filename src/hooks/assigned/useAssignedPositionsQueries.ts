@@ -42,7 +42,9 @@ async function fetchAssignedPositionsData(userId?: string) {
     supabase
       .from('covered_calls')
       .select('*')
-      .in('assigned_position_id', allPositionIds),
+      .in('assigned_position_id', allPositionIds)
+      .order('expiration', { ascending: false })
+      .order('opened_at', { ascending: false }),
     activeSymbols.length > 0 
       ? supabase
           .from('market_data')
@@ -67,7 +69,13 @@ async function fetchAssignedPositionsData(userId?: string) {
     const totalInvested = pos.cost_basis * pos.shares;
     const unrealizedPnl = positionValue - totalInvested;
 
-    const positionCalls = callsData.filter(c => c.assigned_position_id === pos.id);
+    const positionCalls = callsData
+      .filter(c => c.assigned_position_id === pos.id)
+      .sort((a, b) => {
+        const exp = String(b.expiration || '').localeCompare(String(a.expiration || ''));
+        if (exp !== 0) return exp;
+        return String(b.opened_at || '').localeCompare(String(a.opened_at || ''));
+      });
     const totalCallPremiums = positionCalls.reduce((sum, call) => 
       sum + (parseFloat(String(call.premium_per_contract)) * 100 * call.contracts), 0
     );
@@ -111,7 +119,13 @@ async function fetchAssignedPositionsData(userId?: string) {
     const shares = pos.shares;
     const putPremium = parseFloat(String(pos.original_put_premium));
     
-    const positionCalls = callsData.filter(c => c.assigned_position_id === pos.id);
+    const positionCalls = callsData
+      .filter(c => c.assigned_position_id === pos.id)
+      .sort((a, b) => {
+        const exp = String(b.expiration || '').localeCompare(String(a.expiration || ''));
+        if (exp !== 0) return exp;
+        return String(b.opened_at || '').localeCompare(String(a.opened_at || ''));
+      });
     const totalCallPremiums = positionCalls.reduce((sum, call) => 
       sum + (parseFloat(String(call.premium_per_contract)) * 100 * call.contracts), 0
     );
