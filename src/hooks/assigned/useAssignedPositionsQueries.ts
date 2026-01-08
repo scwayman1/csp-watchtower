@@ -12,11 +12,13 @@ async function fetchAssignedPositionsData(userId?: string) {
     supabase
       .from('assigned_positions')
       .select('*')
+      .eq('user_id', effectiveUserId)
       .eq('is_active', true)
       .order('assignment_date', { ascending: false }),
     supabase
       .from('assigned_positions')
       .select('*')
+      .eq('user_id', effectiveUserId)
       .eq('is_active', false)
       .not('sold_price', 'is', null)
       .order('closed_at', { ascending: false })
