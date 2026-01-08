@@ -111,9 +111,9 @@ export function useCalledAwayDetection(
       console.log(`[CalledAwayDetection] ${position.symbol}: price=${currentPrice}, calls=${position.covered_calls.length}`);
       
       for (const call of position.covered_calls) {
-        // Skip if already processed or not active
-        if (!call.is_active || processedCallsRef.current.has(call.id)) {
-          console.log(`[CalledAwayDetection] Skipping call ${call.id}: is_active=${call.is_active}, processed=${processedCallsRef.current.has(call.id)}`);
+        // Skip if already processed, not active, or already closed
+        if (!call.is_active || call.closed_at || processedCallsRef.current.has(call.id)) {
+          console.log(`[CalledAwayDetection] Skipping call ${call.id}: is_active=${call.is_active}, closed_at=${call.closed_at}, processed=${processedCallsRef.current.has(call.id)}`);
           continue;
         }
         

@@ -104,6 +104,7 @@ export function useAssignedPositionsQueries(userId?: string) {
             contracts: call.contracts,
             opened_at: call.opened_at,
             is_active: call.is_active,
+            closed_at: call.closed_at,
           })),
         } as AssignedPosition;
       });
@@ -149,6 +150,7 @@ export function useAssignedPositionsQueries(userId?: string) {
             contracts: call.contracts,
             opened_at: call.opened_at,
             is_active: call.is_active,
+            closed_at: call.closed_at,
           })),
         } as AssignedPosition;
       });

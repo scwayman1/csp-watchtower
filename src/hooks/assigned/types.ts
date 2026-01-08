@@ -6,6 +6,7 @@ export interface CoveredCall {
   contracts: number;
   opened_at: string;
   is_active: boolean;
+  closed_at?: string | null;
 }
 
 export interface AssignedPosition {
