@@ -19,6 +19,7 @@ import { CalledAwayPositions } from "@/components/dashboard/CalledAwayPositions"
 import { CalledAwayConfirmDialog } from "@/components/dashboard/CalledAwayConfirmDialog";
 import { AssignedCapitalDialog } from "@/components/dashboard/AssignedCapitalDialog";
 import { ActivePositionsBatchHeader } from "@/components/dashboard/ActivePositionsBatchHeader";
+import { CoveredCallHistory } from "@/components/dashboard/CoveredCallHistory";
 import { MiniSparkline } from "@/components/dashboard/MiniSparkline";
 import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw, Wallet, PiggyBank, Target, BarChart3 } from "lucide-react";
 import { TooltipHeader, TooltipRow, TooltipChartWrapper, TooltipContainer, TooltipPositionRow, TooltipScrollArea, TooltipDivider, TooltipEmptyState } from "@/components/dashboard/MetricTooltip";
@@ -946,6 +947,9 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
             <AssignedPositionsTable positions={filteredAssignedPositions} onRefetch={refetchAssigned} />
           </CardContent>
         </Card>
+
+        {/* Covered Call History - Past Cycles */}
+        <CoveredCallHistory userId={viewAsUserId} />
 
         {/* Called Away Positions (Completed Wheel Cycles) */}
         {closedPositions.length > 0 && (
