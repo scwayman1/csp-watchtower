@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useRealtimeSubscription, TableSubscription } from "@/hooks/useRealtimeSubscription";
 
-export function useAssignedPositionsSubscriptions(refetch: () => Promise<void>) {
+export function useAssignedPositionsSubscriptions(refetch: () => void) {
   const tables: TableSubscription[] = useMemo(
     () => [
       { table: "assigned_positions" },
