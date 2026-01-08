@@ -8,7 +8,7 @@ export function useAssignedPositions(userId?: string, includeInactive = false) {
   const { assignedPositions, closedPositions, loading, refetch } = useAssignedPositionsQueries(userId);
   
   // Set up realtime subscriptions and market data refresh
-  useAssignedPositionsSubscriptions(refetch);
+  useAssignedPositionsSubscriptions(() => { refetch(); });
 
-  return { assignedPositions, closedPositions, loading, refetch };
+  return { assignedPositions, closedPositions, loading, refetch: () => { refetch(); } };
 }
