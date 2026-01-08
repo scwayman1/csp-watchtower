@@ -12,6 +12,7 @@ import Dashboard from "@/pages/Dashboard";
 import { ClientLearningInsightsWidget } from "@/components/advisor/ClientLearningInsightsWidget";
 import { ClientPerformanceRankings } from "@/components/advisor/ClientPerformanceRankings";
 import { MonthlyPremiumTrendChart } from "@/components/advisor/MonthlyPremiumTrendChart";
+import { TopPerformingSymbols } from "@/components/advisor/TopPerformingSymbols";
 import { useAdvisorMetrics } from "@/hooks/useAdvisorMetrics";
 
 export default function AdvisorDashboard() {
@@ -264,12 +265,15 @@ export default function AdvisorDashboard() {
         <MonthlyPremiumTrendChart />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Client Learning Insights */}
         <ClientLearningInsightsWidget />
 
         {/* Client Performance Rankings */}
         <ClientPerformanceRankings />
+
+        {/* Top Performing Symbols */}
+        <TopPerformingSymbols />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
