@@ -135,14 +135,14 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Premium Analytics">
+                <SidebarMenuButton asChild tooltip="Analytics">
                   <NavLink
-                    to="/premium-analytics"
+                    to="/analytics"
                     className="flex items-center gap-2"
                     activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                   >
-                    <DollarSign className="h-4 w-4" />
-                    {!isCollapsed && <span>Premium Analytics</span>}
+                    <BarChart3 className="h-4 w-4" />
+                    {!isCollapsed && <span>Analytics</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
