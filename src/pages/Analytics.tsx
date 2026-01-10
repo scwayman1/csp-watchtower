@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { CalledAwaySection } from "@/components/analytics/CalledAwaySection";
 import { UnderwaterSection } from "@/components/analytics/UnderwaterSection";
 import { AssignedOverviewSection } from "@/components/analytics/AssignedOverviewSection";
+import { ReadableTooltipContent } from "@/components/analytics/ReadableTooltipContent";
 
 interface MonthlyData {
   month: string;
@@ -410,8 +411,20 @@ export default function Analytics() {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', color: 'hsl(var(--card-foreground))' }} labelStyle={{ color: 'hsl(var(--card-foreground))' }} />
-                      <Legend />
+                      <Tooltip
+                        content={
+                          <ReadableTooltipContent
+                            valueFormatter={(v) => `$${v.toLocaleString()}`}
+                            labelFormatter={(l) => l}
+                          />
+                        }
+                        wrapperStyle={{ zIndex: 50 }}
+                      />
+                      <Legend
+                        formatter={(value: string) => (
+                          <span style={{ color: 'hsl(var(--foreground))' }}>{value}</span>
+                        )}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -437,8 +450,20 @@ export default function Analytics() {
                           <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', color: 'hsl(var(--card-foreground))' }} labelStyle={{ color: 'hsl(var(--card-foreground))' }} />
-                      <Legend />
+                      <Tooltip
+                        content={
+                          <ReadableTooltipContent
+                            valueFormatter={(v) => `$${v.toLocaleString()}`}
+                            labelFormatter={(l) => l}
+                          />
+                        }
+                        wrapperStyle={{ zIndex: 50 }}
+                      />
+                      <Legend
+                        formatter={(value: string) => (
+                          <span style={{ color: 'hsl(var(--foreground))' }}>{value}</span>
+                        )}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>

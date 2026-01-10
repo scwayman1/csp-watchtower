@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Layers, TrendingUp, DollarSign, Activity } from "lucide-react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
+import { ReadableTooltipContent } from "@/components/analytics/ReadableTooltipContent";
 
 interface AssignedOverviewSectionProps {
   totalAssignedEver: number;
@@ -113,14 +114,14 @@ export function AssignedOverviewSection({
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => [value, 'Positions']}
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                    }}
+                    content={<ReadableTooltipContent valueFormatter={(v) => String(v)} />}
+                    wrapperStyle={{ zIndex: 50 }}
                   />
-                  <Legend />
+                  <Legend
+                    formatter={(value: string) => (
+                      <span style={{ color: 'hsl(var(--foreground))' }}>{value}</span>
+                    )}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
