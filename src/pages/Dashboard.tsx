@@ -316,8 +316,14 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   }
 
   // Calculate ROC metrics
-  const annualizedROC = totalPremium > 0 && totalPortfolioValue > 0 
-    ? ((totalPremium / totalPortfolioValue) * (365 / 30)) * 100 
+  // ROC = Premium / Capital at Risk (cash secured), annualized based on average DTE
+  const avgDaysToExp = activePositions.length > 0 
+    ? activePositions.reduce((sum, p) => sum + p.daysToExp, 0) / activePositions.length 
+    : 30;
+  const capitalAtRisk = cashSecured > 0 ? cashSecured : 1; // Prevent division by zero
+  const rawROC = totalPremium / capitalAtRisk;
+  const annualizedROC = capitalAtRisk > 0 && totalPremium > 0 
+    ? rawROC * (365 / Math.max(avgDaysToExp, 1)) * 100 
     : 0;
   
   const cycleCompletions = expiredPositions.length > 0 && positions.length > 0
