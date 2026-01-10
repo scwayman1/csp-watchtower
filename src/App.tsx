@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
-import PremiumAnalytics from "./pages/PremiumAnalytics";
+import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import AcceptInvite from "./pages/AcceptInvite";
@@ -68,7 +68,7 @@ const AppContent = () => {
             ) : (
             <>
                 <Route path="/" element={<Dashboard />} />
-                <Route path="/premium-analytics" element={<PremiumAnalytics />} />
+                <Route path="/analytics" element={<Analytics />} />
                 <Route path="/messages" element={<Messages />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/advisor" element={<Dashboard />} />
