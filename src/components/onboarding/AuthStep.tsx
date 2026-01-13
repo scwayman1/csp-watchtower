@@ -298,12 +298,19 @@ export function AuthStep({
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form 
+        onSubmit={handleSubmit} 
+        className="space-y-4"
+        name={mode === "signup" ? "signup-form" : mode === "login" ? "login-form" : "reset-form"}
+        id={mode === "signup" ? "signup-form" : mode === "login" ? "login-form" : "reset-form"}
+        autoComplete={mode === "login" ? "on" : undefined}
+      >
         {mode === "signup" && (
           <div className="space-y-2">
             <Label htmlFor="fullName">Full Name</Label>
             <Input
               id="fullName"
+              name="fullName"
               placeholder="Enter your full name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -317,6 +324,7 @@ export function AuthStep({
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
+            name="email"
             type="email"
             placeholder="you@example.com"
             value={email}
@@ -324,7 +332,7 @@ export function AuthStep({
             required
             disabled={disableEmailEdit}
             className={disableEmailEdit ? "bg-muted" : ""}
-            autoComplete="email"
+            autoComplete={mode === "login" ? "username" : "email"}
           />
         </div>
 
@@ -345,6 +353,7 @@ export function AuthStep({
             <div className="relative">
               <Input
                 id="password"
+                name="password"
                 type={showPassword ? "text" : "password"}
                 placeholder={mode === "signup" ? "Create a password (min 6 characters)" : "Enter your password"}
                 value={password}
