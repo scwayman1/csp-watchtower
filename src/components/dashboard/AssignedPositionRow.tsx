@@ -67,6 +67,9 @@ export const AssignedPositionRow = ({ position, onSellCall, onSellShares }: Assi
   const totalCallPremiums = position.coveredCallPremiums || 0;
   const totalPremiums = totalPutPremium + totalCallPremiums;
   const netCostBasis = position.cost_basis - totalPremiums;
+  const breakEvenPerShare = netCostBasis / position.shares;
+  const pctAboveBreakEven = ((position.currentPrice - breakEvenPerShare) / breakEvenPerShare) * 100;
+  const isAboveBreakEven = position.currentPrice >= breakEvenPerShare;
 
   return (
     <>
@@ -115,12 +118,33 @@ export const AssignedPositionRow = ({ position, onSellCall, onSellShares }: Assi
           <div className="flex flex-col gap-1">
             <span>${position.assignment_price.toFixed(2)}</span>
             <span className="text-xs text-muted-foreground">
-              Net: ${(netCostBasis / position.shares).toFixed(2)}
+              Total: ${position.cost_basis.toFixed(2)}
             </span>
           </div>
         </TableCell>
-        <TableCell>
-          ${position.marketValue.toFixed(2)}
+        {/* BREAK-EVEN COLUMN - Highlighted */}
+        <TableCell className={`bg-gradient-to-r ${isAboveBreakEven ? 'from-success/10 to-success/5' : 'from-destructive/10 to-destructive/5'} border-x ${isAboveBreakEven ? 'border-success/20' : 'border-destructive/20'}`}>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <span className={`font-bold ${isAboveBreakEven ? 'text-success' : 'text-destructive'}`}>
+                ${breakEvenPerShare.toFixed(2)}
+              </span>
+              {isAboveBreakEven ? (
+                <TrendingUp className="w-3.5 h-3.5 text-success" />
+              ) : (
+                <TrendingDown className="w-3.5 h-3.5 text-destructive" />
+              )}
+            </div>
+            <div className={`text-xs font-medium ${isAboveBreakEven ? 'text-success' : 'text-destructive'}`}>
+              {isAboveBreakEven ? '+' : ''}{pctAboveBreakEven.toFixed(1)}% {isAboveBreakEven ? 'above' : 'below'}
+            </div>
+            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-0.5">
+              <div 
+                className={`h-full rounded-full transition-all ${isAboveBreakEven ? 'bg-success' : 'bg-destructive'}`}
+                style={{ width: `${Math.min(Math.abs(pctAboveBreakEven) * 5, 100)}%` }}
+              />
+            </div>
+          </div>
         </TableCell>
         <TableCell>
           <span className="text-success">
@@ -152,9 +176,14 @@ export const AssignedPositionRow = ({ position, onSellCall, onSellShares }: Assi
           </div>
         </TableCell>
         <TableCell>
-          <span className={position.unrealizedPnL >= 0 ? "text-success" : "text-destructive"}>
-            ${position.unrealizedPnL.toFixed(2)}
-          </span>
+          <div className="flex flex-col gap-1">
+            <span className={`font-semibold ${position.unrealizedPnL + totalPremiums >= 0 ? "text-success" : "text-destructive"}`}>
+              ${(position.unrealizedPnL + totalPremiums).toFixed(2)}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              P/L: ${position.unrealizedPnL.toFixed(0)} + Prem: ${totalPremiums.toFixed(0)}
+            </span>
+          </div>
         </TableCell>
         <TableCell className="text-right">
           <div className="flex items-center gap-2 justify-end">
