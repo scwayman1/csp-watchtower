@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 
 interface WelcomeStepProps {
   onContinue: () => void;
+  onSignIn: () => void;
   userType?: "investor" | "advisor";
 }
 
-export function WelcomeStep({ onContinue, userType = "investor" }: WelcomeStepProps) {
+export function WelcomeStep({ onContinue, onSignIn, userType = "investor" }: WelcomeStepProps) {
   const features = userType === "investor" ? [
     { icon: TrendingUp, title: "Track Positions", description: "Monitor your CSP and covered call positions in real-time" },
     { icon: Shield, title: "Risk Analysis", description: "Get AI-powered insights on premium quality and assignment risk" },
@@ -49,9 +50,14 @@ export function WelcomeStep({ onContinue, userType = "investor" }: WelcomeStepPr
         ))}
       </div>
 
-      <Button onClick={onContinue} className="w-full" size="lg">
-        Get Started
-      </Button>
+      <div className="space-y-3">
+        <Button onClick={onContinue} className="w-full" size="lg">
+          Create Account
+        </Button>
+        <Button onClick={onSignIn} variant="outline" className="w-full" size="lg">
+          Sign In
+        </Button>
+      </div>
     </div>
   );
 }

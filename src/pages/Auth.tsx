@@ -70,6 +70,11 @@ const Auth = () => {
     setStep("role");
   };
 
+  const handleWelcomeSignIn = () => {
+    setAuthMode("login");
+    setStep("auth");
+  };
+
   const handleRoleSelect = (role: "investor" | "advisor") => {
     setSelectedRole(role);
     setStep("auth");
@@ -154,7 +159,7 @@ const Auth = () => {
 
           {/* Step content */}
           {step === "welcome" && (
-            <WelcomeStep onContinue={handleWelcomeContinue} />
+            <WelcomeStep onContinue={handleWelcomeContinue} onSignIn={handleWelcomeSignIn} />
           )}
 
           {step === "role" && (
