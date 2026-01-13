@@ -96,7 +96,7 @@ export function SimulatorAssignedZone({ assignedPositions, onSellCall, onSellSha
           </div>
 
           {/* Metrics Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mt-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mt-6">
             <div className="bg-card/50 backdrop-blur-sm rounded-lg p-3 border border-border/50">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                 <Package className="h-3 w-3" />
@@ -113,6 +113,21 @@ export function SimulatorAssignedZone({ assignedPositions, onSellCall, onSellSha
               <p className="text-xl font-bold">${metrics.totalCostBasis.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
             </div>
             
+            {/* BREAK-EVEN CARD - Highlighted */}
+            <div className="bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm rounded-lg p-3 border-2 border-primary/30 relative overflow-hidden">
+              <div className="absolute -top-1 -right-1 px-2 py-0.5 bg-primary text-primary-foreground text-[10px] font-semibold rounded-bl-lg">
+                KEY METRIC
+              </div>
+              <div className="flex items-center gap-2 text-xs text-primary mb-1">
+                <TrendingUp className="h-3 w-3" />
+                Break-Even Price
+              </div>
+              <p className="text-xl font-bold">${(metrics.netCostBasis / metrics.totalShares).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                vs ${(metrics.totalMarketValue / metrics.totalShares).toFixed(2)} avg current
+              </p>
+            </div>
+            
             <div className="bg-card/50 backdrop-blur-sm rounded-lg p-3 border border-border/50">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                 <TrendingUp className="h-3 w-3" />
@@ -124,27 +139,46 @@ export function SimulatorAssignedZone({ assignedPositions, onSellCall, onSellSha
             <div className="bg-card/50 backdrop-blur-sm rounded-lg p-3 border border-border/50">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                 <DollarSign className="h-3 w-3 text-success" />
-                Put Premiums
+                Total Premiums
               </div>
-              <p className="text-xl font-bold text-success">+${metrics.totalPutPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-            </div>
-            
-            <div className="bg-card/50 backdrop-blur-sm rounded-lg p-3 border border-border/50">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                <Phone className="h-3 w-3 text-success" />
-                Call Premiums
-              </div>
-              <p className="text-xl font-bold text-success">+${metrics.totalCallPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+              <p className="text-xl font-bold text-success">+${metrics.totalPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Put: ${metrics.totalPutPremiums.toFixed(0)} · Call: ${metrics.totalCallPremiums.toFixed(0)}
+              </p>
             </div>
             
             <div className="bg-card/50 backdrop-blur-sm rounded-lg p-3 border border-border/50">
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                 <Percent className="h-3 w-3" />
-                Unrealized P/L
+                Net Position P/L
               </div>
               <p className={`text-xl font-bold ${metrics.unrealizedPnL >= 0 ? 'text-success' : 'text-destructive'}`}>
                 {metrics.unrealizedPnL >= 0 ? '+' : ''}${metrics.unrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 2 })}
               </p>
+            </div>
+
+            {/* Break-Even Progress */}
+            <div className="bg-card/50 backdrop-blur-sm rounded-lg p-3 border border-border/50">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <Percent className="h-3 w-3" />
+                Above Break-Even
+              </div>
+              {(() => {
+                const breakEvenPerShare = metrics.netCostBasis / metrics.totalShares;
+                const currentAvgPrice = metrics.totalMarketValue / metrics.totalShares;
+                const pctAboveBreakEven = ((currentAvgPrice - breakEvenPerShare) / breakEvenPerShare) * 100;
+                const isAbove = pctAboveBreakEven >= 0;
+                return (
+                  <>
+                    <p className={`text-xl font-bold ${isAbove ? 'text-success' : 'text-destructive'}`}>
+                      {isAbove ? '+' : ''}{pctAboveBreakEven.toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isAbove ? 'In profit zone' : 'Below break-even'}
+                    </p>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -222,10 +256,15 @@ export function SimulatorAssignedZone({ assignedPositions, onSellCall, onSellSha
                   <TableHead>Shares</TableHead>
                   <TableHead>Current Price</TableHead>
                   <TableHead>Cost Basis</TableHead>
-                  <TableHead>Market Value</TableHead>
+                  <TableHead className="bg-primary/5 border-x border-primary/20">
+                    <div className="flex flex-col">
+                      <span className="text-primary font-semibold">Break-Even</span>
+                      <span className="text-xs text-muted-foreground font-normal">Net Cost / Share</span>
+                    </div>
+                  </TableHead>
                   <TableHead>Put Premium</TableHead>
                   <TableHead>Call Premiums</TableHead>
-                  <TableHead>Unrealized P/L</TableHead>
+                  <TableHead>Net Position</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
