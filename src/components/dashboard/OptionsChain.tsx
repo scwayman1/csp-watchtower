@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Info, Filter, Star, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Pin, PinOff, X, GitCompare } from "lucide-react";
+import { Plus, Info, Filter, Star, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Pin, PinOff, X, GitCompare, AlertTriangle } from "lucide-react";
 
 type SortColumn = 'roc' | 'delta' | 'premium' | 'strike' | null;
 type SortDirection = 'asc' | 'desc';
@@ -48,6 +48,9 @@ interface OptionsChainProps {
   symbol: string;
   isStale?: boolean;
   optionType?: 'PUT' | 'CALL';
+  // Capital validation props
+  availableCapital?: number;
+  onCapitalExceeded?: (requiredCapital: number, availableCapital: number) => void;
 }
 
 type StrikeRangeOption = '5' | '10' | '15' | '20' | '30' | 'all';
@@ -115,7 +118,9 @@ export const OptionsChain = ({
   onAddToSimulator,
   symbol,
   isStale = false,
-  optionType = 'PUT'
+  optionType = 'PUT',
+  availableCapital,
+  onCapitalExceeded,
 }: OptionsChainProps) => {
   const storedFilters = getStoredFilters();
   
@@ -203,6 +208,53 @@ export const OptionsChain = ({
   const isOptionPinned = useCallback((strike: number) => {
     return pinnedOptions.some(p => p.strike === strike);
   }, [pinnedOptions]);
+
+  // Capital validation helper
+  const checkAndAddToSimulator = useCallback((option: EnhancedOption) => {
+    const requiredCapital = option.strike * 100 * contracts;
+    
+    // If capital validation is enabled
+    if (availableCapital !== undefined && onAddToSimulator) {
+      const canAfford = availableCapital >= requiredCapital;
+      
+      if (!canAfford) {
+        // Call the exceeded callback if provided
+        if (onCapitalExceeded) {
+          onCapitalExceeded(requiredCapital, availableCapital);
+        }
+        return; // Don't add the position
+      }
+    }
+    
+    // Proceed to add the position
+    if (onAddToSimulator) {
+      onAddToSimulator({
+        symbol,
+        strike_price: option.strike,
+        expiration,
+        contracts,
+        premium_per_contract: option.mid,
+        notes: `ROC: ${option.roc.toFixed(2)}%, Δ: ${option.delta?.toFixed(2) || 'N/A'}`
+      });
+    }
+  }, [availableCapital, contracts, expiration, onAddToSimulator, onCapitalExceeded, symbol]);
+
+  // Check if a specific option can be afforded
+  const canAffordOption = useCallback((strikePrice: number) => {
+    if (availableCapital === undefined) return true;
+    const requiredCapital = strikePrice * 100 * contracts;
+    return availableCapital >= requiredCapital;
+  }, [availableCapital, contracts]);
+
+  // Get warning level for remaining capital after trade
+  const getCapitalWarningLevel = useCallback((strikePrice: number): 'none' | 'low' | 'critical' => {
+    if (availableCapital === undefined) return 'none';
+    const requiredCapital = strikePrice * 100 * contracts;
+    if (availableCapital < requiredCapital) return 'critical';
+    const remainingAfter = availableCapital - requiredCapital;
+    if (remainingAfter < 10000) return 'low';
+    return 'none';
+  }, [availableCapital, contracts]);
   
   const calculateMetrics = (option: OptionRow) => {
     // Safely handle undefined values with defaults
@@ -533,21 +585,41 @@ export const OptionsChain = ({
                       </Badge>
                     </div>
                     {onAddToSimulator && (
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        onClick={() => onAddToSimulator({
-                          symbol,
-                          strike_price: option.strike,
-                          expiration,
-                          contracts,
-                          premium_per_contract: option.mid,
-                          notes: `ROC: ${option.roc.toFixed(2)}%, Δ: ${option.delta?.toFixed(2) || 'N/A'}`
-                        })}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Add to Simulator
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            variant={!canAffordOption(option.strike) ? "destructive" : getCapitalWarningLevel(option.strike) === 'low' ? "secondary" : "default"}
+                            onClick={() => checkAndAddToSimulator(option)}
+                            disabled={!canAffordOption(option.strike)}
+                          >
+                            {!canAffordOption(option.strike) ? (
+                              <>
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Insufficient Capital
+                              </>
+                            ) : getCapitalWarningLevel(option.strike) === 'low' ? (
+                              <>
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Add (Low Capital)
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="h-3 w-3 mr-1" />
+                                Add to Simulator
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        {!canAffordOption(option.strike) && availableCapital !== undefined && (
+                          <TooltipContent>
+                            <p>Required: ${(option.strike * 100 * contracts).toLocaleString()}</p>
+                            <p>Available: ${availableCapital.toLocaleString()}</p>
+                            <p className="text-destructive">Shortfall: ${((option.strike * 100 * contracts) - availableCapital).toLocaleString()}</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
                     )}
                   </div>
                 ))}
@@ -821,20 +893,37 @@ export const OptionsChain = ({
                   </TableCell>
                   <TableCell>
                     {onAddToSimulator ? (
-                      <Button
-                        size="sm"
-                        onClick={() => onAddToSimulator({
-                          symbol,
-                          strike_price: option.strike,
-                          expiration,
-                          contracts,
-                          premium_per_contract: option.mid,
-                          notes: `ROC: ${option.roc.toFixed(2)}%, Δ: ${option.delta?.toFixed(2) || 'N/A'}`
-                        })}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant={!canAffordOption(option.strike) ? "destructive" : getCapitalWarningLevel(option.strike) === 'low' ? "secondary" : "default"}
+                            onClick={() => checkAndAddToSimulator(option)}
+                            disabled={!canAffordOption(option.strike)}
+                          >
+                            {!canAffordOption(option.strike) ? (
+                              <AlertTriangle className="h-4 w-4" />
+                            ) : getCapitalWarningLevel(option.strike) === 'low' ? (
+                              <>
+                                <AlertTriangle className="h-4 w-4 mr-1" />
+                                Add
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="h-4 w-4 mr-1" />
+                                Add
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        {!canAffordOption(option.strike) && availableCapital !== undefined && (
+                          <TooltipContent>
+                            <p>Required: ${(option.strike * 100 * contracts).toLocaleString()}</p>
+                            <p>Available: ${availableCapital.toLocaleString()}</p>
+                            <p className="text-destructive">Shortfall: ${((option.strike * 100 * contracts) - availableCapital).toLocaleString()}</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
                     ) : (
                       <span className="text-xs text-muted-foreground">View only</span>
                     )}
