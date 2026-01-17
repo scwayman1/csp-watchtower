@@ -7,11 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { OptionsChain } from "./OptionsChain";
 import { EducationPanel } from "./EducationPanel";
 import { SimulatorTable } from "./SimulatorTable";
-import { GraduationCap, Search, RefreshCw, AlertCircle } from "lucide-react";
+import { GraduationCap, Search, RefreshCw, AlertCircle, DollarSign } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLearningPositions } from "@/hooks/useLearningPositions";
 import { useOptionsChain } from "@/hooks/useOptionsChain";
 import { useTickerSearch } from "@/hooks/useTickerSearch";
+import { useSimulatorCapital } from "@/hooks/useSimulatorCapital";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +28,7 @@ export const LearningCenter = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { positions, addPosition, closePosition, deletePosition } = useLearningPositions(user?.id);
+  const { availableCapital, isLoading: capitalLoading } = useSimulatorCapital(user?.id);
   const [inputSymbol, setInputSymbol] = useState("");
   const [searchSymbol, setSearchSymbol] = useState("");
   const [contracts, setContracts] = useState(1);
@@ -96,6 +98,14 @@ export const LearningCenter = () => {
       expiration: expirationDate
     });
     setRefreshKey(prev => prev + 1);
+  };
+
+  const handleCapitalExceeded = (requiredCapital: number, currentAvailable: number) => {
+    toast({
+      title: "Insufficient Capital",
+      description: `This position requires $${requiredCapital.toLocaleString()} but you only have $${currentAvailable.toLocaleString()} available. Close some positions or adjust your starting capital.`,
+      variant: "destructive",
+    });
   };
 
   // Auto-select first expiration when data loads
@@ -284,6 +294,15 @@ export const LearningCenter = () => {
                     )}
                   </>
                 )}
+                {optionType === 'PUT' && !capitalLoading && (
+                  <Badge 
+                    variant={availableCapital < 10000 ? "destructive" : availableCapital < 50000 ? "secondary" : "outline"}
+                    className="flex items-center gap-1"
+                  >
+                    <DollarSign className="h-3 w-3" />
+                    Available: ${availableCapital.toLocaleString()}
+                  </Badge>
+                )}
               </div>
 
               {/* Expiration Tabs */}
@@ -315,6 +334,8 @@ export const LearningCenter = () => {
                       symbol={searchSymbol}
                       isStale={isStale}
                       optionType={optionType}
+                      availableCapital={optionType === 'PUT' ? availableCapital : undefined}
+                      onCapitalExceeded={handleCapitalExceeded}
                     />
                   ) : (
                     <div className="text-center py-12 text-muted-foreground">
