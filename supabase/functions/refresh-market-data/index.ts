@@ -64,35 +64,37 @@ serve(async (req) => {
     }
 
     // Fetch prices from Yahoo Finance API (free, no API key needed)
-    const priceUpdates = [];
+    // Process in smaller batches to avoid timeouts
+    const BATCH_SIZE = 5;
+    const DELAY_BETWEEN_REQUESTS = 300;
+    const priceUpdates: any[] = [];
     
-    for (const symbol of symbols) {
+    const fetchSymbolData = async (symbol: string) => {
       try {
-        // Add delay between requests to avoid rate limiting
-        if (priceUpdates.length > 0) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
-        // Fetch quote data from Yahoo Finance
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
         const quoteResponse = await fetch(
           `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=5m&range=1d`,
           {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
+            },
+            signal: controller.signal
           }
         );
         
+        clearTimeout(timeoutId);
+        
         if (!quoteResponse.ok) {
           console.error(`Failed to fetch data for ${symbol}: HTTP ${quoteResponse.status}`);
-          continue;
+          return null;
         }
 
-        // Check if response is JSON
         const contentType = quoteResponse.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
           console.error(`Non-JSON response for ${symbol}: ${contentType}`);
-          continue;
+          return null;
         }
         
         const quoteData = await quoteResponse.json();
@@ -104,40 +106,54 @@ serve(async (req) => {
           const closes = quote.close || [];
           const opens = quote.open || [];
           
-          // Filter out null values and get valid prices
           const validPrices = closes
             .map((price: number | null, idx: number) => ({ price, time: timestamps[idx] }))
             .filter((item: any) => item.price !== null);
           
           if (validPrices.length > 0) {
             const currentPrice = validPrices[validPrices.length - 1].price;
-            // Use explicit open price from first candle for accurate daily change calculation
             const explicitOpen = opens[0];
             const firstClose = validPrices[0].price;
             const dayOpen = explicitOpen ?? firstClose;
             const dayChangePct = ((currentPrice - dayOpen) / dayOpen) * 100;
             
-            // Debug logging for price verification
-            console.log(`${symbol}: open=${explicitOpen?.toFixed(2) ?? 'N/A'}, firstClose=${firstClose?.toFixed(2)}, using=${dayOpen?.toFixed(2)}, current=${currentPrice?.toFixed(2)}, change=${dayChangePct?.toFixed(2)}%`);
+            console.log(`${symbol}: price=${currentPrice?.toFixed(2)}, change=${dayChangePct?.toFixed(2)}%`);
             
-            // Extract prices for sparkline (sample every few points for performance)
             const step = Math.max(1, Math.ceil(validPrices.length / 20));
             const intradayPrices = validPrices
               .filter((_: any, idx: number) => idx % step === 0)
               .map((item: any) => item.price);
             
-            priceUpdates.push({
+            return {
               symbol,
               underlying_price: currentPrice,
               day_open: dayOpen,
               day_change_pct: dayChangePct,
               intraday_prices: intradayPrices,
               last_updated: new Date().toISOString(),
-            });
+            };
           }
         }
+        return null;
       } catch (error) {
-        console.error(`Error fetching ${symbol}:`, error);
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.error(`Timeout fetching ${symbol}`);
+        } else {
+          console.error(`Error fetching ${symbol}:`, error);
+        }
+        return null;
+      }
+    };
+
+    // Process symbols in batches
+    for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
+      const batch = symbols.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(batch.map(fetchSymbolData));
+      priceUpdates.push(...results.filter(r => r !== null));
+      
+      // Small delay between batches
+      if (i + BATCH_SIZE < symbols.length) {
+        await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_REQUESTS));
       }
     }
 
