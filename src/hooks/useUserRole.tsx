@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export type AppRole = "investor" | "advisor" | "admin";
@@ -10,8 +11,10 @@ const ROLE_PRIORITY: AppRole[] = ["investor", "advisor", "admin"];
 export function useUserRole() {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const [switching, setSwitching] = useState(false);
   const [activeRole, setActiveRole] = useState<AppRole>("investor");
 
   useEffect(() => {
@@ -90,45 +93,58 @@ export function useUserRole() {
     }
   };
 
-  const switchRole = useCallback((role: AppRole) => {
+  const switchRole = useCallback(async (role: AppRole) => {
     console.log("switchRole called:", { role, activeRole, roles });
-    
+
     if (!roles.includes(role)) {
       console.warn("Role not available:", role);
       return;
     }
-    
-    // Always update even if same role (force refresh)
-    setActiveRole(role);
-    localStorage.setItem("activeRole", role);
-    
-    // Navigate based on role
-    const currentPath = location.pathname;
-    
-    if (role === "investor") {
-      // Switch to investor routes
-      if (currentPath.startsWith("/advisor")) {
-        if (currentPath === "/advisor/settings") {
-          navigate("/settings", { replace: true });
-        } else if (currentPath === "/advisor/messages") {
-          navigate("/messages", { replace: true });
-        } else {
-          navigate("/", { replace: true });
+
+    // Set switching state to show loading UI
+    setSwitching(true);
+
+    try {
+      // Clear ALL React Query caches to ensure fresh data for new role
+      // This is critical - without this, stale data from the previous role persists
+      await queryClient.cancelQueries();
+      queryClient.clear();
+
+      // Update role state and localStorage
+      setActiveRole(role);
+      localStorage.setItem("activeRole", role);
+
+      // Navigate based on role
+      const currentPath = location.pathname;
+
+      if (role === "investor") {
+        // Switch to investor routes
+        if (currentPath.startsWith("/advisor")) {
+          if (currentPath === "/advisor/settings") {
+            navigate("/settings", { replace: true });
+          } else if (currentPath === "/advisor/messages") {
+            navigate("/messages", { replace: true });
+          } else {
+            navigate("/", { replace: true });
+          }
+        }
+      } else {
+        // Switch to advisor/admin routes
+        if (!currentPath.startsWith("/advisor")) {
+          if (currentPath === "/settings") {
+            navigate("/advisor/settings", { replace: true });
+          } else if (currentPath === "/messages") {
+            navigate("/advisor/messages", { replace: true });
+          } else {
+            navigate("/advisor", { replace: true });
+          }
         }
       }
-    } else {
-      // Switch to advisor/admin routes
-      if (!currentPath.startsWith("/advisor")) {
-        if (currentPath === "/settings") {
-          navigate("/advisor/settings", { replace: true });
-        } else if (currentPath === "/messages") {
-          navigate("/advisor/messages", { replace: true });
-        } else {
-          navigate("/advisor", { replace: true });
-        }
-      }
+    } finally {
+      // Small delay to let navigation complete before removing loading state
+      setTimeout(() => setSwitching(false), 100);
     }
-  }, [roles, activeRole, location.pathname, navigate]);
+  }, [roles, activeRole, location.pathname, navigate, queryClient]);
 
   const hasRole = useCallback((role: AppRole) => roles.includes(role), [roles]);
 
@@ -136,7 +152,7 @@ export function useUserRole() {
     roles,
     activeRole,
     loading,
-    switching: false,
+    switching,
     switchRole,
     hasRole,
     fetchUserRoles,
