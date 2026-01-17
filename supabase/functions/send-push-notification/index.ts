@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { setVapidDetails, sendNotification } from 'https://esm.sh/web-push@3.6.7';
+import { verifyInternalServiceToken } from "../_shared/verify-webhook.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,9 +14,20 @@ serve(async (req) => {
   }
 
   try {
+    // Verify this is an internal service call with service role key
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const verification = verifyInternalServiceToken(req, serviceRoleKey);
+    if (!verification.ok) {
+      console.error('Service token verification failed:', verification.reason);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      serviceRoleKey
     );
 
     const { userId, title, body, data } = await req.json();
@@ -45,15 +57,16 @@ serve(async (req) => {
 
     // Configure VAPID details
     const vapidPrivateKey = Deno.env.get('WEB_PUSH_PRIVATE_KEY');
+    const vapidPublicKey = Deno.env.get('WEB_PUSH_PUBLIC_KEY');
     const vapidContact = Deno.env.get('WEB_PUSH_CONTACT');
-    
-    if (!vapidPrivateKey || !vapidContact) {
-      throw new Error('VAPID keys not configured');
+
+    if (!vapidPrivateKey || !vapidPublicKey || !vapidContact) {
+      throw new Error('VAPID keys not configured (WEB_PUSH_PRIVATE_KEY, WEB_PUSH_PUBLIC_KEY, WEB_PUSH_CONTACT required)');
     }
 
     setVapidDetails(
       vapidContact,
-      'BL4Ce-e57TSFPVbrtHDO1gqEHsYHIczjGdomub11lb4eRY1bGJNK-vrvyjclx0MOfTpazOsM4sj7nnUkzhod88Q',
+      vapidPublicKey,
       vapidPrivateKey
     );
 

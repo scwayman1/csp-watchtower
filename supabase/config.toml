@@ -4,25 +4,32 @@ project_id = "jjalbfuofnznouwgtxql"
 verify_jwt = true
 
 [functions.bootstrap-admin]
-verify_jwt = false
+# CRITICAL: This grants admin privileges - must require authentication
+verify_jwt = true
 
 [functions.calculate-metrics]
 verify_jwt = true
 
 [functions.complete-advisor-signup]
+# Pre-auth flow - validates invite token during signup
+# Protected by invite token validation in function
 verify_jwt = false
 
 [functions.fetch-market-data]
 verify_jwt = true
 
 [functions.fetch-option-chain]
-verify_jwt = false
+# Called from authenticated frontend for option chain data
+verify_jwt = true
 
 [functions.notify-client-signup]
+# Internal function called after client signup
+# Protected by service role key in Authorization header
 verify_jwt = false
 
 [functions.parse-covered-call]
-verify_jwt = false
+# Called from authenticated frontend for AI parsing
+verify_jwt = true
 
 [functions.parse-order]
 verify_jwt = true
@@ -37,22 +44,31 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.send-client-invite]
-verify_jwt = false
+# Called from authenticated advisor dashboard
+verify_jwt = true
 
 [functions.send-invite-email]
-verify_jwt = false
+# Called from authenticated frontend for email sending
+verify_jwt = true
 
 [functions.send-push-notification]
+# Internal function for function-to-function calls
+# Protected by service role key in Authorization header
 verify_jwt = false
 
 [functions.send-sms]
 verify_jwt = true
 
 [functions.track-outcome]
-verify_jwt = false
+# Called from authenticated frontend for tracking
+verify_jwt = true
 
 [functions.twilio-webhook]
+# Third-party webhook - uses Twilio signature verification instead
+# Protected by X-Twilio-Signature HMAC validation
 verify_jwt = false
 
 [functions.validate-advisor-invite]
+# Pre-auth flow - validates invite token before user has account
+# Protected by invite token validation in function
 verify_jwt = false

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyInternalServiceToken } from "../_shared/verify-webhook.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,9 +20,20 @@ serve(async (req: Request) => {
   }
 
   try {
+    // Verify this is an internal service call with service role key
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const verification = verifyInternalServiceToken(req, serviceRoleKey);
+    if (!verification.ok) {
+      console.error("Service token verification failed:", verification.reason);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      serviceRoleKey
     );
 
     const { clientId, clientName, advisorId }: NotifyRequest = await req.json();

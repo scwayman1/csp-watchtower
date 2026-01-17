@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyTwilioWebhook } from "../_shared/verify-webhook.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-twilio-signature',
 };
 
 serve(async (req: Request) => {
@@ -13,8 +14,40 @@ serve(async (req: Request) => {
   }
 
   try {
-    // Twilio sends webhooks as form-urlencoded
-    const formData = await req.formData();
+    // Verify Twilio signature to ensure request is authentic
+    const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
+    if (!twilioAuthToken) {
+      console.error('TWILIO_AUTH_TOKEN not configured');
+      return new Response(
+        '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'text/xml' } }
+      );
+    }
+
+    const twilioSignature = req.headers.get('X-Twilio-Signature');
+    const webhookUrl = Deno.env.get('TWILIO_WEBHOOK_URL') ||
+      `${Deno.env.get('SUPABASE_URL')}/functions/v1/twilio-webhook`;
+
+    // Read raw body for signature verification
+    const rawBody = await req.text();
+
+    const verification = await verifyTwilioWebhook(
+      rawBody,
+      twilioSignature,
+      twilioAuthToken,
+      webhookUrl
+    );
+
+    if (!verification.ok) {
+      console.error('Twilio signature verification failed:', verification.reason);
+      return new Response(
+        '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'text/xml' } }
+      );
+    }
+
+    // Parse form data from verified raw body
+    const formData = new URLSearchParams(rawBody);
     const from = formData.get('From') as string;
     const body = formData.get('Body') as string;
     const messageSid = formData.get('MessageSid') as string;
