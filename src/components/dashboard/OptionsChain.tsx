@@ -255,6 +255,12 @@ export const OptionsChain = ({
     if (remainingAfter < 10000) return 'low';
     return 'none';
   }, [availableCapital, contracts]);
+
+  // Calculate max contracts affordable at a given strike price
+  const getMaxContracts = useCallback((strikePrice: number): number => {
+    if (availableCapital === undefined || strikePrice <= 0) return 0;
+    return Math.floor(availableCapital / (strikePrice * 100));
+  }, [availableCapital]);
   
   const calculateMetrics = (option: OptionRow) => {
     // Safely handle undefined values with defaults
@@ -716,6 +722,21 @@ export const OptionsChain = ({
                     </Tooltip>
                   </div>
                 </TableHead>
+                {availableCapital !== undefined && (
+                  <TableHead className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      Max Qty
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Max contracts you can afford at this strike based on ${availableCapital.toLocaleString()} available
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TableHead>
+                )}
                 <TableHead className="text-right">Max Profit</TableHead>
                 <TableHead className="text-right">
                   <button 
@@ -845,6 +866,26 @@ export const OptionsChain = ({
                   <TableCell className="text-right">
                     ${(option.capitalReq ?? 0).toFixed(2)}
                   </TableCell>
+                  {availableCapital !== undefined && (
+                    <TableCell className="text-right">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={`font-medium ${getMaxContracts(option.strike) === 0 ? 'text-destructive' : getMaxContracts(option.strike) < contracts ? 'text-warning' : 'text-success'}`}>
+                            {getMaxContracts(option.strike)}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Max ${(option.strike * 100).toLocaleString()} per contract</p>
+                          <p>Available: ${availableCapital.toLocaleString()}</p>
+                          {getMaxContracts(option.strike) > 0 && (
+                            <p className="text-success">
+                              Max premium: ${(getMaxContracts(option.strike) * option.mid * 100).toFixed(2)}
+                            </p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TableCell>
+                  )}
                   <TableCell className="text-right text-success">
                     ${(option.maxProfit ?? 0).toFixed(2)}
                   </TableCell>
