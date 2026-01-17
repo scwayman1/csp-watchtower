@@ -122,14 +122,33 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
   const totalAssignedValue = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.marketValue, 0);
   const totalAssignedCostBasis = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.cost_basis, 0);
   const totalCallPremiums = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.coveredCallPremiums, 0);
-  const totalAssignedPutPremiums = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.original_put_premium, 0);
+  const totalAssignedPutPremiums = enhancedAssignedPositions.reduce((sum, ap) => sum + parseFloat(String(ap.original_put_premium)), 0);
   const totalAssignedPnL = enhancedAssignedPositions.reduce((sum, ap) => sum + ap.unrealizedPnL, 0);
 
   // Include expired positions premium in totals
   const totalExpiredPremiums = expiredPositions.reduce((sum, p) => sum + p.totalPremium, 0);
-
-  // Total premiums collected across all sources
-  const totalPremiums = totalPutPremiums + totalCallPremiums + totalExpiredPremiums + totalAssignedPutPremiums;
+  
+  // Include closed assigned positions' premiums (positions that were sold)
+  // These put premiums were collected when the CSP was opened, so they count toward total premiums
+  const totalClosedAssignedPutPremiums = closedPositions.reduce((sum, cp) => sum + parseFloat(String(cp.original_put_premium)), 0);
+  
+  // Include covered call premiums from closed assigned positions
+  const totalClosedCallPremiums = closedPositions.reduce((sum, cp) => {
+    const ccPremiums = (cp.covered_calls || []).reduce(
+      (ccSum: number, cc: any) => ccSum + (parseFloat(String(cc.premium_per_contract)) * 100 * cc.contracts), 
+      0
+    );
+    return sum + ccPremiums;
+  }, 0);
+  
+  // Total premiums collected across all sources:
+  // 1. Active put positions (premium collected on open CSPs)
+  // 2. Expired positions (OTM puts that expired worthless)
+  // 3. Active assigned positions' original put premium
+  // 4. Closed assigned positions' original put premium
+  // 5. All covered call premiums from active assigned positions
+  // 6. All covered call premiums from closed assigned positions
+  const totalPremiums = totalPutPremiums + totalExpiredPremiums + totalAssignedPutPremiums + totalClosedAssignedPutPremiums + totalCallPremiums + totalClosedCallPremiums;
   
   // Capital gains and proceeds from sold assigned positions
   const { totalCapitalGains, totalSaleProceeds } = closedPositions.reduce((acc, cp) => {

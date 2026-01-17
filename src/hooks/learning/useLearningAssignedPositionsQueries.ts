@@ -31,7 +31,10 @@ export const useLearningAssignedPositionsQueries = (userId?: string) => {
       
       const { data, error } = await supabase
         .from('learning_assigned_positions' as any)
-        .select('*')
+        .select(`
+          *,
+          covered_calls:learning_covered_calls(*)
+        `)
         .eq('user_id', userId)
         .eq('is_active', false)
         .not('sold_price', 'is', null)
