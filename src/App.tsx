@@ -15,7 +15,7 @@ import { AppSidebar } from "./components/AppSidebar";
 import { AdvisorSidebar } from "./components/AdvisorSidebar";
 import { RoleSwitcher } from "./components/RoleSwitcher";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useUserRole, UserRoleProvider } from "@/hooks/useUserRole";
 import AdvisorDashboard from "./pages/advisor/AdvisorDashboard";
 import ClientsPage from "./pages/advisor/ClientsPage";
 import ClientDetailPage from "./pages/advisor/ClientDetailPage";
@@ -98,7 +98,9 @@ const App = () => (
             path="/*"
             element={
               <ErrorBoundary>
-                <AppContent />
+                <UserRoleProvider>
+                  <AppContent />
+                </UserRoleProvider>
               </ErrorBoundary>
             }
           />
