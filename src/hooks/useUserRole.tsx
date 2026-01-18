@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,21 @@ export type AppRole = "investor" | "advisor" | "admin";
 // Priority order for default role selection
 const ROLE_PRIORITY: AppRole[] = ["investor", "advisor", "admin"];
 
-export function useUserRole() {
+interface UserRoleContextType {
+  roles: AppRole[];
+  activeRole: AppRole;
+  loading: boolean;
+  switching: boolean;
+  switchRole: (role: AppRole) => Promise<void>;
+  hasRole: (role: AppRole) => boolean;
+  fetchUserRoles: () => Promise<void>;
+  isAdvisor: boolean;
+  isInvestor: boolean;
+}
+
+const UserRoleContext = createContext<UserRoleContextType | null>(null);
+
+export function UserRoleProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -37,11 +51,11 @@ export function useUserRole() {
       if (error) throw error;
 
       const userRoles = data?.map(r => r.role as AppRole) || [];
-      
+
       // If no roles found, try to repair user data
       if (userRoles.length === 0) {
         console.warn("No roles found for user, attempting repair...");
-        
+
         // Call repair endpoint
         try {
           const { data: { session } } = await supabase.auth.getSession();
@@ -51,9 +65,9 @@ export function useUserRole() {
                 Authorization: `Bearer ${session.access_token}`
               }
             });
-            
+
             console.log("Repair result:", repairData);
-            
+
             // Retry fetching roles after repair (max 2 retries)
             if (retryCount < 2) {
               await new Promise(resolve => setTimeout(resolve, 500));
@@ -63,7 +77,7 @@ export function useUserRole() {
         } catch (repairError) {
           console.error("Failed to repair user data:", repairError);
         }
-        
+
         // Fallback to investor role
         setRoles(["investor"]);
         setActiveRole("investor");
@@ -71,9 +85,9 @@ export function useUserRole() {
         setLoading(false);
         return;
       }
-      
+
       setRoles(userRoles);
-      
+
       // Check localStorage for saved role preference
       const savedRole = localStorage.getItem("activeRole") as AppRole;
       if (savedRole && userRoles.includes(savedRole)) {
@@ -148,7 +162,7 @@ export function useUserRole() {
 
   const hasRole = useCallback((role: AppRole) => roles.includes(role), [roles]);
 
-  return {
+  const value: UserRoleContextType = {
     roles,
     activeRole,
     loading,
@@ -159,4 +173,18 @@ export function useUserRole() {
     isAdvisor: activeRole === "advisor" || activeRole === "admin",
     isInvestor: activeRole === "investor",
   };
+
+  return (
+    <UserRoleContext.Provider value={value}>
+      {children}
+    </UserRoleContext.Provider>
+  );
+}
+
+export function useUserRole() {
+  const context = useContext(UserRoleContext);
+  if (!context) {
+    throw new Error("useUserRole must be used within a UserRoleProvider");
+  }
+  return context;
 }
