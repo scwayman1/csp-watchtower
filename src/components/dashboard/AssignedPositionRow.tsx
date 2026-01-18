@@ -123,22 +123,22 @@ export const AssignedPositionRow = ({ position, onSellCall, onSellShares }: Assi
           </div>
         </TableCell>
         {/* BREAK-EVEN COLUMN - Highlighted */}
-        <TableCell className={`bg-gradient-to-r ${isAboveBreakEven ? 'from-success/10 to-success/5' : 'from-destructive/10 to-destructive/5'} border-x ${isAboveBreakEven ? 'border-success/20' : 'border-destructive/20'}`}>
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5">
-              <span className={`font-bold ${isAboveBreakEven ? 'text-success' : 'text-destructive'}`}>
+        <TableCell className={`bg-gradient-to-r ${isAboveBreakEven ? 'from-success/10 to-success/5' : 'from-destructive/10 to-destructive/5'} border-x ${isAboveBreakEven ? 'border-success/20' : 'border-destructive/20'} py-4 px-4`}>
+          <div className="flex flex-col gap-2 min-w-[120px]">
+            <div className="flex items-center gap-2">
+              <span className={`text-lg font-bold ${isAboveBreakEven ? 'text-success' : 'text-destructive'}`}>
                 ${breakEvenPerShare.toFixed(2)}
               </span>
               {isAboveBreakEven ? (
-                <TrendingUp className="w-3.5 h-3.5 text-success" />
+                <TrendingUp className="w-4 h-4 text-success" />
               ) : (
-                <TrendingDown className="w-3.5 h-3.5 text-destructive" />
+                <TrendingDown className="w-4 h-4 text-destructive" />
               )}
             </div>
-            <div className={`text-xs font-medium ${isAboveBreakEven ? 'text-success' : 'text-destructive'}`}>
+            <div className={`text-sm font-medium ${isAboveBreakEven ? 'text-success' : 'text-destructive'}`}>
               {isAboveBreakEven ? '+' : ''}{pctAboveBreakEven.toFixed(1)}% {isAboveBreakEven ? 'above' : 'below'}
             </div>
-            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-0.5">
+            <div className="w-full h-2 bg-muted rounded-full overflow-hidden mt-1">
               <div 
                 className={`h-full rounded-full transition-all ${isAboveBreakEven ? 'bg-success' : 'bg-destructive'}`}
                 style={{ width: `${Math.min(Math.abs(pctAboveBreakEven) * 5, 100)}%` }}

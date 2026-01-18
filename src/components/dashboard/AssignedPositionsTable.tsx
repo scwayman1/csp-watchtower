@@ -59,22 +59,23 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
     <div className="space-y-4">
       {/* Break-Even Summary Banner */}
       {positions.length > 0 && (
-        <div className={`relative overflow-hidden rounded-xl p-4 border-2 ${
+        <div className={`relative overflow-hidden rounded-xl p-6 border-2 ${
           isPortfolioAboveBreakEven 
             ? 'bg-gradient-to-r from-success/10 via-success/5 to-background border-success/30' 
             : 'bg-gradient-to-r from-destructive/10 via-destructive/5 to-background border-destructive/30'
         }`}>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
+          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
           
-          <div className="relative flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${isPortfolioAboveBreakEven ? 'bg-success/20' : 'bg-destructive/20'}`}>
-                <Target className={`h-5 w-5 ${isPortfolioAboveBreakEven ? 'text-success' : 'text-destructive'}`} />
+          <div className="relative flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            {/* Left side - Main break-even info */}
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-xl ${isPortfolioAboveBreakEven ? 'bg-success/20' : 'bg-destructive/20'}`}>
+                <Target className={`h-6 w-6 ${isPortfolioAboveBreakEven ? 'text-success' : 'text-destructive'}`} />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Portfolio Break-Even Analysis</p>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Portfolio Break-Even Analysis</p>
+                <div className="flex items-baseline gap-3">
+                  <span className="text-3xl font-bold tracking-tight">
                     {formatCurrency(avgBreakEven)}
                   </span>
                   <span className="text-sm text-muted-foreground">avg break-even per share</span>
@@ -82,18 +83,22 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
               </div>
             </div>
             
-            <div className="flex gap-6">
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground">Current Avg</p>
-                <p className="text-lg font-semibold">{formatCurrency(avgCurrentPrice)}</p>
+            {/* Right side - Stats grid */}
+            <div className="flex flex-wrap gap-8">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Avg</p>
+                <p className="text-xl font-semibold">{formatCurrency(avgCurrentPrice)}</p>
               </div>
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground">Total Premiums</p>
-                <p className="text-lg font-semibold text-success">+{formatCurrency(aggregateMetrics.totalPremiums)}</p>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Premiums</p>
+                <p className="text-xl font-semibold text-success">+{formatCurrency(aggregateMetrics.totalPremiums)}</p>
               </div>
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground">Status</p>
-                <Badge variant={isPortfolioAboveBreakEven ? "default" : "destructive"} className="mt-1">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</p>
+                <Badge 
+                  variant={isPortfolioAboveBreakEven ? "default" : "destructive"} 
+                  className="text-sm px-3 py-1"
+                >
                   {isPortfolioAboveBreakEven ? '+' : ''}{portfolioPctAboveBreakEven.toFixed(1)}% {isPortfolioAboveBreakEven ? 'Above' : 'Below'}
                 </Badge>
               </div>
@@ -211,22 +216,22 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
                     </div>
                   </TableCell>
                   {/* BREAK-EVEN COLUMN - Highlighted */}
-                  <TableCell className={`bg-gradient-to-r ${isAboveBreakEven ? 'from-success/10 to-success/5' : 'from-destructive/10 to-destructive/5'} border-x ${isAboveBreakEven ? 'border-success/20' : 'border-destructive/20'}`}>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`font-bold ${isAboveBreakEven ? 'text-success' : 'text-destructive'}`}>
+                  <TableCell className={`bg-gradient-to-r ${isAboveBreakEven ? 'from-success/10 to-success/5' : 'from-destructive/10 to-destructive/5'} border-x ${isAboveBreakEven ? 'border-success/20' : 'border-destructive/20'} py-4 px-4`}>
+                    <div className="flex flex-col gap-2 min-w-[120px]">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-lg font-bold ${isAboveBreakEven ? 'text-success' : 'text-destructive'}`}>
                           {formatCurrency(breakEvenPerShare)}
                         </span>
                         {isAboveBreakEven ? (
-                          <TrendingUp className="w-3.5 h-3.5 text-success" />
+                          <TrendingUp className="w-4 h-4 text-success" />
                         ) : (
-                          <TrendingDown className="w-3.5 h-3.5 text-destructive" />
+                          <TrendingDown className="w-4 h-4 text-destructive" />
                         )}
                       </div>
-                      <div className={`text-xs font-medium ${isAboveBreakEven ? 'text-success' : 'text-destructive'}`}>
+                      <div className={`text-sm font-medium ${isAboveBreakEven ? 'text-success' : 'text-destructive'}`}>
                         {isAboveBreakEven ? '+' : ''}{pctAboveBreakEven.toFixed(1)}% {isAboveBreakEven ? 'above' : 'below'}
                       </div>
-                      <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden mt-1">
                         <div 
                           className={`h-full rounded-full transition-all ${isAboveBreakEven ? 'bg-success' : 'bg-destructive'}`}
                           style={{ width: `${Math.min(Math.abs(pctAboveBreakEven) * 5, 100)}%` }}
