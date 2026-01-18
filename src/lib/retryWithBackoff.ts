@@ -1,16 +1,33 @@
+export interface RetryOptions {
+  maxRetries?: number;
+  baseDelay?: number;
+  maxDelay?: number;
+  onRetry?: (attempt: number, maxRetries: number, error: Error) => void;
+}
+
 /**
  * Retry a function with exponential backoff
  * @param fn - The async function to retry
- * @param maxRetries - Maximum number of retry attempts (default: 3)
- * @param baseDelay - Initial delay in ms (default: 1000)
- * @param maxDelay - Maximum delay cap in ms (default: 10000)
+ * @param options - Retry configuration options
  */
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
-  maxRetries: number = 3,
+  maxRetriesOrOptions: number | RetryOptions = 3,
   baseDelay: number = 1000,
   maxDelay: number = 10000
 ): Promise<T> {
+  // Handle both old signature (numbers) and new signature (options object)
+  const options: RetryOptions = typeof maxRetriesOrOptions === 'number' 
+    ? { maxRetries: maxRetriesOrOptions, baseDelay, maxDelay }
+    : maxRetriesOrOptions;
+  
+  const {
+    maxRetries = 3,
+    baseDelay: delay = 1000,
+    maxDelay: cap = 10000,
+    onRetry
+  } = options;
+
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -30,13 +47,18 @@ export async function retryWithBackoff<T>(
         throw lastError;
       }
       
-      // Calculate delay with exponential backoff and jitter
-      const exponentialDelay = baseDelay * Math.pow(2, attempt);
-      const jitter = Math.random() * 0.3 * exponentialDelay; // 0-30% jitter
-      const delay = Math.min(exponentialDelay + jitter, maxDelay);
+      // Notify about retry attempt
+      if (onRetry) {
+        onRetry(attempt + 1, maxRetries, lastError);
+      }
       
-      console.log(`Retry attempt ${attempt + 1}/${maxRetries} after ${Math.round(delay)}ms`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      // Calculate delay with exponential backoff and jitter
+      const exponentialDelay = delay * Math.pow(2, attempt);
+      const jitter = Math.random() * 0.3 * exponentialDelay;
+      const actualDelay = Math.min(exponentialDelay + jitter, cap);
+      
+      console.log(`Retry attempt ${attempt + 1}/${maxRetries} after ${Math.round(actualDelay)}ms`);
+      await new Promise(resolve => setTimeout(resolve, actualDelay));
     }
   }
   

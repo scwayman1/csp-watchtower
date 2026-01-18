@@ -185,9 +185,17 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     try {
       await retryWithBackoff(
         () => supabase.functions.invoke('refresh-market-data'),
-        3,
-        1000,
-        10000
+        {
+          maxRetries: 3,
+          baseDelay: 1000,
+          maxDelay: 10000,
+          onRetry: (attempt, maxRetries) => {
+            toast({
+              title: `Retrying... (${attempt}/${maxRetries})`,
+              description: "Connection issue detected, attempting to reconnect.",
+            });
+          }
+        }
       );
       await Promise.all([refetch(), refetchPremiums()]);
       toast({
