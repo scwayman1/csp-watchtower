@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useRef } from "react";
+import { retryWithBackoff } from "@/lib/retryWithBackoff";
 
 export const useLearningMarketData = (symbols: string[]) => {
   const refreshedRef = useRef<Set<string>>(new Set());
@@ -51,15 +52,20 @@ export const useLearningMarketData = (symbols: string[]) => {
       console.log('Refreshing market data for simulator symbols:', missingSymbols);
       
       try {
-        await supabase.functions.invoke('refresh-market-data', {
-          body: { symbols: missingSymbols }
-        });
+        await retryWithBackoff(
+          () => supabase.functions.invoke('refresh-market-data', {
+            body: { symbols: missingSymbols }
+          }),
+          3,
+          1000,
+          10000
+        );
         
         // Refetch the query after refresh
         setTimeout(() => query.refetch(), 1000);
       } catch (error) {
-        console.error('Failed to refresh market data:', error);
-        // Remove from refreshed set so it can retry
+        console.error('Failed to refresh market data after retries:', error);
+        // Remove from refreshed set so it can retry on next render
         missingSymbols.forEach(s => refreshedRef.current.delete(s));
       }
     };
