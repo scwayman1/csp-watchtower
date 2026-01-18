@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { retryWithBackoff } from "@/lib/retryWithBackoff";
 
 export interface TableSubscription {
   table: string;
@@ -67,10 +68,15 @@ export function useRealtimeSubscription({
     if (refreshMarketData) {
       const doRefresh = async () => {
         try {
-          await supabase.functions.invoke("refresh-market-data");
+          await retryWithBackoff(
+            () => supabase.functions.invoke("refresh-market-data"),
+            3, // max retries
+            1000, // base delay 1s
+            10000 // max delay 10s
+          );
           onDataChangeRef.current();
         } catch (error) {
-          console.error("Error refreshing market data:", error);
+          console.error("Error refreshing market data after retries:", error);
         }
       };
 
@@ -84,10 +90,15 @@ export function useRealtimeSubscription({
     if (refreshOptionPrices) {
       const doRefreshOptions = async () => {
         try {
-          await supabase.functions.invoke("refresh-option-prices");
+          await retryWithBackoff(
+            () => supabase.functions.invoke("refresh-option-prices"),
+            3,
+            1000,
+            10000
+          );
           onDataChangeRef.current();
         } catch (error) {
-          console.error("Error refreshing option prices:", error);
+          console.error("Error refreshing option prices after retries:", error);
         }
       };
 

@@ -41,6 +41,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { startOfMonth, startOfYear, isAfter, isBefore, isWithinInterval } from "date-fns";
+import { retryWithBackoff } from "@/lib/retryWithBackoff";
 
 interface DashboardProps {
   viewAsUserId?: string;
@@ -182,7 +183,12 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const handleRefreshMarketData = async () => {
     setRefreshing(true);
     try {
-      await supabase.functions.invoke('refresh-market-data');
+      await retryWithBackoff(
+        () => supabase.functions.invoke('refresh-market-data'),
+        3,
+        1000,
+        10000
+      );
       await Promise.all([refetch(), refetchPremiums()]);
       toast({
         title: "Market data refreshed",
@@ -191,7 +197,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     } catch (error) {
       toast({
         title: "Refresh failed",
-        description: "Could not update market data. Please try again.",
+        description: "Could not update market data after multiple attempts.",
         variant: "destructive",
       });
     } finally {
