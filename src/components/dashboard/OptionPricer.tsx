@@ -25,7 +25,7 @@ interface OptionChainData {
   symbol: string;
   underlyingPrice: number;
   expirations: string[];
-  optionsByExpiration: Record<string, OptionData[]>;
+  options: Record<string, OptionData[]>;
 }
 
 interface OptionPricerProps {
@@ -64,8 +64,8 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
       }
 
       // Check if we have any options with pricing data
-      const hasAnyPricing = data.expirations?.some((exp: string) => 
-        data.optionsByExpiration[exp]?.some((opt: OptionData) => opt.bid > 0 || opt.ask > 0)
+      const hasAnyPricing = data.expirations?.some((exp: string) =>
+        data.options[exp]?.some((opt: OptionData) => opt.bid > 0 || opt.ask > 0)
       );
 
       toast({
@@ -92,11 +92,13 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
     if (!optionData || !selectedExpiration) return;
 
     const premium = (option.bid + option.ask) / 2;
-    
+    // Convert Unix timestamp (seconds) to ISO date format (YYYY-MM-DD)
+    const expirationDate = new Date(parseInt(selectedExpiration, 10) * 1000).toISOString().split('T')[0];
+
     onAddToSimulator({
       symbol: optionData.symbol,
       strike_price: option.strike,
-      expiration: selectedExpiration,
+      expiration: expirationDate,
       contracts: parseInt(contracts) || 1,
       premium_per_contract: premium,
       notes: `Simulated trade - IV: ${(option.impliedVolatility * 100).toFixed(1)}%`,
@@ -124,14 +126,16 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
 
   const getDaysToExpiration = (expDate: string) => {
     const today = new Date();
-    const exp = new Date(expDate);
+    // expDate is a Unix timestamp in seconds (as a string), multiply by 1000 for JS milliseconds
+    const exp = new Date(parseInt(expDate, 10) * 1000);
     const diffTime = exp.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
 
   const formatExpiration = (expDate: string) => {
-    const date = new Date(expDate);
+    // expDate is a Unix timestamp in seconds (as a string), multiply by 1000 for JS milliseconds
+    const date = new Date(parseInt(expDate, 10) * 1000);
     const month = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
     const day = date.getDate();
     return `${month} ${day}`;
@@ -221,7 +225,7 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(optionData.optionsByExpiration[exp] || []).map((option, idx) => {
+                      {(optionData.options[exp] || []).map((option, idx) => {
                         const mid = (option.bid + option.ask) / 2;
                         const metrics = calculateMetrics(option.strike, mid);
                         const pctFromCurrent = ((option.strike - optionData.underlyingPrice) / optionData.underlyingPrice * 100);
@@ -301,7 +305,7 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
                           </TableRow>
                         );
                       })}
-                      {(!optionData.optionsByExpiration[exp] || optionData.optionsByExpiration[exp].length === 0) && (
+                      {(!optionData.options[exp] || optionData.options[exp].length === 0) && (
                         <TableRow>
                           <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                             No options available for this expiration
