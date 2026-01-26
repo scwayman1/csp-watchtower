@@ -101,7 +101,7 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
       expiration: expirationDate,
       contracts: parseInt(contracts) || 1,
       premium_per_contract: premium,
-      notes: `Simulated trade - IV: ${(option.impliedVolatility * 100).toFixed(1)}%`,
+      notes: `Simulated trade - IV: ${(option.impliedVolatility).toFixed(1)}%`,
     });
   };
 
@@ -271,7 +271,7 @@ export const OptionPricer = ({ onAddToSimulator }: OptionPricerProps) => {
                               </div>
                             </TableCell>
                             <TableCell className="text-center">
-                              {(option.impliedVolatility * 100).toFixed(1)}%
+                              {(option.impliedVolatility).toFixed(1)}%
                             </TableCell>
                             <TableCell className="text-center">
                               {isITM ? (

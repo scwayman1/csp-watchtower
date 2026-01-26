@@ -136,16 +136,11 @@ serve(async (req) => {
     
     if (optionsData.data && optionsData.data.length > 0) {
       // Process multiple expirations (up to 4) with lean processing
-      // For PUTs: focus on strikes below current price (OTM puts)
-      // For CALLs: focus on strikes above current price (OTM calls for covered calls)
-      const strikeMin = optionType === 'PUT' 
-        ? underlyingPrice * 0.80  // 20% below for puts
-        : underlyingPrice * 0.95; // 5% below for calls (allow some ITM)
-      const strikeMax = optionType === 'CALL' 
-        ? underlyingPrice * 1.20  // 20% above for calls
-        : underlyingPrice * 1.05; // 5% above for puts (allow some ITM)
-      const MAX_OPTIONS_PER_EXP = 20;
-      const MAX_SCAN = 400;
+      // Return wider strike range to let frontend handle filtering
+      const strikeMin = underlyingPrice * 0.50;  // 50% below current price
+      const strikeMax = underlyingPrice * 1.50;  // 50% above current price
+      const MAX_OPTIONS_PER_EXP = 50;  // Increased to show more options
+      const MAX_SCAN = 500;
       const MAX_EXPIRATIONS = 4;
 
       const expirationsToProcess = optionsData.data.slice(0, MAX_EXPIRATIONS);
