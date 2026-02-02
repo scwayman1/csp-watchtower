@@ -8,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import type { PendingPutAssignment } from "@/hooks/usePutAssignmentDetection";
 
 interface PutAssignmentConfirmDialogProps {
@@ -25,40 +26,59 @@ export function PutAssignmentConfirmDialog({
 
   if (!currentEvent) return null;
 
-  const { position, assignmentPrice, shares, costBasis } = currentEvent;
-  const pctBelowStrike = ((position.strikePrice - position.underlyingPrice) / position.strikePrice) * 100;
+  const { position, assignmentPrice, shares, costBasis, isCurrentlyITM } = currentEvent;
+  const pctFromStrike = ((position.strikePrice - position.underlyingPrice) / position.strikePrice) * 100;
+  const remainingCount = pendingAssignments.length - 1;
 
   return (
     <AlertDialog open={!!currentEvent}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
-            Put Assignment Detected - {position.symbol}
+            Expired Put Review - {position.symbol}
+            {remainingCount > 0 && (
+              <Badge variant="outline" className="ml-2 text-xs">
+                +{remainingCount} more
+              </Badge>
+            )}
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-3 text-sm">
               <p>
-                Your put on <strong>{position.symbol}</strong> expired in-the-money
-                ({pctBelowStrike.toFixed(1)}% below strike).
-                Would you like to record this assignment?
+                Your put on <strong>{position.symbol}</strong> has expired.
+                Was this position assigned by your broker?
               </p>
 
-              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <div className={`rounded-lg p-3 space-y-2 ${isCurrentlyITM ? 'bg-warning/10 border border-warning/30' : 'bg-muted/50'}`}>
+                {isCurrentlyITM ? (
+                  <p className="text-warning font-medium text-xs mb-2">
+                    Current price is below strike - likely assigned
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground text-xs mb-2">
+                    Current price is above strike - check your broker statement
+                  </p>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Contracts:</span>
                   <span className="font-medium">{position.contracts}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shares to receive:</span>
+                  <span className="text-muted-foreground">Shares if assigned:</span>
                   <span className="font-medium">{shares}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Strike (assignment) price:</span>
+                  <span className="text-muted-foreground">Strike price:</span>
                   <span className="font-medium">${assignmentPrice.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Final underlying price:</span>
-                  <span className="font-medium text-destructive">${position.underlyingPrice.toFixed(2)}</span>
+                  <span className="text-muted-foreground">Current underlying:</span>
+                  <span className={`font-medium ${isCurrentlyITM ? 'text-warning' : 'text-success'}`}>
+                    ${position.underlyingPrice.toFixed(2)}
+                    <span className="text-xs ml-1">
+                      ({pctFromStrike >= 0 ? '+' : ''}{(-pctFromStrike).toFixed(1)}% vs strike)
+                    </span>
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Premium collected:</span>
@@ -66,12 +86,8 @@ export function PutAssignmentConfirmDialog({
                 </div>
                 <hr className="border-border" />
                 <div className="flex justify-between text-base">
-                  <span className="font-medium">Cost basis per share:</span>
-                  <span className="font-bold">${costBasis.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-base">
-                  <span className="font-medium">Total capital required:</span>
-                  <span className="font-bold">${(costBasis * shares).toFixed(2)}</span>
+                  <span className="font-medium">Cost basis (if assigned):</span>
+                  <span className="font-bold">${costBasis.toFixed(2)}/share</span>
                 </div>
               </div>
 
@@ -83,10 +99,10 @@ export function PutAssignmentConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => onDismiss(position.id)}>
-            Not Assigned
+            Expired Worthless
           </AlertDialogCancel>
           <AlertDialogAction onClick={() => onConfirm(currentEvent)}>
-            Confirm Assignment
+            Yes, Was Assigned
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

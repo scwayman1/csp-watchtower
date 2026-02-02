@@ -8,6 +8,7 @@ export interface PendingPutAssignment {
   assignmentPrice: number;
   shares: number;
   costBasis: number;
+  isCurrentlyITM: boolean;  // Whether current price is below strike (may have changed since expiration)
 }
 
 export function usePutAssignmentDetection(
@@ -102,23 +103,22 @@ export function usePutAssignmentDetection(
         continue;
       }
 
-      // Check if the put expired ITM (underlying price below strike)
-      const isITM = position.underlyingPrice < position.strikePrice;
+      // Flag ALL expired positions for review - user confirms if assigned or not
+      // The current price may have changed since expiration, so we can't rely on it
+      processedPositionsRef.current.add(position.id);
 
-      if (isITM) {
-        processedPositionsRef.current.add(position.id);
+      const shares = position.contracts * 100;
+      const assignmentPrice = position.strikePrice;
+      const costBasis = assignmentPrice - (position.totalPremium / shares);
+      const isCurrentlyITM = position.underlyingPrice < position.strikePrice;
 
-        const shares = position.contracts * 100;
-        const assignmentPrice = position.strikePrice;
-        const costBasis = assignmentPrice - (position.totalPremium / shares);
-
-        newPendingAssignments.push({
-          position,
-          assignmentPrice,
-          shares,
-          costBasis,
-        });
-      }
+      newPendingAssignments.push({
+        position,
+        assignmentPrice,
+        shares,
+        costBasis,
+        isCurrentlyITM,
+      });
     }
 
     if (newPendingAssignments.length > 0) {
