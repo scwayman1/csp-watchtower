@@ -58,8 +58,8 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions(effectiveUserId);
   const { assignedPositions, closedPositions, loading: assignedLoading, refetch: refetchAssigned } = useAssignedPositions(effectiveUserId);
   
-  // Auto-detect called away positions with confirmation
-  const { pendingEvents, confirmCalledAway, dismissEvent } = useCalledAwayDetection(assignedPositions, refetchAssigned);
+  // Auto-detect called away positions with confirmation - DISABLED to prevent mislabeling legacy data
+  const { pendingEvents, confirmCalledAway, dismissEvent } = useCalledAwayDetection([], refetchAssigned);
   const { settings } = useSettings(effectiveUserId);
   const { history: portfolioHistory, recordSnapshot } = usePortfolioHistory(effectiveUserId);
   
@@ -146,13 +146,13 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     });
   }, [filteredPositions, assignedPositionIds]);
 
-  // Auto-detect expired ITM puts for assignment
+  // Auto-detect expired ITM puts for assignment - DISABLED to prevent mislabeling legacy data
   const {
     pendingAssignments,
     confirmAssignment,
     dismissAssignment
   } = usePutAssignmentDetection(
-    expiredPositions,
+    [], // Pass empty array to disable prompts
     assignedPositionIds,
     async () => {
       await Promise.all([refetch(), refetchAssigned()]);
