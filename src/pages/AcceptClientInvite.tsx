@@ -32,9 +32,9 @@ export default function AcceptClientInvite() {
     try {
       // Use RPC function to fetch client info - bypasses RLS for invite validation
       const { data, error } = await supabase
-        .rpc("get_client_by_invite_token", { p_token: token });
+        .rpc("get_client_by_invite_token" as any, { p_token: token });
 
-      if (error || !data || data.length === 0) {
+      if (error || !data || (Array.isArray(data) && data.length === 0)) {
         console.error("Invite validation error:", error);
         setStep("invalid");
         return;

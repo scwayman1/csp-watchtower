@@ -1195,6 +1195,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_client_by_invite_token: {
+        Args: { p_token: string }
+        Returns: {
+          advisor_id: string
+          email: string
+          id: string
+          invite_status: string
+          invite_token: string
+          name: string
+        }[]
+      }
       get_share_by_invite_token: {
         Args: { token_input: string }
         Returns: {
