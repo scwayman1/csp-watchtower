@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { ChevronRight, TrendingUp, TrendingDown, Leaf, Snowflake, Flower, Sun, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PositionsTable, Position } from "./PositionsTable";
+import { AssignPositionDialog } from "./AssignPositionDialog";
 import { cn } from "@/lib/utils";
 
 // Batch themes based on month
@@ -89,6 +91,18 @@ interface BatchRowProps {
 
 export function BatchRow({ batchDate, positions, assignedPositions = [], onRefetch, onRefetchAssigned, batchIndex = 0 }: BatchRowProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+
+  const handleAssignClick = (position: Position) => {
+    setSelectedPosition(position);
+    setAssignDialogOpen(true);
+  };
+
+  const handleAssignSuccess = async () => {
+    if (onRefetch) await onRefetch();
+    if (onRefetchAssigned) await onRefetchAssigned();
+  };
 
   // Calculate totals including assigned positions
   const expiredPremium = positions.reduce((sum, p) => sum + p.totalPremium, 0);
@@ -248,6 +262,7 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
                         <th className="text-right p-3 text-xs font-semibold text-success uppercase tracking-wider">Total Premium</th>
                         <th className="text-right p-3 text-xs font-semibold text-success uppercase tracking-wider">Final Underlying</th>
                         <th className="text-right p-3 text-xs font-semibold text-success uppercase tracking-wider">% Above Strike</th>
+                        <th className="text-center p-3 text-xs font-semibold text-success uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -285,6 +300,19 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
                                 +{pctAbove.toFixed(1)}%
                               </span>
                             </td>
+                            <td className="p-3 text-center">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-3 text-xs border-warning/50 text-warning hover:bg-warning/10 hover:text-warning"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAssignClick(pos);
+                                }}
+                              >
+                                Assign
+                              </Button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -300,6 +328,7 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
                         <td className="p-3 text-right font-bold text-success">
                           {formatCurrency(expiredPremium)}
                         </td>
+                        <td className="p-3"></td>
                         <td className="p-3"></td>
                         <td className="p-3"></td>
                       </tr>
@@ -401,6 +430,16 @@ export function BatchRow({ batchDate, positions, assignedPositions = [], onRefet
           )}
         </div>
       </CollapsibleContent>
+
+      {/* Assign Position Dialog */}
+      {selectedPosition && (
+        <AssignPositionDialog
+          open={assignDialogOpen}
+          onOpenChange={setAssignDialogOpen}
+          position={selectedPosition}
+          onSuccess={handleAssignSuccess}
+        />
+      )}
     </Collapsible>
   );
 }
