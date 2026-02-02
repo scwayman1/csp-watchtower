@@ -1,0 +1,141 @@
+import { useEffect, useRef, useCallback, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import type { Position } from "@/hooks/positions/types";
+
+export interface PendingPutAssignment {
+  position: Position;
+  assignmentPrice: number;
+  shares: number;
+  costBasis: number;
+}
+
+export function usePutAssignmentDetection(
+  expiredPositions: Position[],
+  assignedPositionIds: Set<string>,
+  onAssigned: () => void
+) {
+  const processedPositionsRef = useRef<Set<string>>(new Set());
+  const dismissedPositionsRef = useRef<Set<string>>(new Set());
+  const [pendingAssignments, setPendingAssignments] = useState<PendingPutAssignment[]>([]);
+
+  const confirmAssignment = useCallback(async (event: PendingPutAssignment) => {
+    const { position } = event;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const shares = position.contracts * 100;
+      const assignmentPrice = position.strikePrice;
+      const costBasis = assignmentPrice - (position.totalPremium / shares);
+
+      // Create assigned position
+      const { error: assignError } = await supabase
+        .from('assigned_positions')
+        .insert({
+          user_id: user.id,
+          symbol: position.symbol,
+          shares: shares,
+          assignment_date: position.expiration,
+          assignment_price: assignmentPrice,
+          original_put_premium: position.totalPremium,
+          cost_basis: costBasis,
+          original_position_id: position.id,
+          is_active: true,
+        });
+
+      if (assignError) throw assignError;
+
+      // Mark original position as inactive (closed)
+      const { error: closeError } = await supabase
+        .from('positions')
+        .update({
+          is_active: false,
+          closed_at: position.expiration
+        })
+        .eq('id', position.id);
+
+      if (closeError) throw closeError;
+
+      toast({
+        title: "Position Assigned",
+        description: (
+          <div className="space-y-1">
+            <p><strong>{position.symbol}</strong> - {shares} shares assigned at ${assignmentPrice.toFixed(2)}</p>
+            <p className="text-muted-foreground">
+              Cost basis: ${costBasis.toFixed(2)}/share
+            </p>
+          </div>
+        ),
+        duration: 8000,
+      });
+
+      // Remove from pending and trigger refetch
+      setPendingAssignments(prev => prev.filter(e => e.position.id !== position.id));
+      onAssigned();
+    } catch (error: any) {
+      console.error('Error processing assignment:', error);
+      toast({
+        title: "Error processing assignment",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  }, [onAssigned]);
+
+  const dismissAssignment = useCallback((positionId: string) => {
+    dismissedPositionsRef.current.add(positionId);
+    setPendingAssignments(prev => prev.filter(e => e.position.id !== positionId));
+  }, []);
+
+  const checkForAssignments = useCallback(() => {
+    const newPendingAssignments: PendingPutAssignment[] = [];
+
+    for (const position of expiredPositions) {
+      // Skip if already assigned, processed, or dismissed
+      if (
+        assignedPositionIds.has(position.id) ||
+        processedPositionsRef.current.has(position.id) ||
+        dismissedPositionsRef.current.has(position.id)
+      ) {
+        continue;
+      }
+
+      // Check if the put expired ITM (underlying price below strike)
+      const isITM = position.underlyingPrice < position.strikePrice;
+
+      if (isITM) {
+        processedPositionsRef.current.add(position.id);
+
+        const shares = position.contracts * 100;
+        const assignmentPrice = position.strikePrice;
+        const costBasis = assignmentPrice - (position.totalPremium / shares);
+
+        newPendingAssignments.push({
+          position,
+          assignmentPrice,
+          shares,
+          costBasis,
+        });
+      }
+    }
+
+    if (newPendingAssignments.length > 0) {
+      setPendingAssignments(prev => [...prev, ...newPendingAssignments]);
+    }
+  }, [expiredPositions, assignedPositionIds]);
+
+  useEffect(() => {
+    if (expiredPositions.length > 0) {
+      checkForAssignments();
+    }
+  }, [expiredPositions, checkForAssignments]);
+
+  return {
+    pendingAssignments,
+    confirmAssignment,
+    dismissAssignment,
+    checkForAssignments
+  };
+}

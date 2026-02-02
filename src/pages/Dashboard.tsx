@@ -17,6 +17,7 @@ import { AIPerformanceTracker } from "@/components/dashboard/AIPerformanceTracke
 import { LearningCenter } from "@/components/dashboard/LearningCenter";
 import { CalledAwayPositions } from "@/components/dashboard/CalledAwayPositions";
 import { CalledAwayConfirmDialog } from "@/components/dashboard/CalledAwayConfirmDialog";
+import { PutAssignmentConfirmDialog } from "@/components/dashboard/PutAssignmentConfirmDialog";
 import { AssignedCapitalDialog } from "@/components/dashboard/AssignedCapitalDialog";
 import { ActivePositionsBatchHeader } from "@/components/dashboard/ActivePositionsBatchHeader";
 import { CoveredCallHistory } from "@/components/dashboard/CoveredCallHistory";
@@ -28,6 +29,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePositions } from "@/hooks/usePositions";
 import { useAssignedPositions } from "@/hooks/useAssignedPositions";
 import { useCalledAwayDetection } from "@/hooks/useCalledAwayDetection";
+import { usePutAssignmentDetection } from "@/hooks/usePutAssignmentDetection";
 import { usePremiumAudit } from "@/hooks/usePremiumAudit";
 import { useSettings } from "@/hooks/useSettings";
 import { usePortfolioHistory } from "@/hooks/usePortfolioHistory";
@@ -119,30 +121,43 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     });
   }, [filteredPositions]);
 
+  // Get IDs of positions that have been assigned (used for filtering and detection)
+  const assignedPositionIds = useMemo(() => new Set(
+    assignedPositions
+      .map(ap => ap.original_position_id)
+      .filter((id): id is string => Boolean(id))
+  ), [assignedPositions]);
+
   const expiredPositions = useMemo(() => {
     const now = new Date();
-    
-    // Get IDs of positions that have been assigned
-    const assignedPositionIds = new Set(
-      assignedPositions
-        .map(ap => ap.original_position_id)
-        .filter(Boolean)
-    );
-    
+
     return filteredPositions.filter(position => {
       // Parse expiration as local date to avoid timezone issues
       const [year, month, day] = position.expiration.split('-').map(Number);
       const expirationDate = new Date(year, month - 1, day);
       expirationDate.setHours(23, 59, 59, 999); // End of expiration day
-      
+
       const isExpired = expirationDate < now;
       const wasAssigned = assignedPositionIds.has(position.id);
-      
+
       // Include only expired positions that were NOT assigned
       // (assigned positions' premiums are counted separately)
       return isExpired && !wasAssigned;
     });
-  }, [filteredPositions, assignedPositions]);
+  }, [filteredPositions, assignedPositionIds]);
+
+  // Auto-detect expired ITM puts for assignment
+  const {
+    pendingAssignments,
+    confirmAssignment,
+    dismissAssignment
+  } = usePutAssignmentDetection(
+    expiredPositions,
+    assignedPositionIds,
+    async () => {
+      await Promise.all([refetch(), refetchAssigned()]);
+    }
+  );
 
   // Filter assigned positions by time period
   const filteredAssignedPositions = useMemo(() => {
@@ -1012,6 +1027,13 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
         pendingEvents={pendingEvents}
         onConfirm={confirmCalledAway}
         onDismiss={dismissEvent}
+      />
+
+      {/* Put Assignment Confirmation Dialog */}
+      <PutAssignmentConfirmDialog
+        pendingAssignments={pendingAssignments}
+        onConfirm={confirmAssignment}
+        onDismiss={dismissAssignment}
       />
 
       {/* First-time user guide */}
