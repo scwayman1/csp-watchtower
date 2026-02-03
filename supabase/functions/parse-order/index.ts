@@ -63,7 +63,40 @@ serve(async (req) => {
       }
     }
     
-    // Format 1: Portfolio format (multi-line, possibly multiple positions)
+    // Format 1: Human-readable format with em-dash separators
+    // Example: QQQ Feb 27 2026 607P — Sell 1 @ 6.21 — net -620.98
+    // Example: INTU Feb 27 2026 560C — Sell 1 @ 6.80 — net -679.98
+    if (positions.length === 0 && calls.length === 0) {
+      const humanReadablePattern = /([A-Z]{1,6})\s+([A-Z]{3})\s+(\d{1,2})\s+(\d{4})\s+(\d+(?:\.\d+)?)([PC])\s*[—–-]\s*Sell\s+(\d+)\s*[@]\s*(\d+(?:\.\d+)?)/gi;
+      
+      let hrMatch;
+      while ((hrMatch = humanReadablePattern.exec(orderText)) !== null) {
+        const [, symbol, monthStr, day, year, strike, optionType, contracts, premium] = hrMatch;
+        
+        const monthMap: Record<string, string> = {
+          'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
+          'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
+          'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+        };
+        const month = monthMap[monthStr.toUpperCase()] || '01';
+        
+        const parsedOption = {
+          symbol: symbol.toUpperCase(),
+          strike,
+          exp: `${year}-${month}-${day.padStart(2, '0')}`,
+          premium,
+          contracts,
+        };
+        
+        if (optionType.toUpperCase() === 'P') {
+          positions.push(parsedOption);
+        } else {
+          calls.push(parsedOption);
+        }
+      }
+    }
+    
+    // Format 2: Portfolio format (multi-line, possibly multiple positions)
     // Supports both PUTs and CALLs
     // Example PUT: UBER251128P87
     // Example CALL: UBER251128C87
