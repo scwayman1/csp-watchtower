@@ -12,6 +12,14 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
+  const today = new Date().toISOString().split('T')[0];
+
+  const isCallTrulyActive = (call: { is_active: boolean; expiration?: string | null }) => {
+    const exp = call.expiration || "";
+    // active = is_active AND not expired (handles stale is_active flags)
+    return Boolean(call.is_active && exp && exp >= today);
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
     const [year, month, day] = dateString.split("-");
@@ -36,19 +44,19 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
 
   // Calculate active covered call premium (only active calls, not expired/closed)
   const totalActiveCoveredCallPremium = positions.reduce((acc, pos) => {
-    const activeCalls = pos.covered_calls?.filter(c => c.is_active) || [];
+    const activeCalls = pos.covered_calls?.filter(isCallTrulyActive) || [];
     const activeCallPremium = activeCalls.reduce((sum, call) => 
       sum + (call.premium_per_contract * 100 * call.contracts), 0);
     return acc + activeCallPremium;
   }, 0);
 
   const activeCallCount = positions.reduce((acc, pos) => {
-    const activeCalls = pos.covered_calls?.filter(c => c.is_active) || [];
+    const activeCalls = pos.covered_calls?.filter(isCallTrulyActive) || [];
     return acc + activeCalls.reduce((sum, call) => sum + call.contracts, 0);
   }, 0);
 
   const positionsWithActiveCalls = positions.filter(pos => 
-    pos.covered_calls?.some(c => c.is_active)
+    pos.covered_calls?.some(isCallTrulyActive)
   ).length;
 
   return (
@@ -127,7 +135,7 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
             </TableRow>
           ) : (
             positions.map((position) => {
-              const activeCalls = position.covered_calls?.filter(c => c.is_active) || [];
+              const activeCalls = position.covered_calls?.filter(isCallTrulyActive) || [];
               const primaryCall = activeCalls[0];
               const hasMultipleCalls = activeCalls.length > 1;
               
