@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Minus, Target } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, DollarSign } from "lucide-react";
 import type { AssignedPosition } from "@/hooks/useAssignedPositions";
 
 interface AssignedPositionsTableProps {
@@ -34,51 +34,34 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
     return <TrendingDown className="w-3 h-3 text-destructive" />;
   };
 
-  // Calculate aggregate break-even metrics
-  const aggregateMetrics = positions.reduce((acc, pos) => {
-    const totalCallPremiums = pos.total_call_premiums || 0;
-    const totalPremiums = pos.original_put_premium + totalCallPremiums;
-    const netCostBasis = (pos.cost_basis * pos.shares) - totalPremiums;
-    const marketValue = (pos.current_price || pos.cost_basis) * pos.shares;
-    
-    return {
-      totalCostBasis: acc.totalCostBasis + (pos.cost_basis * pos.shares),
-      totalNetCostBasis: acc.totalNetCostBasis + netCostBasis,
-      totalMarketValue: acc.totalMarketValue + marketValue,
-      totalShares: acc.totalShares + pos.shares,
-      totalPremiums: acc.totalPremiums + totalPremiums,
-    };
-  }, { totalCostBasis: 0, totalNetCostBasis: 0, totalMarketValue: 0, totalShares: 0, totalPremiums: 0 });
+  // Calculate aggregate assigned put premium (original put premiums only, NOT covered calls)
+  const totalAssignedPutPremium = positions.reduce((acc, pos) => {
+    return acc + pos.original_put_premium;
+  }, 0);
 
-  const avgBreakEven = aggregateMetrics.totalNetCostBasis / aggregateMetrics.totalShares;
-  const avgCurrentPrice = aggregateMetrics.totalMarketValue / aggregateMetrics.totalShares;
-  const portfolioPctAboveBreakEven = ((aggregateMetrics.totalMarketValue - aggregateMetrics.totalNetCostBasis) / aggregateMetrics.totalNetCostBasis) * 100;
-  const isPortfolioAboveBreakEven = portfolioPctAboveBreakEven >= 0;
+  const totalShares = positions.reduce((acc, pos) => acc + pos.shares, 0);
+  const totalPositions = positions.length;
 
   return (
     <div className="space-y-4">
-      {/* Break-Even Summary Banner */}
+      {/* Assigned Put Premium Banner */}
       {positions.length > 0 && (
-        <div className={`relative overflow-hidden rounded-xl p-6 border-2 ${
-          isPortfolioAboveBreakEven 
-            ? 'bg-gradient-to-r from-success/10 via-success/5 to-background border-success/30' 
-            : 'bg-gradient-to-r from-destructive/10 via-destructive/5 to-background border-destructive/30'
-        }`}>
+        <div className="relative overflow-hidden rounded-xl p-6 border-2 bg-gradient-to-r from-success/10 via-success/5 to-background border-success/30">
           <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
           
           <div className="relative flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            {/* Left side - Main break-even info */}
+            {/* Left side - Main premium info */}
             <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-xl ${isPortfolioAboveBreakEven ? 'bg-success/20' : 'bg-destructive/20'}`}>
-                <Target className={`h-6 w-6 ${isPortfolioAboveBreakEven ? 'text-success' : 'text-destructive'}`} />
+              <div className="p-3 rounded-xl bg-success/20">
+                <DollarSign className="h-6 w-6 text-success" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">Portfolio Break-Even Analysis</p>
+                <p className="text-sm font-medium text-muted-foreground">Assigned Put Premium</p>
                 <div className="flex items-baseline gap-3">
-                  <span className="text-3xl font-bold tracking-tight">
-                    {formatCurrency(avgBreakEven)}
+                  <span className="text-3xl font-bold tracking-tight text-success">
+                    +{formatCurrency(totalAssignedPutPremium)}
                   </span>
-                  <span className="text-sm text-muted-foreground">avg break-even per share</span>
+                  <span className="text-sm text-muted-foreground">collected from assigned puts</span>
                 </div>
               </div>
             </div>
@@ -86,21 +69,18 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
             {/* Right side - Stats grid */}
             <div className="flex flex-wrap gap-8">
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Avg</p>
-                <p className="text-xl font-semibold">{formatCurrency(avgCurrentPrice)}</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Positions</p>
+                <p className="text-xl font-semibold">{totalPositions}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Premiums</p>
-                <p className="text-xl font-semibold text-success">+{formatCurrency(aggregateMetrics.totalPremiums)}</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Shares</p>
+                <p className="text-xl font-semibold">{totalShares.toLocaleString()}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</p>
-                <Badge 
-                  variant={isPortfolioAboveBreakEven ? "default" : "destructive"} 
-                  className="text-sm px-3 py-1"
-                >
-                  {isPortfolioAboveBreakEven ? '+' : ''}{portfolioPctAboveBreakEven.toFixed(1)}% {isPortfolioAboveBreakEven ? 'Above' : 'Below'}
-                </Badge>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Premium / Position</p>
+                <p className="text-xl font-semibold text-success">
+                  +{formatCurrency(totalAssignedPutPremium / totalPositions)}
+                </p>
               </div>
             </div>
           </div>
