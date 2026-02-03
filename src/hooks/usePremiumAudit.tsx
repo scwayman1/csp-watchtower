@@ -226,7 +226,12 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
         const premium = parseFloat(String(cc.premium_per_contract)) * cc.contracts * 100;
         const symbol = (cc.assigned_positions as any)?.symbol || 'UNKNOWN';
         
-        if (cc.is_active) {
+        // A call is truly active only if is_active=true AND not expired
+        // (handles stale is_active flags when expiration passed)
+        const isExpired = cc.expiration < today;
+        const isTrulyActive = cc.is_active && !isExpired;
+        
+        if (isTrulyActive) {
           activeCallPremium += premium;
           activeCallCount += cc.contracts;
           auditRecords.push({
