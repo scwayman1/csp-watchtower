@@ -34,17 +34,26 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
     return <TrendingDown className="w-3 h-3 text-destructive" />;
   };
 
-  // Calculate aggregate assigned put premium (original put premiums only, NOT covered calls)
-  const totalAssignedPutPremium = positions.reduce((acc, pos) => {
-    return acc + pos.original_put_premium;
+  // Calculate active covered call premium (only active calls, not expired/closed)
+  const totalActiveCoveredCallPremium = positions.reduce((acc, pos) => {
+    const activeCalls = pos.covered_calls?.filter(c => c.is_active) || [];
+    const activeCallPremium = activeCalls.reduce((sum, call) => 
+      sum + (call.premium_per_contract * 100 * call.contracts), 0);
+    return acc + activeCallPremium;
   }, 0);
 
-  const totalShares = positions.reduce((acc, pos) => acc + pos.shares, 0);
-  const totalPositions = positions.length;
+  const activeCallCount = positions.reduce((acc, pos) => {
+    const activeCalls = pos.covered_calls?.filter(c => c.is_active) || [];
+    return acc + activeCalls.reduce((sum, call) => sum + call.contracts, 0);
+  }, 0);
+
+  const positionsWithActiveCalls = positions.filter(pos => 
+    pos.covered_calls?.some(c => c.is_active)
+  ).length;
 
   return (
     <div className="space-y-4">
-      {/* Assigned Put Premium Banner */}
+      {/* Active Covered Call Premium Banner */}
       {positions.length > 0 && (
         <div className="relative overflow-hidden rounded-xl p-6 border-2 bg-gradient-to-r from-success/10 via-success/5 to-background border-success/30">
           <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
@@ -56,12 +65,12 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
                 <DollarSign className="h-6 w-6 text-success" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">Assigned Put Premium</p>
+                <p className="text-sm font-medium text-muted-foreground">Active Covered Call Premium</p>
                 <div className="flex items-baseline gap-3">
                   <span className="text-3xl font-bold tracking-tight text-success">
-                    +{formatCurrency(totalAssignedPutPremium)}
+                    +{formatCurrency(totalActiveCoveredCallPremium)}
                   </span>
-                  <span className="text-sm text-muted-foreground">collected from assigned puts</span>
+                  <span className="text-sm text-muted-foreground">from open covered calls</span>
                 </div>
               </div>
             </div>
@@ -69,17 +78,17 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
             {/* Right side - Stats grid */}
             <div className="flex flex-wrap gap-8">
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Positions</p>
-                <p className="text-xl font-semibold">{totalPositions}</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Active Contracts</p>
+                <p className="text-xl font-semibold">{activeCallCount}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Shares</p>
-                <p className="text-xl font-semibold">{totalShares.toLocaleString()}</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Positions w/ Calls</p>
+                <p className="text-xl font-semibold">{positionsWithActiveCalls}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Premium / Position</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg / Contract</p>
                 <p className="text-xl font-semibold text-success">
-                  +{formatCurrency(totalAssignedPutPremium / totalPositions)}
+                  +{formatCurrency(activeCallCount > 0 ? totalActiveCoveredCallPremium / activeCallCount : 0)}
                 </p>
               </div>
             </div>
