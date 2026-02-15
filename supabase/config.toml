@@ -23,9 +23,9 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.notify-client-signup]
-# Internal function called after client signup
-# Protected by service role key in Authorization header
-verify_jwt = false
+# Internal function - must be called with service role key or valid JWT
+# Changed from verify_jwt=false to true for security hardening
+verify_jwt = true
 
 [functions.parse-covered-call]
 # Called from authenticated frontend for AI parsing
