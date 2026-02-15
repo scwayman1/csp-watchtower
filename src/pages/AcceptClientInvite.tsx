@@ -48,6 +48,13 @@ export default function AcceptClientInvite() {
         return;
       }
 
+      // Client-side expiration check (server enforces too)
+      if (clientData.invite_expires_at && new Date(clientData.invite_expires_at) < new Date()) {
+        toast.error("This invitation has expired. Please ask your advisor to send a new one.");
+        setStep("invalid");
+        return;
+      }
+
       setClient(clientData);
       setEmail(clientData.email || "");
       setFullName(clientData.name || "");

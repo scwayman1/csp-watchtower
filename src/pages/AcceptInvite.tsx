@@ -60,7 +60,15 @@ export default function AcceptInvite() {
         return;
       }
 
-      // Check if user email matches the invited email
+      // Client-side expiration check for UX (server enforces this too)
+      if (share.expires_at && new Date(share.expires_at) < new Date()) {
+        setStatus("error");
+        setMessage("This invite link has expired. Please ask the owner to send a new one.");
+        setLoading(false);
+        return;
+      }
+
+      // Client-side email check for UX (server enforces this too)
       if (user.email !== share.shared_with_email) {
         setStatus("error");
         setMessage(`This invite is for ${share.shared_with_email}. Please sign in with that email.`);
@@ -68,16 +76,20 @@ export default function AcceptInvite() {
         return;
       }
 
-      // Update share with user_id and accepted_at
-      const { error: updateError } = await supabase
-        .from("position_shares")
-        .update({
-          shared_with_user_id: user.id,
-          accepted_at: new Date().toISOString(),
-        })
-        .eq("id", share.id);
+      // Use server-side RPC to accept invite (enforces email match + expiration)
+      const { data: acceptResult, error: acceptError } = await supabase
+        .rpc("accept_dashboard_invite", {
+          p_token: token,
+          p_user_id: user.id,
+          p_user_email: user.email,
+        });
 
-      if (updateError) throw updateError;
+      if (acceptError) throw acceptError;
+
+      const result = typeof acceptResult === 'string' ? JSON.parse(acceptResult) : acceptResult;
+      if (!result?.success) {
+        throw new Error(result?.error || "Failed to accept invite");
+      }
 
       setStatus("success");
       setMessage("Successfully accepted invite! You now have access to the shared dashboard.");
