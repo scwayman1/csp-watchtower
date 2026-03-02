@@ -53,7 +53,7 @@ export default function AcceptAdvisorInvite() {
       }
 
       // Client-side expiration check (server enforces too)
-      if (inviteData.expires_at && new Date(inviteData.expires_at) < new Date()) {
+      if ((inviteData as any).expires_at && new Date((inviteData as any).expires_at) < new Date()) {
         toast.error("This invitation has expired. Please request a new one.");
         setStep("invalid");
         return;
