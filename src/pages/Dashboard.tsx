@@ -146,13 +146,25 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     });
   }, [filteredPositions, assignedPositionIds]);
 
-  // Auto-detect expired ITM puts for assignment - DISABLED to prevent mislabeling legacy data
+  // Only prompt for positions that expired in the last 7 days (avoids legacy noise)
+  const recentlyExpiredForDetection = useMemo(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return filteredPositions.filter(position => {
+      const [year, month, day] = position.expiration.split('-').map(Number);
+      const expirationDate = new Date(year, month - 1, day);
+      expirationDate.setHours(23, 59, 59, 999);
+      const now = new Date();
+      return expirationDate < now && expirationDate >= sevenDaysAgo;
+    });
+  }, [filteredPositions]);
+
   const {
     pendingAssignments,
     confirmAssignment,
     dismissAssignment
   } = usePutAssignmentDetection(
-    [], // Pass empty array to disable prompts
+    recentlyExpiredForDetection,
     assignedPositionIds,
     async () => {
       await Promise.all([refetch(), refetchAssigned()]);
