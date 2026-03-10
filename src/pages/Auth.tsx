@@ -23,6 +23,7 @@ const Auth = () => {
   const returnUrl = searchParams.get("returnUrl") || "/";
   const isDirectLogin = searchParams.get("mode") === "login";
   const isPasswordReset = searchParams.get("reset") === "true";
+  const pkceCode = searchParams.get("code");
 
   useEffect(() => {
     // Listen for auth state changes FIRST (before any session checks)
