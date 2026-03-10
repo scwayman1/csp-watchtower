@@ -24,12 +24,29 @@ const Auth = () => {
   const isPasswordReset = searchParams.get("reset") === "true";
 
   useEffect(() => {
+    // Listen for auth state changes FIRST (before any session checks)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        // Session is now established with recovery token - safe to show password form
+        setStep("update-password");
+      }
+    });
+
     // Handle password reset flow from email link
     if (isPasswordReset) {
-      // The user clicked a password reset link - Supabase handles the token exchange automatically
-      // We just need to show the update password form
+      // Don't show the form yet - wait for PASSWORD_RECOVERY event above
+      // which fires once Supabase processes the hash fragment token
+      // Show a loading state in the meantime
       setStep("update-password");
-      return;
+      
+      // Also try to exchange the token explicitly by getting the session
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          setStep("update-password");
+        }
+      });
+      
+      return () => subscription.unsubscribe();
     }
 
     // Check if user is already authenticated
@@ -40,13 +57,6 @@ const Auth = () => {
       }
     };
     checkAuth();
-
-    // Listen for password recovery event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setStep("update-password");
-      }
-    });
 
     // If direct login mode, skip to auth step
     if (isDirectLogin) {

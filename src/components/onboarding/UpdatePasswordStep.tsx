@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,40 @@ export function UpdatePasswordStep({ onSuccess }: UpdatePasswordStepProps) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    // Wait for the recovery session to be established
+    const checkSession = async () => {
+      // Try getting session - may already be exchanged
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setSessionReady(true);
+        setCheckingSession(false);
+        return;
+      }
+
+      // If no session yet, listen for auth changes (token exchange in progress)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (session && (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN")) {
+          setSessionReady(true);
+          setCheckingSession(false);
+        }
+      });
+
+      // Timeout after 5 seconds
+      const timeout = setTimeout(() => {
+        setCheckingSession(false);
+      }, 5000);
+
+      return () => {
+        subscription.unsubscribe();
+        clearTimeout(timeout);
+      };
+    };
+    checkSession();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +81,34 @@ export function UpdatePasswordStep({ onSuccess }: UpdatePasswordStepProps) {
       setLoading(false);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="space-y-6 animate-in fade-in-50 duration-500">
+        <div className="text-center space-y-2">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <h2 className="text-xl font-bold">Verifying reset link...</h2>
+          <p className="text-muted-foreground text-sm">Please wait while we verify your password reset link.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!sessionReady) {
+    return (
+      <div className="space-y-6 animate-in fade-in-50 duration-500">
+        <div className="text-center space-y-2">
+          <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+            <svg className="w-6 h-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold">Reset link expired</h2>
+          <p className="text-muted-foreground text-sm">This password reset link has expired or is invalid. Please request a new one.</p>
+        </div>
+      </div>
+    );
+  }
 
   const passwordsMatch = password.length > 0 && password === confirmPassword;
 
