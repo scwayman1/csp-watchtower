@@ -82,9 +82,15 @@ export function UpdatePasswordStep({ onSuccess }: UpdatePasswordStepProps) {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password,
-      });
+      // Try updating with the main client first, then PKCE client
+      let error;
+      const { error: mainError } = await supabase.auth.updateUser({ password });
+      
+      if (mainError) {
+        // Try PKCE client if main client fails
+        const { error: pkceError } = await supabasePKCE.auth.updateUser({ password });
+        error = pkceError;
+      }
 
       if (error) throw error;
 
