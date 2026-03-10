@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,40 @@ export function UpdatePasswordStep({ onSuccess }: UpdatePasswordStepProps) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    // Wait for the recovery session to be established
+    const checkSession = async () => {
+      // Try getting session - may already be exchanged
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setSessionReady(true);
+        setCheckingSession(false);
+        return;
+      }
+
+      // If no session yet, listen for auth changes (token exchange in progress)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (session && (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN")) {
+          setSessionReady(true);
+          setCheckingSession(false);
+        }
+      });
+
+      // Timeout after 5 seconds
+      const timeout = setTimeout(() => {
+        setCheckingSession(false);
+      }, 5000);
+
+      return () => {
+        subscription.unsubscribe();
+        clearTimeout(timeout);
+      };
+    };
+    checkSession();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
