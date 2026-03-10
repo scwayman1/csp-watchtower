@@ -34,20 +34,33 @@ const Auth = () => {
       }
     });
 
-    // Handle password reset flow from email link
-    if (isPasswordReset) {
-      // Don't show the form yet - wait for PASSWORD_RECOVERY event above
-      // which fires once Supabase processes the hash fragment token
-      // Show a loading state in the meantime
+    // Handle password reset flow with PKCE code exchange
+    if (isPasswordReset && pkceCode) {
       setStep("update-password");
       
-      // Also try to exchange the token explicitly by getting the session
+      // Exchange the PKCE code for a session - scanners can't do this
+      // because they don't have the code_verifier stored in this browser's localStorage
+      supabasePKCE.auth.exchangeCodeForSession(pkceCode).then(({ data, error }) => {
+        if (error) {
+          console.error("PKCE code exchange failed:", error);
+          // Will show "Reset link expired" via UpdatePasswordStep
+        } else if (data.session) {
+          // Copy the session to the main client so updateUser works
+          setStep("update-password");
+        }
+      });
+      
+      return () => subscription.unsubscribe();
+    }
+
+    // Handle non-PKCE password reset (legacy flow / fallback)
+    if (isPasswordReset) {
+      setStep("update-password");
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
           setStep("update-password");
         }
       });
-      
       return () => subscription.unsubscribe();
     }
 
@@ -67,7 +80,7 @@ const Auth = () => {
     }
 
     return () => subscription.unsubscribe();
-  }, [navigate, returnUrl, isDirectLogin, isPasswordReset]);
+  }, [navigate, returnUrl, isDirectLogin, isPasswordReset, pkceCode]);
 
   const steps = ["Welcome", "Role", "Account", "Complete"];
   const currentStepIndex = {
