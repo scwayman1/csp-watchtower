@@ -111,6 +111,8 @@ export function UpdatePasswordStep({ onSuccess }: UpdatePasswordStepProps) {
   }
 
   const passwordsMatch = password.length > 0 && password === confirmPassword;
+
+  return (
     <div className="space-y-6 animate-in fade-in-50 duration-500">
       <div className="text-center space-y-2">
         <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
