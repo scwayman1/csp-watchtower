@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2, Eye, EyeOff, ArrowLeft, Mail, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { supabasePKCE } from "@/lib/authClient";
 import { toast } from "sonner";
 
 interface AuthStepProps {
@@ -75,7 +76,7 @@ export function AuthStep({
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabasePKCE.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth?reset=true`,
       });
 

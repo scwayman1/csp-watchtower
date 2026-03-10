@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2, Eye, EyeOff, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { supabasePKCE } from "@/lib/authClient";
 import { toast } from "sonner";
 
 interface UpdatePasswordStepProps {
@@ -19,9 +20,8 @@ export function UpdatePasswordStep({ onSuccess }: UpdatePasswordStepProps) {
   const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
-    // Wait for the recovery session to be established
     const checkSession = async () => {
-      // Try getting session - may already be exchanged
+      // Check the main client first
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setSessionReady(true);
@@ -29,7 +29,15 @@ export function UpdatePasswordStep({ onSuccess }: UpdatePasswordStepProps) {
         return;
       }
 
-      // If no session yet, listen for auth changes (token exchange in progress)
+      // Check the PKCE client (used for password reset code exchange)
+      const { data: { session: pkceSession } } = await supabasePKCE.auth.getSession();
+      if (pkceSession) {
+        setSessionReady(true);
+        setCheckingSession(false);
+        return;
+      }
+
+      // If no session yet, listen for auth changes on both clients
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (session && (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN")) {
           setSessionReady(true);
@@ -37,13 +45,21 @@ export function UpdatePasswordStep({ onSuccess }: UpdatePasswordStepProps) {
         }
       });
 
-      // Timeout after 5 seconds
+      const { data: { subscription: pkceSubscription } } = supabasePKCE.auth.onAuthStateChange((event, session) => {
+        if (session && (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN")) {
+          setSessionReady(true);
+          setCheckingSession(false);
+        }
+      });
+
+      // Timeout after 8 seconds (longer for PKCE exchange)
       const timeout = setTimeout(() => {
         setCheckingSession(false);
-      }, 5000);
+      }, 8000);
 
       return () => {
         subscription.unsubscribe();
+        pkceSubscription.unsubscribe();
         clearTimeout(timeout);
       };
     };
@@ -66,9 +82,15 @@ export function UpdatePasswordStep({ onSuccess }: UpdatePasswordStepProps) {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password,
-      });
+      // Try updating with the main client first, then PKCE client
+      let error;
+      const { error: mainError } = await supabase.auth.updateUser({ password });
+      
+      if (mainError) {
+        // Try PKCE client if main client fails
+        const { error: pkceError } = await supabasePKCE.auth.updateUser({ password });
+        error = pkceError;
+      }
 
       if (error) throw error;
 
