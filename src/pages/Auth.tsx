@@ -19,6 +19,8 @@ const Auth = () => {
   const [authMode, setAuthMode] = useState<"signup" | "login" | "reset">("signup");
   // Track whether a recovery session has been confirmed
   const [recoverySessionReady, setRecoverySessionReady] = useState(false);
+  // Track whether verification timed out
+  const [recoveryTimedOut, setRecoveryTimedOut] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get("returnUrl") || "/";
@@ -54,8 +56,9 @@ const Auth = () => {
           setRecoverySessionReady(true);
           clearInterval(poll);
         } else if (attempts >= 20) {
-          // After ~10 seconds, stop polling
+          // After ~10 seconds, stop polling and show error
           clearInterval(poll);
+          setRecoveryTimedOut(true);
         }
       }, 500);
       return () => {
@@ -196,6 +199,14 @@ const Auth = () => {
             <UpdatePasswordStep
               onSuccess={handlePasswordUpdateSuccess}
               sessionReady={recoverySessionReady}
+              timedOut={recoveryTimedOut}
+              onBackToReset={() => {
+                setRecoveryTimedOut(false);
+                setRecoverySessionReady(false);
+                setStep("auth");
+                setAuthMode("reset");
+                navigate("/auth", { replace: true });
+              }}
             />
           )}
 
