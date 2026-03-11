@@ -2,26 +2,64 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Simple in-memory cache (expires after 60 minutes)
 const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_DURATION = 60 * 60 * 1000; // 60 minutes
-const REQUEST_TIMEOUT = 5000; // 5 seconds per request
+const CACHE_DURATION = 60 * 60 * 1000;
 
-const FINNHUB_API_KEY = Deno.env.get('FINNHUB_API_KEY');
+// Crumb/cookie cache
+let crumbCache: { crumb: string; cookie: string; timestamp: number } | null = null;
+const CRUMB_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
-// Helper to get next expiration date (just one Friday)
-function getNextFriday(): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const daysUntilFriday = (5 - today.getDay() + 7) % 7;
-  const nextFriday = new Date(today);
-  nextFriday.setDate(today.getDate() + (daysUntilFriday === 0 ? 7 : daysUntilFriday));
-  
-  return nextFriday.toISOString().split('T')[0];
+async function getCrumbAndCookie(): Promise<{ crumb: string; cookie: string }> {
+  if (crumbCache && (Date.now() - crumbCache.timestamp < CRUMB_CACHE_DURATION)) {
+    return { crumb: crumbCache.crumb, cookie: crumbCache.cookie };
+  }
+
+  // Step 1: Get cookie from Yahoo
+  const consentRes = await fetch('https://fc.yahoo.com/', {
+    redirect: 'manual',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    },
+  });
+  // Consume body
+  await consentRes.text();
+
+  const setCookies = consentRes.headers.get('set-cookie') || '';
+  // Extract A1/A3 cookies
+  const cookieMatch = setCookies.match(/A\d=[^;]+/);
+  const cookie = cookieMatch ? cookieMatch[0] : '';
+
+  if (!cookie) {
+    // Fallback: try getting cookie from finance page
+    const finRes = await fetch('https://finance.yahoo.com/', {
+      redirect: 'manual',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      },
+    });
+    await finRes.text();
+  }
+
+  // Step 2: Get crumb using cookie
+  const crumbRes = await fetch('https://query2.finance.yahoo.com/v1/test/getcrumb', {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      'Cookie': cookie,
+    },
+  });
+
+  const crumb = await crumbRes.text();
+
+  if (!crumb || crumb.includes('Too Many') || crumb.includes('<')) {
+    throw new Error(`Failed to get crumb: ${crumb.substring(0, 100)}`);
+  }
+
+  crumbCache = { crumb, cookie, timestamp: Date.now() };
+  console.log('Got Yahoo crumb successfully');
+  return { crumb, cookie };
 }
 
 serve(async (req) => {
@@ -38,7 +76,7 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
+
     if (optionType !== 'PUT' && optionType !== 'CALL') {
       return new Response(
         JSON.stringify({ error: 'optionType must be either PUT or CALL' }),
@@ -46,177 +84,201 @@ serve(async (req) => {
       );
     }
 
-    if (!FINNHUB_API_KEY) {
-      console.error('FINNHUB_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ error: 'Market data service not configured' }),
-        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const upperSymbol = symbol.toUpperCase();
+    console.log(`Fetching option chain for ${upperSymbol} (${optionType})`);
 
-    console.log(`Fetching option chain for ${symbol} (${optionType})`);
-
-    // Check cache first
-    const cacheKey = `chain_${symbol}_${optionType}`;
+    // Check cache
+    const cacheKey = `chain_${upperSymbol}_${optionType}`;
     const cachedData = cache.get(cacheKey);
-    
     if (cachedData && (Date.now() - cachedData.timestamp < CACHE_DURATION)) {
-      console.log(`Using cached data for ${symbol}`);
+      console.log(`Using cached data for ${upperSymbol}`);
       return new Response(
         JSON.stringify(cachedData.data),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Step 1: Get underlying price
-    const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
-    console.log(`Fetching stock quote for ${symbol}`);
-    
-    const quoteResponse = await fetch(quoteUrl);
-    
-    if (!quoteResponse.ok) {
-      console.error(`Failed to fetch stock quote: ${quoteResponse.status}`);
+    // Step 1: Get underlying price via v8 chart (no crumb needed)
+    const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${upperSymbol}?interval=1d&range=1d`;
+    const chartRes = await fetch(chartUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+
+    if (!chartRes.ok) {
+      await chartRes.text();
       return new Response(
-        JSON.stringify({ error: `Unable to fetch quote for "${symbol}". Please try again.` }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    const quoteData = await quoteResponse.json();
-    
-    // Finnhub returns { c: 0, d: null, dp: null, h: 0, l: 0, o: 0, pc: 0, t: 0 } for invalid symbols
-    if (!quoteData.c || quoteData.c === 0) {
-      console.log(`Invalid ticker symbol: "${symbol}" - no quote data found`);
-      return new Response(
-        JSON.stringify({ 
-          error: `"${symbol}" is not a valid ticker symbol. Please check the symbol and try again.`,
-          invalidSymbol: true 
-        }),
+        JSON.stringify({ error: `"${upperSymbol}" is not a valid ticker symbol.`, invalidSymbol: true }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
-    const underlyingPrice = quoteData.c;
-    console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
-    // Step 2: Fetch options from Finnhub (single request)
-    const hintDate = getNextFriday();
-    const optionsUrl = `https://finnhub.io/api/v1/stock/option-chain?symbol=${symbol}&date=${hintDate}&token=${FINNHUB_API_KEY}`;
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-    
-    let optionsResponse;
-    try {
-      optionsResponse = await fetch(optionsUrl, { signal: controller.signal });
-      clearTimeout(timeoutId);
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        console.error(`Options fetch timed out for ${symbol}`);
-        return new Response(
-          JSON.stringify({ error: 'Request timed out. Please try again.' }),
-          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      throw fetchError;
-    }
-    
-    if (!optionsResponse.ok) {
-      console.error(`Failed to fetch options: ${optionsResponse.status}`);
+    const chartData = await chartRes.json();
+    const chartResult = chartData?.chart?.result?.[0];
+    const underlyingPrice = chartResult?.meta?.regularMarketPrice || 0;
+
+    if (!underlyingPrice) {
       return new Response(
-        JSON.stringify({ error: `Unable to fetch options data for "${symbol}". The symbol may not have options available.` }),
+        JSON.stringify({ error: `"${upperSymbol}" is not a valid ticker symbol.`, invalidSymbol: true }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Underlying price for ${upperSymbol}: $${underlyingPrice}`);
+
+    // Step 2: Get crumb+cookie for v7 options endpoint
+    let crumb: string, cookie: string;
+    try {
+      const auth = await getCrumbAndCookie();
+      crumb = auth.crumb;
+      cookie = auth.cookie;
+    } catch (err) {
+      console.error('Failed to get Yahoo crumb:', err);
+      // Return just the underlying price with empty options
+      const fallbackResult = {
+        symbol: upperSymbol,
+        underlyingPrice,
+        expirations: [],
+        options: {},
+        timestamp: Date.now(),
+        error: 'Options data temporarily unavailable',
+      };
+      return new Response(
+        JSON.stringify(fallbackResult),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Step 3: Fetch options with crumb
+    const baseUrl = `https://query1.finance.yahoo.com/v7/finance/options/${upperSymbol}?crumb=${encodeURIComponent(crumb)}`;
+
+    const initialRes = await fetch(baseUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Cookie': cookie,
+      },
+    });
+
+    if (!initialRes.ok) {
+      const body = await initialRes.text();
+      console.error(`Yahoo options failed: ${initialRes.status} ${body.substring(0, 200)}`);
+
+      // If crumb expired, invalidate cache and retry once
+      if (initialRes.status === 401) {
+        crumbCache = null;
+        try {
+          const auth = await getCrumbAndCookie();
+          const retryRes = await fetch(
+            `https://query1.finance.yahoo.com/v7/finance/options/${upperSymbol}?crumb=${encodeURIComponent(auth.crumb)}`,
+            {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Cookie': auth.cookie,
+              },
+            }
+          );
+          if (retryRes.ok) {
+            // Continue with retry response below by reassigning
+            const retryData = await retryRes.json();
+            return processOptionsResponse(retryData, upperSymbol, underlyingPrice, optionType, cacheKey);
+          }
+          await retryRes.text();
+        } catch {
+          // Fall through to error
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ error: `Unable to fetch options for "${upperSymbol}".` }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
-    const optionsData = await optionsResponse.json();
-    
-    const optionsByExpiration: Record<string, any[]> = {};
-    
-    if (optionsData.data && optionsData.data.length > 0) {
-      // Process multiple expirations (up to 4) with lean processing
-      // Return wider strike range to let frontend handle filtering
-      const strikeMin = underlyingPrice * 0.50;  // 50% below current price
-      const strikeMax = underlyingPrice * 1.50;  // 50% above current price
-      const MAX_OPTIONS_PER_EXP = 50;  // Increased to show more options
-      const MAX_SCAN = 500;
-      const MAX_EXPIRATIONS = 4;
 
-      const expirationsToProcess = optionsData.data.slice(0, MAX_EXPIRATIONS);
-      
-      for (const expData of expirationsToProcess) {
-        if (!expData?.options?.[optionType]) continue;
-        
-        const actualExpDate = expData.expirationDate;
-        const rawOptions = expData.options[optionType] as any[];
-
-        const filteredOptions: any[] = [];
-        const scanLimit = Math.min(rawOptions.length, MAX_SCAN);
-        
-        for (let j = 0; j < scanLimit && filteredOptions.length < MAX_OPTIONS_PER_EXP; j++) {
-          const opt = rawOptions[j];
-          const strike = opt?.strike;
-          if (typeof strike !== 'number') continue;
-
-          if (strike >= strikeMin && strike <= strikeMax) {
-            const bid = opt.bid || 0;
-            const ask = opt.ask || 0;
-            filteredOptions.push({
-              strike,
-              bid,
-              ask,
-              mid: bid && ask ? (bid + ask) / 2 : opt.lastTradePrice || 0,
-              volume: opt.volume || 0,
-              openInterest: opt.openInterest || 0,
-              impliedVolatility: opt.impliedVolatility || 0,
-              delta: opt.delta || 0,
-              inTheMoney: optionType === 'PUT' ? strike > underlyingPrice : strike < underlyingPrice,
-              lastPrice: opt.lastTradePrice || 0,
-            });
-          }
-        }
-
-        if (filteredOptions.length > 0) {
-          filteredOptions.sort((a, b) => b.strike - a.strike);
-          const timestamp = (new Date(actualExpDate).getTime() / 1000).toString();
-          optionsByExpiration[timestamp] = filteredOptions;
-          console.log(
-            `Processed expiration ${actualExpDate}: kept ${filteredOptions.length} options`,
-          );
-        }
-      }
-      
-      console.log(`Total expirations processed: ${Object.keys(optionsByExpiration).length}`);
-    }
-
-    const result = {
-      symbol,
-      underlyingPrice,
-      expirations: Object.keys(optionsByExpiration),
-      options: optionsByExpiration,
-      timestamp: Date.now()
-    };
-
-    // Cache the result
-    cache.set(cacheKey, { data: result, timestamp: Date.now() });
-    console.log(`Cached options chain for ${symbol}`);
-
-    return new Response(
-      JSON.stringify(result),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    const initialData = await initialRes.json();
+    return processOptionsResponse(initialData, upperSymbol, underlyingPrice, optionType, cacheKey);
   } catch (error) {
     console.error('Error fetching option chain:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
+
+function processOptionsResponse(
+  data: any,
+  symbol: string,
+  underlyingPrice: number,
+  optionType: string,
+  cacheKey: string
+): Response {
+  const result0 = data?.optionChain?.result?.[0];
+
+  if (!result0) {
+    return new Response(
+      JSON.stringify({ error: `No options data for "${symbol}".` }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const strikeMin = underlyingPrice * 0.50;
+  const strikeMax = underlyingPrice * 1.50;
+
+  const processOptions = (options: any[]): any[] => {
+    const filtered: any[] = [];
+    for (const opt of options) {
+      const strike = opt.strike || 0;
+      if (strike < strikeMin || strike > strikeMax) continue;
+      const bid = opt.bid || 0;
+      const ask = opt.ask || 0;
+      filtered.push({
+        strike,
+        bid,
+        ask,
+        mid: bid && ask ? (bid + ask) / 2 : opt.lastPrice || 0,
+        volume: opt.volume || 0,
+        openInterest: opt.openInterest || 0,
+        impliedVolatility: opt.impliedVolatility || 0,
+        delta: 0,
+        inTheMoney: opt.inTheMoney || false,
+        lastPrice: opt.lastPrice || 0,
+      });
+    }
+    return filtered.sort((a, b) => b.strike - a.strike).slice(0, 50);
+  };
+
+  const optionsByExpiration: Record<string, any[]> = {};
+
+  // Process all expirations returned (Yahoo returns first exp by default)
+  const allOptions = result0.options || [];
+  for (const expBlock of allOptions) {
+    const expTs = String(expBlock.expirationDate);
+    const rawOpts = optionType === 'PUT' ? (expBlock.puts || []) : (expBlock.calls || []);
+    const processed = processOptions(rawOpts);
+    if (processed.length > 0) {
+      optionsByExpiration[expTs] = processed;
+    }
+  }
+
+  // Also include expiration dates list for frontend
+  const allExpirations = result0.expirationDates || [];
+
+  const sortedKeys = Object.keys(optionsByExpiration).sort((a, b) => Number(a) - Number(b));
+
+  const response = {
+    symbol,
+    underlyingPrice,
+    expirations: sortedKeys.length > 0 ? sortedKeys : allExpirations.map(String),
+    options: optionsByExpiration,
+    timestamp: Date.now(),
+  };
+
+  cache.set(cacheKey, { data: response, timestamp: Date.now() });
+  console.log(`Cached options for ${symbol} (${sortedKeys.length} expirations, ${Object.values(optionsByExpiration).reduce((s, a) => s + a.length, 0)} contracts)`);
+
+  return new Response(
+    JSON.stringify(response),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
