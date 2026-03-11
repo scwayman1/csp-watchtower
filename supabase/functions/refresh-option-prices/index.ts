@@ -8,6 +8,44 @@ const corsHeaders = {
 
 const REQUEST_DELAY = 300;
 
+// Crumb/cookie cache
+let crumbCache: { crumb: string; cookie: string; timestamp: number } | null = null;
+const CRUMB_CACHE_DURATION = 30 * 60 * 1000;
+
+async function getCrumbAndCookie(): Promise<{ crumb: string; cookie: string }> {
+  if (crumbCache && (Date.now() - crumbCache.timestamp < CRUMB_CACHE_DURATION)) {
+    return { crumb: crumbCache.crumb, cookie: crumbCache.cookie };
+  }
+
+  const consentRes = await fetch('https://fc.yahoo.com/', {
+    redirect: 'manual',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    },
+  });
+  await consentRes.text();
+
+  const setCookies = consentRes.headers.get('set-cookie') || '';
+  const cookieMatch = setCookies.match(/A\d=[^;]+/);
+  const cookie = cookieMatch ? cookieMatch[0] : '';
+
+  const crumbRes = await fetch('https://query2.finance.yahoo.com/v1/test/getcrumb', {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      'Cookie': cookie,
+    },
+  });
+
+  const crumb = await crumbRes.text();
+
+  if (!crumb || crumb.includes('Too Many') || crumb.includes('<')) {
+    throw new Error(`Failed to get crumb: ${crumb.substring(0, 100)}`);
+  }
+
+  crumbCache = { crumb, cookie, timestamp: Date.now() };
+  return { crumb, cookie };
+}
+
 async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -28,7 +66,7 @@ serve(async (req) => {
       const body = await req.json();
       positionIds = body.positionIds;
     } catch {
-      // No body - fetch all
+      // No body
     }
 
     let query = supabase
@@ -59,7 +97,21 @@ serve(async (req) => {
 
     console.log(`Refreshing option prices for ${positions.length} positions`);
 
-    // Group by symbol+expiration to minimize Yahoo API calls
+    // Get Yahoo crumb
+    let crumb: string, cookie: string;
+    try {
+      const auth = await getCrumbAndCookie();
+      crumb = auth.crumb;
+      cookie = auth.cookie;
+    } catch (err) {
+      console.error('Failed to get Yahoo crumb:', err);
+      return new Response(
+        JSON.stringify({ error: 'Market data authentication failed' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Group by symbol+expiration
     const groups = new Map<string, any[]>();
     for (const pos of positions) {
       const key = `${pos.symbol}_${pos.expiration}`;
@@ -74,12 +126,14 @@ serve(async (req) => {
       const expiration = groupPositions[0].expiration;
 
       try {
-        // Convert expiration to unix timestamp for Yahoo API
         const expUnix = Math.floor(new Date(expiration).getTime() / 1000);
-        const url = `https://query1.finance.yahoo.com/v7/finance/options/${symbol}?date=${expUnix}`;
+        const url = `https://query1.finance.yahoo.com/v7/finance/options/${symbol}?date=${expUnix}&crumb=${encodeURIComponent(crumb)}`;
 
         const res = await fetch(url, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Cookie': cookie,
+          },
         });
 
         if (!res.ok) {
@@ -108,14 +162,12 @@ serve(async (req) => {
                 bid_price: bid,
                 ask_price: ask,
                 mark_price: mark,
-                delta: null, // Yahoo free tier doesn't provide greeks
+                delta: null,
                 implied_volatility: match.impliedVolatility || null,
                 last_updated: new Date().toISOString(),
               });
 
               console.log(`${symbol} $${pos.strike_price}: bid=${bid}, ask=${ask}, mark=${mark}`);
-            } else {
-              console.log(`No match for ${symbol} $${pos.strike_price} exp ${expiration}`);
             }
           }
         }
@@ -136,9 +188,9 @@ serve(async (req) => {
         });
 
       if (upsertError) {
-        console.error('Error upserting option data:', upsertError);
+        console.error('Error upserting:', upsertError);
         return new Response(
-          JSON.stringify({ error: 'Failed to save option data', details: upsertError.message }),
+          JSON.stringify({ error: 'Failed to save option data' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -155,7 +207,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error refreshing option prices:', error);
+    console.error('Error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
