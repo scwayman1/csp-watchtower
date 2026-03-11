@@ -2,27 +2,15 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 // Simple in-memory cache (expires after 60 minutes)
 const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_DURATION = 60 * 60 * 1000; // 60 minutes
-const REQUEST_TIMEOUT = 5000; // 5 seconds per request
+const CACHE_DURATION = 60 * 60 * 1000;
+const REQUEST_TIMEOUT = 10000;
 
-const FINNHUB_API_KEY = Deno.env.get('FINNHUB_API_KEY');
-
-// Helper to get next expiration date (just one Friday)
-function getNextFriday(): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const daysUntilFriday = (5 - today.getDay() + 7) % 7;
-  const nextFriday = new Date(today);
-  nextFriday.setDate(today.getDate() + (daysUntilFriday === 0 ? 7 : daysUntilFriday));
-  
-  return nextFriday.toISOString().split('T')[0];
-}
+const POLYGON_API_KEY = Deno.env.get('POLYGON_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -38,7 +26,7 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
+
     if (optionType !== 'PUT' && optionType !== 'CALL') {
       return new Response(
         JSON.stringify({ error: 'optionType must be either PUT or CALL' }),
@@ -46,74 +34,74 @@ serve(async (req) => {
       );
     }
 
-    if (!FINNHUB_API_KEY) {
-      console.error('FINNHUB_API_KEY not configured');
+    if (!POLYGON_API_KEY) {
+      console.error('POLYGON_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'Market data service not configured' }),
         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Fetching option chain for ${symbol} (${optionType})`);
+    const upperSymbol = symbol.toUpperCase();
+    console.log(`Fetching option chain for ${upperSymbol} (${optionType})`);
 
-    // Check cache first
-    const cacheKey = `chain_${symbol}_${optionType}`;
+    // Check cache
+    const cacheKey = `chain_${upperSymbol}_${optionType}`;
     const cachedData = cache.get(cacheKey);
-    
     if (cachedData && (Date.now() - cachedData.timestamp < CACHE_DURATION)) {
-      console.log(`Using cached data for ${symbol}`);
+      console.log(`Using cached data for ${upperSymbol}`);
       return new Response(
         JSON.stringify(cachedData.data),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Step 1: Get underlying price
-    const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
-    console.log(`Fetching stock quote for ${symbol}`);
+    // Step 1: Get underlying price from Polygon snapshot
+    const snapshotUrl = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${upperSymbol}?apiKey=${POLYGON_API_KEY}`;
+    const snapshotRes = await fetch(snapshotUrl);
     
-    const quoteResponse = await fetch(quoteUrl);
-    
-    if (!quoteResponse.ok) {
-      console.error(`Failed to fetch stock quote: ${quoteResponse.status}`);
+    if (!snapshotRes.ok) {
+      const body = await snapshotRes.text();
+      console.error(`Snapshot failed: ${snapshotRes.status} ${body}`);
       return new Response(
-        JSON.stringify({ error: `Unable to fetch quote for "${symbol}". Please try again.` }),
+        JSON.stringify({ error: `Unable to fetch quote for "${upperSymbol}".`, invalidSymbol: snapshotRes.status === 404 }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
-    const quoteData = await quoteResponse.json();
-    
-    // Finnhub returns { c: 0, d: null, dp: null, h: 0, l: 0, o: 0, pc: 0, t: 0 } for invalid symbols
-    if (!quoteData.c || quoteData.c === 0) {
-      console.log(`Invalid ticker symbol: "${symbol}" - no quote data found`);
+
+    const snapshotData = await snapshotRes.json();
+    const underlyingPrice = snapshotData?.ticker?.lastTrade?.p || snapshotData?.ticker?.day?.c || snapshotData?.ticker?.prevDay?.c;
+
+    if (!underlyingPrice) {
+      console.log(`No price data for ${upperSymbol}`);
       return new Response(
-        JSON.stringify({ 
-          error: `"${symbol}" is not a valid ticker symbol. Please check the symbol and try again.`,
-          invalidSymbol: true 
-        }),
+        JSON.stringify({ error: `"${upperSymbol}" is not a valid ticker symbol.`, invalidSymbol: true }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
-    const underlyingPrice = quoteData.c;
-    console.log(`Underlying price for ${symbol}: $${underlyingPrice}`);
 
-    // Step 2: Fetch options from Finnhub (single request)
-    const hintDate = getNextFriday();
-    const optionsUrl = `https://finnhub.io/api/v1/stock/option-chain?symbol=${symbol}&date=${hintDate}&token=${FINNHUB_API_KEY}`;
-    
+    console.log(`Underlying price for ${upperSymbol}: $${underlyingPrice}`);
+
+    // Step 2: Fetch option chain from Polygon
+    const contractType = optionType === 'PUT' ? 'put' : 'call';
+    const strikeMin = Math.floor(underlyingPrice * 0.50);
+    const strikeMax = Math.ceil(underlyingPrice * 1.50);
+
+    // Use the options chain snapshot endpoint
+    const chainUrl = `https://api.polygon.io/v3/snapshot/options/${upperSymbol}?contract_type=${contractType}&strike_price.gte=${strikeMin}&strike_price.lte=${strikeMax}&limit=250&apiKey=${POLYGON_API_KEY}`;
+
+    console.log(`Fetching options chain from Polygon`);
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-    
-    let optionsResponse;
+
+    let chainRes;
     try {
-      optionsResponse = await fetch(optionsUrl, { signal: controller.signal });
+      chainRes = await fetch(chainUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
     } catch (fetchError) {
       clearTimeout(timeoutId);
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        console.error(`Options fetch timed out for ${symbol}`);
         return new Response(
           JSON.stringify({ error: 'Request timed out. Please try again.' }),
           { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -121,86 +109,81 @@ serve(async (req) => {
       }
       throw fetchError;
     }
-    
-    if (!optionsResponse.ok) {
-      console.error(`Failed to fetch options: ${optionsResponse.status}`);
+
+    if (!chainRes.ok) {
+      const body = await chainRes.text();
+      console.error(`Options chain failed: ${chainRes.status} ${body}`);
       return new Response(
-        JSON.stringify({ error: `Unable to fetch options data for "${symbol}". The symbol may not have options available.` }),
+        JSON.stringify({ error: `Unable to fetch options data for "${upperSymbol}". The symbol may not have options available.` }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
-    const optionsData = await optionsResponse.json();
-    
+
+    const chainData = await chainRes.json();
+    const contracts = chainData.results || [];
+
+    console.log(`Got ${contracts.length} option contracts from Polygon`);
+
+    // Group by expiration
     const optionsByExpiration: Record<string, any[]> = {};
-    
-    if (optionsData.data && optionsData.data.length > 0) {
-      // Process multiple expirations (up to 4) with lean processing
-      // Return wider strike range to let frontend handle filtering
-      const strikeMin = underlyingPrice * 0.50;  // 50% below current price
-      const strikeMax = underlyingPrice * 1.50;  // 50% above current price
-      const MAX_OPTIONS_PER_EXP = 50;  // Increased to show more options
-      const MAX_SCAN = 500;
-      const MAX_EXPIRATIONS = 4;
 
-      const expirationsToProcess = optionsData.data.slice(0, MAX_EXPIRATIONS);
-      
-      for (const expData of expirationsToProcess) {
-        if (!expData?.options?.[optionType]) continue;
-        
-        const actualExpDate = expData.expirationDate;
-        const rawOptions = expData.options[optionType] as any[];
+    for (const contract of contracts) {
+      const details = contract.details;
+      if (!details) continue;
 
-        const filteredOptions: any[] = [];
-        const scanLimit = Math.min(rawOptions.length, MAX_SCAN);
-        
-        for (let j = 0; j < scanLimit && filteredOptions.length < MAX_OPTIONS_PER_EXP; j++) {
-          const opt = rawOptions[j];
-          const strike = opt?.strike;
-          if (typeof strike !== 'number') continue;
+      const expDate = details.expiration_date; // YYYY-MM-DD
+      if (!expDate) continue;
 
-          if (strike >= strikeMin && strike <= strikeMax) {
-            const bid = opt.bid || 0;
-            const ask = opt.ask || 0;
-            filteredOptions.push({
-              strike,
-              bid,
-              ask,
-              mid: bid && ask ? (bid + ask) / 2 : opt.lastTradePrice || 0,
-              volume: opt.volume || 0,
-              openInterest: opt.openInterest || 0,
-              impliedVolatility: opt.impliedVolatility || 0,
-              delta: opt.delta || 0,
-              inTheMoney: optionType === 'PUT' ? strike > underlyingPrice : strike < underlyingPrice,
-              lastPrice: opt.lastTradePrice || 0,
-            });
-          }
-        }
+      // Convert to unix timestamp key (matching existing frontend format)
+      const timestamp = (new Date(expDate).getTime() / 1000).toString();
 
-        if (filteredOptions.length > 0) {
-          filteredOptions.sort((a, b) => b.strike - a.strike);
-          const timestamp = (new Date(actualExpDate).getTime() / 1000).toString();
-          optionsByExpiration[timestamp] = filteredOptions;
-          console.log(
-            `Processed expiration ${actualExpDate}: kept ${filteredOptions.length} options`,
-          );
-        }
+      if (!optionsByExpiration[timestamp]) {
+        optionsByExpiration[timestamp] = [];
       }
-      
-      console.log(`Total expirations processed: ${Object.keys(optionsByExpiration).length}`);
+
+      const quote = contract.last_quote || {};
+      const trade = contract.last_trade || {};
+      const greeks = contract.greeks || {};
+      const day = contract.day || {};
+
+      const bid = quote.bid || 0;
+      const ask = quote.ask || 0;
+      const strike = details.strike_price || 0;
+
+      optionsByExpiration[timestamp].push({
+        strike,
+        bid,
+        ask,
+        mid: bid && ask ? (bid + ask) / 2 : trade.price || 0,
+        volume: day.volume || 0,
+        openInterest: contract.open_interest || 0,
+        impliedVolatility: contract.implied_volatility || 0,
+        delta: greeks.delta ? Math.abs(greeks.delta) : 0,
+        inTheMoney: optionType === 'PUT' ? strike > underlyingPrice : strike < underlyingPrice,
+        lastPrice: trade.price || 0,
+      });
+    }
+
+    // Sort each expiration by strike descending and limit
+    const MAX_EXPIRATIONS = 4;
+    const sortedKeys = Object.keys(optionsByExpiration).sort((a, b) => Number(a) - Number(b)).slice(0, MAX_EXPIRATIONS);
+    
+    const finalOptions: Record<string, any[]> = {};
+    for (const key of sortedKeys) {
+      finalOptions[key] = optionsByExpiration[key].sort((a: any, b: any) => b.strike - a.strike).slice(0, 50);
+      console.log(`Expiration ${new Date(Number(key) * 1000).toISOString().split('T')[0]}: ${finalOptions[key].length} options`);
     }
 
     const result = {
-      symbol,
+      symbol: upperSymbol,
       underlyingPrice,
-      expirations: Object.keys(optionsByExpiration),
-      options: optionsByExpiration,
-      timestamp: Date.now()
+      expirations: sortedKeys,
+      options: finalOptions,
+      timestamp: Date.now(),
     };
 
-    // Cache the result
     cache.set(cacheKey, { data: result, timestamp: Date.now() });
-    console.log(`Cached options chain for ${symbol}`);
+    console.log(`Cached options chain for ${upperSymbol}`);
 
     return new Response(
       JSON.stringify(result),
@@ -208,15 +191,9 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error fetching option chain:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
