@@ -22,8 +22,34 @@ serve(async (req) => {
     }
 
     // Try to detect format and parse accordingly
-    const positions = [];
-    const calls = [];
+    const positions: any[] = [];
+    const calls: any[] = [];
+
+    // Format CSV: SYMBOL,TYPE,ACTION,CONTRACTS,EXPIRATION,STRIKE,PREMIUM[,TOTAL]
+    // Example: GOOG,CALL,SELL_TO_OPEN,2,2026-04-02,320,4.40,880
+    const csvLines = orderText.trim().split('\n').filter((l: string) => l.trim());
+    const csvPattern = /^([A-Z]{1,6}),\s*(PUT|CALL),\s*(SELL_TO_OPEN|STO|SOLD),\s*(\d+),\s*(\d{4}-\d{2}-\d{2}),\s*(\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)(?:,\s*\d+(?:\.\d+)?)?$/i;
+    
+    let csvMatches = 0;
+    for (const line of csvLines) {
+      const m = line.trim().match(csvPattern);
+      if (m) {
+        csvMatches++;
+        const [, symbol, type, , contracts, exp, strike, premium] = m;
+        const parsedOption = {
+          symbol: symbol.toUpperCase(),
+          strike,
+          exp,
+          premium,
+          contracts,
+        };
+        if (type.toUpperCase() === 'PUT') {
+          positions.push(parsedOption);
+        } else {
+          calls.push(parsedOption);
+        }
+      }
+    }
     
     // Format 0: Broker activity format (multi-line blocks)
     // Example:
