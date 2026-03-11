@@ -4,7 +4,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2, Eye, EyeOff, ArrowLeft, Mail, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { supabasePKCE } from "@/lib/authClient";
 import { toast } from "sonner";
 
 interface AuthStepProps {
@@ -46,7 +45,6 @@ export function AuthStep({
       }
     } catch (error) {
       console.warn('User data repair check failed:', error);
-      // Non-fatal - continue with login
     }
   };
 
@@ -76,7 +74,9 @@ export function AuthStep({
     setLoading(true);
 
     try {
-      const { error } = await supabasePKCE.auth.resetPasswordForEmail(email, {
+      // Use the standard client with implicit flow — the reset email will
+      // contain a /verify link that redirects back with hash-fragment tokens.
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth?reset=true`,
       });
 
@@ -113,7 +113,6 @@ export function AuthStep({
         });
 
         if (error) {
-          // Handle specific signup errors
           if (error.message.includes('already registered')) {
             toast.error("This email is already registered. Try signing in instead.");
             onModeChange("login");
@@ -123,22 +122,18 @@ export function AuthStep({
         }
         
         if (data.user) {
-          // Check if email confirmation is required
           if (data.user.identities?.length === 0) {
-            // User already exists but email not confirmed
             toast.error("This email is already registered but not confirmed. Check your inbox or resend verification.");
             setPendingVerification(true);
             return;
           }
           
           if (!data.session) {
-            // Email confirmation required - no session returned
             toast.success("Account created! Please check your email to verify your account.");
             setPendingVerification(true);
             return;
           }
           
-          // Give the trigger a moment to run, then verify/repair data
           await new Promise(resolve => setTimeout(resolve, 500));
           await repairUserData();
           toast.success("Account created successfully!");
@@ -151,7 +146,6 @@ export function AuthStep({
         });
 
         if (error) {
-          // Handle specific login errors with friendly messages
           if (error.message.includes('Invalid login credentials')) {
             toast.error("Invalid email or password. Please try again.");
             return;
@@ -165,7 +159,6 @@ export function AuthStep({
         }
         
         if (data.user) {
-          // Repair any missing user data on login
           await repairUserData();
           toast.success("Welcome back!");
           onSuccess(data.user.id);
