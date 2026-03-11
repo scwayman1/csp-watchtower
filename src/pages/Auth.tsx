@@ -28,26 +28,40 @@ const Auth = () => {
   useEffect(() => {
     // Listen for auth state changes — this catches the hash-fragment recovery token
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("[Auth] onAuthStateChange:", event, !!session);
       if (event === "PASSWORD_RECOVERY" && session) {
-        // Session is established from the hash fragment — safe to update password
+        setRecoverySessionReady(true);
+        setStep("update-password");
+      }
+      // When on the reset page, accept any session-establishing event
+      // (PASSWORD_RECOVERY may fire as INITIAL_SESSION or SIGNED_IN
+      // if the hash was already processed before this listener registered)
+      if (isPasswordReset && session && (event === "INITIAL_SESSION" || event === "SIGNED_IN")) {
         setRecoverySessionReady(true);
         setStep("update-password");
       }
     });
 
-    // For password reset: show loading UI immediately, but wait for
-    // the PASSWORD_RECOVERY event above to confirm the session.
-    // The hash fragment (access_token, type=recovery) is processed
-    // asynchronously by the supabase client.
     if (isPasswordReset) {
       setStep("update-password");
-      // Also check if session is already available (e.g. page was refreshed)
-      supabase.auth.getSession().then(({ data: { session } }) => {
+      // Poll for session — the hash fragment is processed asynchronously
+      // and may complete before or after the listener above fires
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           setRecoverySessionReady(true);
+          clearInterval(poll);
+        } else if (attempts >= 20) {
+          // After ~10 seconds, stop polling
+          clearInterval(poll);
         }
-      });
-      return () => subscription.unsubscribe();
+      }, 500);
+      return () => {
+        subscription.unsubscribe();
+        clearInterval(poll);
+      };
     }
 
     // Check if user is already authenticated
