@@ -6,29 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const POLYGON_API_KEY = Deno.env.get('POLYGON_API_KEY');
 const REQUEST_DELAY = 300;
-
-interface PositionInfo {
-  id: string;
-  symbol: string;
-  strike_price: number;
-  expiration: string;
-}
 
 async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// Build Polygon option ticker: O:AAPL250321P00150000
-function buildPolygonOptionTicker(symbol: string, expiration: string, strike: number, optionType: 'P' | 'C'): string {
-  const expDate = new Date(expiration);
-  const yy = String(expDate.getFullYear()).slice(-2);
-  const mm = String(expDate.getMonth() + 1).padStart(2, '0');
-  const dd = String(expDate.getDate()).padStart(2, '0');
-  const strikeInt = Math.round(strike * 1000);
-  const strikeStr = String(strikeInt).padStart(8, '0');
-  return `O:${symbol.toUpperCase()}${yy}${mm}${dd}${optionType}${strikeStr}`;
 }
 
 serve(async (req) => {
@@ -47,7 +28,7 @@ serve(async (req) => {
       const body = await req.json();
       positionIds = body.positionIds;
     } catch {
-      // No body - fetch all active positions
+      // No body - fetch all
     }
 
     let query = supabase
@@ -55,7 +36,7 @@ serve(async (req) => {
       .select('id, symbol, strike_price, expiration')
       .eq('is_active', true);
 
-    if (positionIds && positionIds.length > 0) {
+    if (positionIds?.length) {
       query = query.in('id', positionIds);
     }
 
@@ -69,78 +50,79 @@ serve(async (req) => {
       );
     }
 
-    if (!positions || positions.length === 0) {
+    if (!positions?.length) {
       return new Response(
         JSON.stringify({ message: 'No active positions to refresh', updated: 0 }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!POLYGON_API_KEY) {
-      console.error('POLYGON_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ error: 'Market data service not configured' }),
-        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     console.log(`Refreshing option prices for ${positions.length} positions`);
+
+    // Group by symbol+expiration to minimize Yahoo API calls
+    const groups = new Map<string, any[]>();
+    for (const pos of positions) {
+      const key = `${pos.symbol}_${pos.expiration}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(pos);
+    }
 
     const optionDataUpdates: any[] = [];
 
-    // Process in batches of 5
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < positions.length; i += BATCH_SIZE) {
-      const batch = positions.slice(i, i + BATCH_SIZE);
+    for (const [key, groupPositions] of groups) {
+      const symbol = groupPositions[0].symbol;
+      const expiration = groupPositions[0].expiration;
 
-      const batchPromises = batch.map(async (pos: any) => {
-        const ticker = buildPolygonOptionTicker(pos.symbol, pos.expiration, pos.strike_price, 'P');
-        const url = `https://api.polygon.io/v3/snapshot/options/${pos.symbol.toUpperCase()}?contract_type=put&strike_price=${pos.strike_price}&expiration_date=${pos.expiration}&limit=1&apiKey=${POLYGON_API_KEY}`;
+      try {
+        // Convert expiration to unix timestamp for Yahoo API
+        const expUnix = Math.floor(new Date(expiration).getTime() / 1000);
+        const url = `https://query1.finance.yahoo.com/v7/finance/options/${symbol}?date=${expUnix}`;
 
-        try {
-          const res = await fetch(url);
-          if (!res.ok) {
-            console.error(`Failed for ${pos.symbol} $${pos.strike_price}: ${res.status}`);
-            await res.text();
-            return;
-          }
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        });
 
-          const data = await res.json();
-          const contracts = data.results || [];
-
-          // Find exact strike match
-          const match = contracts.find((c: any) =>
-            c.details && Math.abs(c.details.strike_price - pos.strike_price) < 0.01
-          );
-
-          if (match) {
-            const quote = match.last_quote || {};
-            const greeks = match.greeks || {};
-            const bid = quote.bid || 0;
-            const ask = quote.ask || 0;
-            const mark = bid && ask ? (bid + ask) / 2 : (match.last_trade?.price || 0);
-
-            optionDataUpdates.push({
-              position_id: pos.id,
-              bid_price: bid,
-              ask_price: ask,
-              mark_price: mark,
-              delta: greeks.delta ? Math.abs(greeks.delta) : null,
-              implied_volatility: match.implied_volatility || null,
-              last_updated: new Date().toISOString(),
-            });
-
-            console.log(`${pos.symbol} $${pos.strike_price}: bid=${bid}, ask=${ask}, mark=${mark}`);
-          } else {
-            console.log(`No match for ${pos.symbol} $${pos.strike_price} exp ${pos.expiration}`);
-          }
-        } catch (error) {
-          console.error(`Error for ${pos.symbol}:`, error);
+        if (!res.ok) {
+          console.error(`Failed for ${symbol}: ${res.status}`);
+          await res.text();
+          await delay(REQUEST_DELAY);
+          continue;
         }
-      });
 
-      await Promise.all(batchPromises);
-      if (i + BATCH_SIZE < positions.length) {
+        const data = await res.json();
+        const options = data?.optionChain?.result?.[0]?.options?.[0];
+
+        if (options) {
+          const puts = options.puts || [];
+
+          for (const pos of groupPositions) {
+            const match = puts.find((p: any) => Math.abs(p.strike - pos.strike_price) < 0.01);
+
+            if (match) {
+              const bid = match.bid || 0;
+              const ask = match.ask || 0;
+              const mark = bid && ask ? (bid + ask) / 2 : match.lastPrice || 0;
+
+              optionDataUpdates.push({
+                position_id: pos.id,
+                bid_price: bid,
+                ask_price: ask,
+                mark_price: mark,
+                delta: null, // Yahoo free tier doesn't provide greeks
+                implied_volatility: match.impliedVolatility || null,
+                last_updated: new Date().toISOString(),
+              });
+
+              console.log(`${symbol} $${pos.strike_price}: bid=${bid}, ask=${ask}, mark=${mark}`);
+            } else {
+              console.log(`No match for ${symbol} $${pos.strike_price} exp ${expiration}`);
+            }
+          }
+        }
+
+        await delay(REQUEST_DELAY);
+      } catch (error) {
+        console.error(`Error for ${key}:`, error);
         await delay(REQUEST_DELAY);
       }
     }
@@ -150,7 +132,7 @@ serve(async (req) => {
         .from('option_data')
         .upsert(optionDataUpdates, {
           onConflict: 'position_id',
-          ignoreDuplicates: false
+          ignoreDuplicates: false,
         });
 
       if (upsertError) {
@@ -162,13 +144,13 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Updated option prices for ${optionDataUpdates.length}/${positions.length} positions`);
+    console.log(`Updated ${optionDataUpdates.length}/${positions.length} positions`);
 
     return new Response(
       JSON.stringify({
         message: 'Option prices refreshed',
         updated: optionDataUpdates.length,
-        total: positions.length
+        total: positions.length,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
