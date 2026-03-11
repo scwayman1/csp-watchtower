@@ -1,70 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Eye, EyeOff, Check } from "lucide-react";
+import { Loader2, Eye, EyeOff, Check, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { supabasePKCE } from "@/lib/authClient";
 import { toast } from "sonner";
 
 interface UpdatePasswordStepProps {
   onSuccess: () => void;
+  /** Whether the recovery session has been confirmed by the parent */
+  sessionReady: boolean;
 }
 
-export function UpdatePasswordStep({ onSuccess }: UpdatePasswordStepProps) {
+export function UpdatePasswordStep({ onSuccess, sessionReady }: UpdatePasswordStepProps) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [sessionReady, setSessionReady] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
-
-  useEffect(() => {
-    const checkSession = async () => {
-      // Check the main client first
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setSessionReady(true);
-        setCheckingSession(false);
-        return;
-      }
-
-      // Check the PKCE client (used for password reset code exchange)
-      const { data: { session: pkceSession } } = await supabasePKCE.auth.getSession();
-      if (pkceSession) {
-        setSessionReady(true);
-        setCheckingSession(false);
-        return;
-      }
-
-      // If no session yet, listen for auth changes on both clients
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (session && (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN")) {
-          setSessionReady(true);
-          setCheckingSession(false);
-        }
-      });
-
-      const { data: { subscription: pkceSubscription } } = supabasePKCE.auth.onAuthStateChange((event, session) => {
-        if (session && (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN")) {
-          setSessionReady(true);
-          setCheckingSession(false);
-        }
-      });
-
-      // Timeout after 8 seconds (longer for PKCE exchange)
-      const timeout = setTimeout(() => {
-        setCheckingSession(false);
-      }, 8000);
-
-      return () => {
-        subscription.unsubscribe();
-        pkceSubscription.unsubscribe();
-        clearTimeout(timeout);
-      };
-    };
-    checkSession();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,16 +34,7 @@ export function UpdatePasswordStep({ onSuccess }: UpdatePasswordStepProps) {
     setLoading(true);
 
     try {
-      // Try updating with the main client first, then PKCE client
-      let error;
-      const { error: mainError } = await supabase.auth.updateUser({ password });
-      
-      if (mainError) {
-        // Try PKCE client if main client fails
-        const { error: pkceError } = await supabasePKCE.auth.updateUser({ password });
-        error = pkceError;
-      }
-
+      const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
 
       toast.success("Password updated successfully!");
@@ -104,29 +47,14 @@ export function UpdatePasswordStep({ onSuccess }: UpdatePasswordStepProps) {
     }
   };
 
-  if (checkingSession) {
+  // Show loading while waiting for the recovery session from the hash fragment
+  if (!sessionReady) {
     return (
       <div className="space-y-6 animate-in fade-in-50 duration-500">
         <div className="text-center space-y-2">
           <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
           <h2 className="text-xl font-bold">Verifying reset link...</h2>
           <p className="text-muted-foreground text-sm">Please wait while we verify your password reset link.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!sessionReady) {
-    return (
-      <div className="space-y-6 animate-in fade-in-50 duration-500">
-        <div className="text-center space-y-2">
-          <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-            <svg className="w-6 h-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold">Reset link expired</h2>
-          <p className="text-muted-foreground text-sm">This password reset link has expired or is invalid. Please request a new one.</p>
         </div>
       </div>
     );
