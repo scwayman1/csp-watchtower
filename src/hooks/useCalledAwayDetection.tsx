@@ -14,8 +14,21 @@ export function useCalledAwayDetection(
   onCalledAway: () => void
 ) {
   const processedCallsRef = useRef<Set<string>>(new Set());
-  const dismissedCallsRef = useRef<Set<string>>(new Set());
   const [pendingEvents, setPendingEvents] = useState<PendingCalledAway[]>([]);
+
+  // Persist dismissed calls in localStorage so they survive login/reload
+  const getDismissedCalls = useCallback((): Set<string> => {
+    try {
+      const stored = localStorage.getItem('dismissed_called_away');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  }, []);
+
+  const persistDismissal = useCallback((callId: string) => {
+    const dismissed = getDismissedCalls();
+    dismissed.add(callId);
+    localStorage.setItem('dismissed_called_away', JSON.stringify([...dismissed]));
+  }, [getDismissedCalls]);
 
   const confirmCalledAway = useCallback(async (event: PendingCalledAway) => {
     const { position, coveredCall, realizedGain } = event;

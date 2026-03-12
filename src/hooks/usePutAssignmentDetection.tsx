@@ -17,8 +17,20 @@ export function usePutAssignmentDetection(
   onAssigned: () => void
 ) {
   const processedPositionsRef = useRef<Set<string>>(new Set());
-  const dismissedPositionsRef = useRef<Set<string>>(new Set());
   const [pendingAssignments, setPendingAssignments] = useState<PendingPutAssignment[]>([]);
+
+  const getDismissedPositions = useCallback((): Set<string> => {
+    try {
+      const stored = localStorage.getItem('dismissed_put_assignments');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  }, []);
+
+  const persistDismissal = useCallback((positionId: string) => {
+    const dismissed = getDismissedPositions();
+    dismissed.add(positionId);
+    localStorage.setItem('dismissed_put_assignments', JSON.stringify([...dismissed]));
+  }, [getDismissedPositions]);
 
   const confirmAssignment = useCallback(async (event: PendingPutAssignment) => {
     const { position } = event;
