@@ -105,12 +105,13 @@ export function usePutAssignmentDetection(
   const checkForAssignments = useCallback(() => {
     const newPendingAssignments: PendingPutAssignment[] = [];
 
+    const dismissed = getDismissedPositions();
+
     for (const position of expiredPositions) {
-      // Skip if already assigned, processed, or dismissed
       if (
         assignedPositionIds.has(position.id) ||
         processedPositionsRef.current.has(position.id) ||
-        dismissedPositionsRef.current.has(position.id)
+        dismissed.has(position.id)
       ) {
         continue;
       }

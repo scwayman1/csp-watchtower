@@ -125,11 +125,12 @@ export function useCalledAwayDetection(
       
       for (const call of position.covered_calls) {
         // Skip if already processed, dismissed, not active, or already closed
+        const dismissed = getDismissedCalls();
         if (
           !call.is_active || 
           call.closed_at || 
           processedCallsRef.current.has(call.id) ||
-          dismissedCallsRef.current.has(call.id)
+          dismissed.has(call.id)
         ) {
           continue;
         }
