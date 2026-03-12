@@ -98,9 +98,9 @@ export function usePutAssignmentDetection(
   }, [onAssigned]);
 
   const dismissAssignment = useCallback((positionId: string) => {
-    dismissedPositionsRef.current.add(positionId);
+    persistDismissal(positionId);
     setPendingAssignments(prev => prev.filter(e => e.position.id !== positionId));
-  }, []);
+  }, [persistDismissal]);
 
   const checkForAssignments = useCallback(() => {
     const newPendingAssignments: PendingPutAssignment[] = [];
