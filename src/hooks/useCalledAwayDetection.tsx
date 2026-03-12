@@ -108,9 +108,9 @@ export function useCalledAwayDetection(
   }, [onCalledAway]);
 
   const dismissEvent = useCallback((callId: string) => {
-    dismissedCallsRef.current.add(callId);
+    persistDismissal(callId);
     setPendingEvents(prev => prev.filter(e => e.coveredCall.id !== callId));
-  }, []);
+  }, [persistDismissal]);
 
   const checkForCalledAway = useCallback(async () => {
     const now = new Date();
