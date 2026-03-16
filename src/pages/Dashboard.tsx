@@ -1041,12 +1041,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
         onDismiss={dismissEvent}
       />
 
-      {/* Put Assignment Confirmation Dialog */}
-      <PutAssignmentConfirmDialog
-        pendingAssignments={pendingAssignments}
-        onConfirm={confirmAssignment}
-        onDismiss={dismissAssignment}
-      />
+      {/* Put assignments are now auto-processed - no dialog needed */}
 
       {/* First-time user guide */}
       {showGuide && !isAdvisorView && (

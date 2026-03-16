@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { Position } from "@/hooks/positions/types";
@@ -8,7 +8,7 @@ export interface PendingPutAssignment {
   assignmentPrice: number;
   shares: number;
   costBasis: number;
-  isCurrentlyITM: boolean;  // Whether current price is below strike (may have changed since expiration)
+  isCurrentlyITM: boolean;
 }
 
 export function usePutAssignmentDetection(
@@ -17,39 +17,35 @@ export function usePutAssignmentDetection(
   onAssigned: () => void
 ) {
   const processedPositionsRef = useRef<Set<string>>(new Set());
-  const [pendingAssignments, setPendingAssignments] = useState<PendingPutAssignment[]>([]);
 
-  const getDismissedPositions = useCallback((): Set<string> => {
+  const getProcessedPositions = useCallback((): Set<string> => {
     try {
-      const stored = localStorage.getItem('dismissed_put_assignments');
+      const stored = localStorage.getItem('auto_processed_put_assignments');
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch { return new Set(); }
   }, []);
 
-  const persistDismissal = useCallback((positionId: string) => {
-    const dismissed = getDismissedPositions();
-    dismissed.add(positionId);
-    localStorage.setItem('dismissed_put_assignments', JSON.stringify([...dismissed]));
-  }, [getDismissedPositions]);
+  const persistProcessed = useCallback((positionId: string) => {
+    const processed = getProcessedPositions();
+    processed.add(positionId);
+    localStorage.setItem('auto_processed_put_assignments', JSON.stringify([...processed]));
+  }, [getProcessedPositions]);
 
-  const confirmAssignment = useCallback(async (event: PendingPutAssignment) => {
-    const { position } = event;
-
+  const autoAssign = useCallback(async (position: Position) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) return;
 
       const shares = position.contracts * 100;
       const assignmentPrice = position.strikePrice;
       const costBasis = assignmentPrice - (position.totalPremium / shares);
 
-      // Create assigned position
       const { error: assignError } = await supabase
         .from('assigned_positions')
         .insert({
           user_id: user.id,
           symbol: position.symbol,
-          shares: shares,
+          shares,
           assignment_date: position.expiration,
           assignment_price: assignmentPrice,
           original_put_premium: position.totalPremium,
@@ -60,35 +56,27 @@ export function usePutAssignmentDetection(
 
       if (assignError) throw assignError;
 
-      // Mark original position as inactive (closed)
       const { error: closeError } = await supabase
         .from('positions')
-        .update({
-          is_active: false,
-          closed_at: position.expiration
-        })
+        .update({ is_active: false, closed_at: position.expiration })
         .eq('id', position.id);
 
       if (closeError) throw closeError;
 
       toast({
-        title: "Position Assigned",
+        title: "Position Auto-Assigned",
         description: (
           <div className="space-y-1">
-            <p><strong>{position.symbol}</strong> - {shares} shares assigned at ${assignmentPrice.toFixed(2)}</p>
-            <p className="text-muted-foreground">
-              Cost basis: ${costBasis.toFixed(2)}/share
-            </p>
+            <p><strong>{position.symbol}</strong> - {shares} shares assigned at ${assignmentPrice.toFixed(2)} (ITM at expiration)</p>
+            <p className="text-muted-foreground">Cost basis: ${costBasis.toFixed(2)}/share</p>
           </div>
         ),
         duration: 8000,
       });
 
-      // Remove from pending and trigger refetch
-      setPendingAssignments(prev => prev.filter(e => e.position.id !== position.id));
       onAssigned();
     } catch (error: any) {
-      console.error('Error processing assignment:', error);
+      console.error('Error auto-assigning position:', error);
       toast({
         title: "Error processing assignment",
         description: error.message,
@@ -97,58 +85,67 @@ export function usePutAssignmentDetection(
     }
   }, [onAssigned]);
 
-  const dismissAssignment = useCallback((positionId: string) => {
-    persistDismissal(positionId);
-    setPendingAssignments(prev => prev.filter(e => e.position.id !== positionId));
-  }, [persistDismissal]);
+  const autoExpire = useCallback(async (position: Position) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-  const checkForAssignments = useCallback(() => {
-    const newPendingAssignments: PendingPutAssignment[] = [];
+      // Just mark as closed/inactive - expired worthless
+      await supabase
+        .from('positions')
+        .update({ is_active: false, closed_at: position.expiration })
+        .eq('id', position.id);
 
-    const dismissed = getDismissedPositions();
+      toast({
+        title: "Put Expired Worthless",
+        description: (
+          <div>
+            <strong>{position.symbol}</strong> ${position.strikePrice.toFixed(2)} put expired OTM — premium kept: +${position.totalPremium.toFixed(2)}
+          </div>
+        ),
+        duration: 5000,
+      });
+    } catch (error: any) {
+      console.error('Error expiring position:', error);
+    }
+  }, []);
+
+  const processExpiredPositions = useCallback(async () => {
+    const persisted = getProcessedPositions();
 
     for (const position of expiredPositions) {
       if (
         assignedPositionIds.has(position.id) ||
         processedPositionsRef.current.has(position.id) ||
-        dismissed.has(position.id)
+        persisted.has(position.id)
       ) {
         continue;
       }
 
-      // Flag ALL expired positions for review - user confirms if assigned or not
-      // The current price may have changed since expiration, so we can't rely on it
       processedPositionsRef.current.add(position.id);
+      persistProcessed(position.id);
 
-      const shares = position.contracts * 100;
-      const assignmentPrice = position.strikePrice;
-      const costBasis = assignmentPrice - (position.totalPremium / shares);
-      const isCurrentlyITM = position.underlyingPrice < position.strikePrice;
+      const isITM = position.underlyingPrice < position.strikePrice;
 
-      newPendingAssignments.push({
-        position,
-        assignmentPrice,
-        shares,
-        costBasis,
-        isCurrentlyITM,
-      });
+      if (isITM) {
+        await autoAssign(position);
+      } else {
+        await autoExpire(position);
+      }
     }
-
-    if (newPendingAssignments.length > 0) {
-      setPendingAssignments(prev => [...prev, ...newPendingAssignments]);
-    }
-  }, [expiredPositions, assignedPositionIds]);
+  }, [expiredPositions, assignedPositionIds, getProcessedPositions, persistProcessed, autoAssign, autoExpire]);
 
   useEffect(() => {
     if (expiredPositions.length > 0) {
-      checkForAssignments();
+      processExpiredPositions();
     }
-  }, [expiredPositions, checkForAssignments]);
+  }, [expiredPositions, processExpiredPositions]);
 
+  // Return empty array for backwards compat - no more pending assignments
   return {
-    pendingAssignments,
-    confirmAssignment,
-    dismissAssignment,
-    checkForAssignments
+    pendingAssignments: [] as PendingPutAssignment[],
+    confirmAssignment: () => {},
+    dismissAssignment: () => {},
+    checkForAssignments: processExpiredPositions,
   };
 }
