@@ -279,11 +279,12 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const cashSecured = activePositions.reduce((sum, p) => sum + (p.strikePrice * 100 * p.contracts), 0);
   
   // 4. Total Portfolio Value
-  // If other_holdings_value represents total broker account, show it as baseline
-  // Otherwise calculate: Cash + Other Holdings + Assigned Shares + Active Positions Unrealized P/L
-  const totalPortfolioValue = (settings.other_holdings_value || 0) > 0 
+  // Baseline (from broker statement) + premiums collected + unrealized P/L from active positions + capital gains
+  // Premiums increase total assets as they represent new income collected since baseline was set
+  const baseline = (settings.other_holdings_value || 0) > 0 
     ? (settings.other_holdings_value || 0) 
-    : (settings.cash_balance || 0) + assignedSharesMarketValue + totalUnrealizedPnL;
+    : (settings.cash_balance || 0);
+  const totalPortfolioValue = baseline + totalPremium + assignedSharesUnrealizedPnL + totalUnrealizedPnL + totalCapitalGains;
   
   // 5. Available Cash = Total Assets - Assigned Capital
   const availableCash = totalPortfolioValue - assignedSharesMarketValue;
