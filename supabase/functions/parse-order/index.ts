@@ -25,28 +25,129 @@ serve(async (req) => {
     const positions: any[] = [];
     const calls: any[] = [];
 
-    // Format CSV: SYMBOL,TYPE,ACTION,CONTRACTS,EXPIRATION,STRIKE,PREMIUM[,TOTAL]
-    // Example: GOOG,CALL,SELL_TO_OPEN,2,2026-04-02,320,4.40,880
-    const csvLines = orderText.trim().split('\n').filter((l: string) => l.trim());
-    const csvPattern = /^([A-Z]{1,6}),\s*(PUT|CALL),\s*(SELL_TO_OPEN|STO|SOLD),\s*(\d+),\s*(\d{4}-\d{2}-\d{2}),\s*(\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)(?:,\s*\d+(?:\.\d+)?)?$/i;
-    
-    let csvMatches = 0;
-    for (const line of csvLines) {
-      const m = line.trim().match(csvPattern);
-      if (m) {
-        csvMatches++;
-        const [, symbol, type, , contracts, exp, strike, premium] = m;
-        const parsedOption = {
-          symbol: symbol.toUpperCase(),
-          strike,
-          exp,
-          premium,
-          contracts,
-        };
-        if (type.toUpperCase() === 'PUT') {
-          positions.push(parsedOption);
-        } else {
-          calls.push(parsedOption);
+    const pushParsedOption = (optionType: string, parsedOption: any) => {
+      if (optionType === 'PUT') {
+        positions.push(parsedOption);
+      } else {
+        calls.push(parsedOption);
+      }
+    };
+
+    const parseCsvLine = (line: string) => line.split(',').map((cell) => cell.trim());
+
+    // CSV support (header and no-header variants)
+    const csvLines = orderText
+      .trim()
+      .split('\n')
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0);
+
+    if (csvLines.length > 0) {
+      const headerCells = parseCsvLine(csvLines[0]).map((cell) => cell.toLowerCase());
+      const headerAliases: Record<string, string[]> = {
+        symbol: ['symbol', 'ticker', 'underlying'],
+        expiration: ['expiration', 'exp', 'expiry', 'date'],
+        type: ['type', 'option_type', 'optiontype', 'cp'],
+        strike: ['strike', 'strike_price', 'strikeprice'],
+        action: ['action', 'side'],
+        premium: ['premium', 'price', 'premium_per_contract', 'credit'],
+        contracts: ['contracts', 'contract', 'qty', 'quantity'],
+      };
+
+      const headerIndexMap: Record<string, number> = {};
+      for (const [field, aliases] of Object.entries(headerAliases)) {
+        const idx = headerCells.findIndex((cell) => aliases.includes(cell));
+        if (idx !== -1) {
+          headerIndexMap[field] = idx;
+        }
+      }
+
+      const hasHeaderRow = ['symbol', 'expiration', 'type', 'strike', 'premium', 'contracts']
+        .every((field) => headerIndexMap[field] !== undefined);
+
+      if (hasHeaderRow) {
+        for (const rawLine of csvLines.slice(1)) {
+          const row = parseCsvLine(rawLine);
+          const symbol = row[headerIndexMap.symbol];
+          const expiration = row[headerIndexMap.expiration];
+          const rawType = row[headerIndexMap.type];
+          const strike = row[headerIndexMap.strike];
+          const action = row[headerIndexMap.action] ?? '';
+          const premium = row[headerIndexMap.premium];
+          const contracts = row[headerIndexMap.contracts];
+
+          if (!symbol || !expiration || !rawType || !strike || !premium || !contracts) continue;
+          if (action && !/^(sto|sell_to_open|sell to open|sold|sell)$/i.test(action)) continue;
+
+          const normalizedType = rawType.toUpperCase() === 'P'
+            ? 'PUT'
+            : rawType.toUpperCase() === 'C'
+              ? 'CALL'
+              : rawType.toUpperCase();
+
+          if (normalizedType !== 'PUT' && normalizedType !== 'CALL') continue;
+
+          pushParsedOption(normalizedType, {
+            symbol: symbol.toUpperCase(),
+            strike,
+            exp: expiration,
+            premium,
+            contracts,
+          });
+        }
+      } else {
+        // No-header CSV variants:
+        // 1) SYMBOL,TYPE,ACTION,CONTRACTS,EXPIRATION,STRIKE,PREMIUM[,TOTAL]
+        // 2) TICKER,EXPIRATION,TYPE,STRIKE,ACTION,PREMIUM,CONTRACTS
+        for (const rawLine of csvLines) {
+          const row = parseCsvLine(rawLine);
+          if (row.length < 7) continue;
+
+          const [c0, c1, c2, c3, c4, c5, c6] = row;
+
+          // Variant 1
+          if (/^[A-Z]{1,8}$/i.test(c0) && /^(PUT|CALL|P|C)$/i.test(c1) && /^(sto|sell_to_open|sell to open|sold|sell)$/i.test(c2) && /^\d+$/.test(c3) && /^\d{4}-\d{2}-\d{2}$/.test(c4)) {
+            const optionType = c1.toUpperCase() === 'P' ? 'PUT' : c1.toUpperCase() === 'C' ? 'CALL' : c1.toUpperCase();
+            pushParsedOption(optionType, {
+              symbol: c0.toUpperCase(),
+              strike: c5,
+              exp: c4,
+              premium: c6,
+              contracts: c3,
+            });
+            continue;
+          }
+
+          // Variant 2
+          if (/^[A-Z]{1,8}$/i.test(c0) && /^\d{4}-\d{2}-\d{2}$/.test(c1) && /^(PUT|CALL|P|C)$/i.test(c2) && /^(sto|sell_to_open|sell to open|sold|sell)$/i.test(c4)) {
+            const optionType = c2.toUpperCase() === 'P' ? 'PUT' : c2.toUpperCase() === 'C' ? 'CALL' : c2.toUpperCase();
+            pushParsedOption(optionType, {
+              symbol: c0.toUpperCase(),
+              strike: c3,
+              exp: c1,
+              premium: c5,
+              contracts: c6,
+            });
+          }
+        }
+      }
+    }
+
+    // Legacy strict CSV fallback
+    if (positions.length === 0 && calls.length === 0) {
+      const csvPattern = /^([A-Z]{1,6}),\s*(PUT|CALL),\s*(SELL_TO_OPEN|STO|SOLD),\s*(\d+),\s*(\d{4}-\d{2}-\d{2}),\s*(\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)(?:,\s*\d+(?:\.\d+)?)?$/i;
+
+      for (const line of csvLines) {
+        const m = line.trim().match(csvPattern);
+        if (m) {
+          const [, symbol, type, , contracts, exp, strike, premium] = m;
+          pushParsedOption(type.toUpperCase(), {
+            symbol: symbol.toUpperCase(),
+            strike,
+            exp,
+            premium,
+            contracts,
+          });
         }
       }
     }
