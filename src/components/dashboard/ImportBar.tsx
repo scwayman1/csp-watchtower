@@ -141,11 +141,13 @@ export function ImportBar() {
 
       const puts = parseResult.puts || [];
       const calls = parseResult.calls || [];
+      const shares = parseResult.shares || [];
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       let insertedPuts = 0;
       let insertedCalls = 0;
+      let insertedShares = 0;
 
       // Insert PUTs into positions table
       if (puts.length > 0) {
@@ -161,6 +163,29 @@ export function ImportBar() {
 
         if (insertError) throw insertError;
         insertedPuts = puts.length;
+      }
+
+      // Insert share purchases as assigned positions
+      if (shares.length > 0) {
+        const today = new Date().toISOString().split('T')[0];
+        const sharesToInsert = shares.map((s: any) => ({
+          user_id: user.id,
+          symbol: s.symbol,
+          shares: s.shares,
+          assignment_price: s.price,
+          assignment_date: today,
+          cost_basis: s.price,
+          original_put_premium: 0,
+          is_active: true,
+          source: 'manual_purchase',
+        }));
+
+        const { error: shareError } = await supabase
+          .from('assigned_positions')
+          .insert(sharesToInsert);
+
+        if (shareError) throw shareError;
+        insertedShares = shares.length;
       }
 
       // Insert CALLs into covered_calls table
@@ -228,7 +253,11 @@ export function ImportBar() {
       }
 
       // Fetch market data for all unique symbols
-      const allSymbols = [...new Set([...puts.map((p: any) => p.symbol), ...calls.map((c: any) => c.symbol)])];
+      const allSymbols = [...new Set([
+        ...puts.map((p: any) => p.symbol), 
+        ...calls.map((c: any) => c.symbol),
+        ...shares.map((s: any) => s.symbol),
+      ])];
       if (allSymbols.length > 0) {
         await Promise.all(
           allSymbols.map(symbol =>
@@ -237,10 +266,14 @@ export function ImportBar() {
         );
       }
 
-      const totalInserted = insertedPuts + insertedCalls;
+      const parts = [];
+      if (insertedPuts > 0) parts.push(`${insertedPuts} PUT${insertedPuts !== 1 ? 's' : ''}`);
+      if (insertedCalls > 0) parts.push(`${insertedCalls} CALL${insertedCalls !== 1 ? 's' : ''}`);
+      if (insertedShares > 0) parts.push(`${insertedShares} share purchase${insertedShares !== 1 ? 's' : ''}`);
+      
       toast({
         title: "Orders parsed successfully",
-        description: `${insertedPuts} PUT${insertedPuts !== 1 ? 's' : ''} and ${insertedCalls} CALL${insertedCalls !== 1 ? 's' : ''} added.`,
+        description: `${parts.join(' and ')} added.`,
       });
       setOrderText("");
       setFileName("");
