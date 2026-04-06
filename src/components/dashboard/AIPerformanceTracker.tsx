@@ -1,11 +1,31 @@
+import { useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAIPerformance } from "@/hooks/useAIPerformance";
+import { useAuth } from "@/hooks/useAuth";
+import { backfillAIOutcomes } from "@/lib/aiOutcomeTracking";
 import { TrendingUp, TrendingDown, Target, CheckCircle2, XCircle } from "lucide-react";
 import { format } from "date-fns";
 
 export function AIPerformanceTracker() {
   const { data: performance, isLoading } = useAIPerformance();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const backfilledRef = useRef(false);
+
+  // Backfill outcomes for closed positions on first mount per session.
+  // This catches recommendations whose positions closed before outcome
+  // tracking was wired up.
+  useEffect(() => {
+    if (!user?.id || backfilledRef.current) return;
+    backfilledRef.current = true;
+    backfillAIOutcomes(user.id).then((inserted) => {
+      if (inserted > 0) {
+        queryClient.invalidateQueries({ queryKey: ["ai-performance"] });
+      }
+    });
+  }, [user?.id, queryClient]);
 
   if (isLoading) {
     return (
