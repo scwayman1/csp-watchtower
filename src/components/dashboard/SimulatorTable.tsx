@@ -223,8 +223,8 @@ export const SimulatorTable = ({ positions, onClose, onDelete, userId }: Simulat
     setSelectedAssignedPosition(null);
   };
 
-  const handleSellAssignedShares = async (position: typeof enhancedAssignedPositions[0], sharesToSell: number) => {
-    const soldPrice = position.currentPrice;
+  const handleSellAssignedShares = async (position: typeof enhancedAssignedPositions[0], sharesToSell: number, salePrice: number) => {
+    const soldPrice = salePrice > 0 ? salePrice : position.currentPrice;
     if (soldPrice <= 0 || sharesToSell <= 0) return;
     
     closeAssignedPosition({ id: position.id, sold_price: soldPrice, shares_to_sell: sharesToSell });

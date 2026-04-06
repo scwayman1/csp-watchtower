@@ -165,6 +165,77 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     await Promise.all([refetch(), refetchAssigned()]);
   }, [refetch, refetchAssigned]);
 
+  const handleSellAssignedShares = useCallback(async (
+    position: { id: string; symbol: string; shares: number; cost_basis: number; original_put_premium: number; assignment_date: string; assignment_price: number; original_position_id?: string | null; source?: string },
+    sharesToSell: number,
+    salePrice: number
+  ) => {
+    if (sharesToSell <= 0 || salePrice <= 0) return;
+    try {
+      const remainingShares = position.shares - sharesToSell;
+      const proportionSold = sharesToSell / position.shares;
+      const soldPutPremium = position.original_put_premium * proportionSold;
+
+      if (remainingShares <= 0) {
+        // Sell all shares — close the position
+        const { error } = await supabase
+          .from('assigned_positions')
+          .update({
+            is_active: false,
+            sold_price: salePrice,
+            closed_at: new Date().toISOString(),
+          })
+          .eq('id', position.id);
+        if (error) throw error;
+      } else {
+        // Partial sale: reduce shares on existing, create a closed record for the sold portion
+        const remainingPutPremium = position.original_put_premium - soldPutPremium;
+        const { error: updateError } = await supabase
+          .from('assigned_positions')
+          .update({
+            shares: remainingShares,
+            original_put_premium: remainingPutPremium,
+          })
+          .eq('id', position.id);
+        if (updateError) throw updateError;
+
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) return;
+
+        const { error: insertError } = await supabase
+          .from('assigned_positions')
+          .insert({
+            user_id: currentUser.id,
+            symbol: position.symbol,
+            shares: sharesToSell,
+            assignment_date: position.assignment_date,
+            assignment_price: position.assignment_price,
+            cost_basis: position.cost_basis, // per-share, unchanged
+            original_put_premium: soldPutPremium,
+            original_position_id: position.original_position_id ?? null,
+            source: position.source || 'assignment',
+            is_active: false,
+            sold_price: salePrice,
+            closed_at: new Date().toISOString(),
+          });
+        if (insertError) throw insertError;
+      }
+
+      const capitalGain = (salePrice - position.cost_basis) * sharesToSell;
+      toast({
+        title: "Shares Sold",
+        description: `${sharesToSell} ${position.symbol} @ $${salePrice.toFixed(2)} · Capital gain: ${capitalGain >= 0 ? '+' : ''}$${capitalGain.toFixed(2)}`,
+      });
+      refetchAssigned();
+    } catch (error: any) {
+      toast({
+        title: "Error selling shares",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  }, [refetchAssigned, toast]);
+
   const handleBuyShares = useCallback(async (data: {
     symbol: string;
     shares: number;
@@ -1041,7 +1112,11 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
             </div>
           </CardHeader>
           <CardContent className="p-6">
-            <AssignedPositionsTable positions={filteredAssignedPositions} onRefetch={refetchAssigned} />
+            <AssignedPositionsTable
+              positions={filteredAssignedPositions}
+              onRefetch={refetchAssigned}
+              onSellShares={handleSellAssignedShares}
+            />
           </CardContent>
         </Card>
 

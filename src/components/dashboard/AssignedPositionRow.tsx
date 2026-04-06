@@ -16,19 +16,19 @@ interface AssignedPositionRowProps {
     coveredCallPremiums: number;
   };
   onSellCall: (position: any) => void;
-  onSellShares: (position: any, sharesToSell: number) => void;
+  onSellShares: (position: any, sharesToSell: number, salePrice: number) => void;
 }
 
 export const AssignedPositionRow = ({ position, onSellCall, onSellShares }: AssignedPositionRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [sellDialogOpen, setSellDialogOpen] = useState(false);
-  
+
   const activeCalls = position.covered_calls?.filter(call => call.is_active) || [];
   const sharesUnderCall = activeCalls.reduce((sum, call) => sum + (call.contracts * 100), 0);
   const freeShares = position.shares - sharesUnderCall;
 
-  const handleSellConfirm = (sharesToSell: number) => {
-    onSellShares(position, sharesToSell);
+  const handleSellConfirm = (sharesToSell: number, salePrice: number) => {
+    onSellShares(position, sharesToSell, salePrice);
   };
 
   const getTrendIcon = () => {
