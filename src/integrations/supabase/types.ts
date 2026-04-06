@@ -218,7 +218,6 @@ export type Database = {
           original_put_premium: number
           shares: number
           sold_price: number | null
-          source: string
           symbol: string
           updated_at: string
           user_id: string
@@ -235,7 +234,6 @@ export type Database = {
           original_put_premium?: number
           shares: number
           sold_price?: number | null
-          source?: string
           symbol: string
           updated_at?: string
           user_id: string
@@ -252,7 +250,6 @@ export type Database = {
           original_put_premium?: number
           shares?: number
           sold_price?: number | null
-          source?: string
           symbol?: string
           updated_at?: string
           user_id?: string
@@ -459,7 +456,6 @@ export type Database = {
           original_put_premium: number
           shares: number
           sold_price: number | null
-          source: string
           symbol: string
           updated_at: string
           user_id: string
@@ -476,7 +472,6 @@ export type Database = {
           original_put_premium?: number
           shares: number
           sold_price?: number | null
-          source?: string
           symbol: string
           updated_at?: string
           user_id: string
@@ -493,7 +488,6 @@ export type Database = {
           original_put_premium?: number
           shares?: number
           sold_price?: number | null
-          source?: string
           symbol?: string
           updated_at?: string
           user_id?: string
