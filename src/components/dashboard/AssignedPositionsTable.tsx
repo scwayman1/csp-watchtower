@@ -1,14 +1,20 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TrendingUp, TrendingDown, Minus, DollarSign } from "lucide-react";
 import type { AssignedPosition } from "@/hooks/useAssignedPositions";
+import { SellSharesDialog } from "./SellSharesDialog";
 
 interface AssignedPositionsTableProps {
   positions: AssignedPosition[];
   onRefetch: () => void;
+  onSellShares?: (position: AssignedPosition, sharesToSell: number, salePrice: number) => void;
 }
 
-export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositionsTableProps) {
+export function AssignedPositionsTable({ positions, onRefetch, onSellShares }: AssignedPositionsTableProps) {
+  const [sellDialogPositionId, setSellDialogPositionId] = useState<string | null>(null);
+  const sellDialogPosition = positions.find(p => p.id === sellDialogPositionId) || null;
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
@@ -104,6 +110,32 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
         </div>
       )}
 
+      {sellDialogPosition && onSellShares && (
+        <SellSharesDialog
+          open={!!sellDialogPositionId}
+          onOpenChange={(open) => { if (!open) setSellDialogPositionId(null); }}
+          position={{
+            id: sellDialogPosition.id,
+            symbol: sellDialogPosition.symbol,
+            shares: sellDialogPosition.shares,
+            assignment_price: sellDialogPosition.assignment_price,
+            // SellSharesDialog expects total cost basis (cost_basis * shares)
+            cost_basis: sellDialogPosition.cost_basis * sellDialogPosition.shares,
+            currentPrice: sellDialogPosition.current_price || sellDialogPosition.cost_basis,
+            original_put_premium: sellDialogPosition.original_put_premium,
+            coveredCallPremiums: sellDialogPosition.total_call_premiums || 0,
+            covered_calls: sellDialogPosition.covered_calls?.map(c => ({
+              is_active: c.is_active,
+              contracts: c.contracts,
+            })),
+          }}
+          onConfirm={(sharesToSell, salePrice) => {
+            onSellShares(sellDialogPosition, sharesToSell, salePrice);
+            setSellDialogPositionId(null);
+          }}
+        />
+      )}
+
       <div className="overflow-x-auto border border-border rounded-lg">
         <Table className="min-w-[1200px]">
         <TableHeader>
@@ -124,13 +156,14 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
             <TableHead>Current $</TableHead>
             <TableHead>Premiums</TableHead>
             <TableHead>Net Position</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {positions.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
-                No assigned positions yet. When your puts get assigned, they'll appear here.
+              <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                No positions yet. When your puts get assigned or you record a stock purchase, they'll appear here.
               </TableCell>
             </TableRow>
           ) : (
@@ -150,7 +183,16 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
               
               return (
                 <TableRow key={position.id} className="hover:bg-muted/50">
-                  <TableCell className="font-semibold">{position.symbol}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{position.symbol}</span>
+                      {position.source === 'purchase' && (
+                        <Badge variant="outline" className="text-xs text-primary border-primary/40">
+                          Bought
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       <span className="font-medium">{position.shares.toLocaleString()}</span>
@@ -200,7 +242,7 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
                     <div className="flex flex-col gap-1">
                       <span className="text-sm">{formatDate(position.assignment_date)}</span>
                       <span className="text-xs text-muted-foreground">
-                        @ {formatCurrency(position.assignment_price)}
+                        {position.source === 'purchase' ? 'Bought' : 'Assigned'} @ {formatCurrency(position.assignment_price)}
                       </span>
                     </div>
                   </TableCell>
@@ -276,6 +318,23 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
                         Total P/L
                       </span>
                     </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {(() => {
+                      const sharesUnderCall = activeCalls.reduce((sum, c) => sum + c.contracts * 100, 0);
+                      const freeShares = position.shares - sharesUnderCall;
+                      return (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSellDialogPositionId(position.id)}
+                          disabled={freeShares <= 0 || !onSellShares}
+                          title={freeShares <= 0 ? "All shares are under call" : "Sell shares"}
+                        >
+                          Sell Shares
+                        </Button>
+                      );
+                    })()}
                   </TableCell>
                 </TableRow>
               );

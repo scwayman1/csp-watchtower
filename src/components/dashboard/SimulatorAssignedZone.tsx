@@ -16,7 +16,7 @@ interface SimulatorAssignedZoneProps {
     coveredCallPremiums: number;
   })[];
   onSellCall: (position: any) => void;
-  onSellShares: (position: any, sharesToSell: number) => void;
+  onSellShares: (position: any, sharesToSell: number, salePrice: number) => void;
 }
 
 export function SimulatorAssignedZone({ assignedPositions, onSellCall, onSellShares }: SimulatorAssignedZoneProps) {

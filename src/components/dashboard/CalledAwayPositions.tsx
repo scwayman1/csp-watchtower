@@ -77,6 +77,9 @@ export function CalledAwayPositions({ positions }: CalledAwayPositionsProps) {
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{position.symbol}</span>
                         <PartyPopper className="h-4 w-4 text-success" />
+                        {position.source === 'purchase' && (
+                          <Badge variant="outline" className="text-xs">Sold</Badge>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>{position.shares.toLocaleString()}</TableCell>
@@ -104,7 +107,7 @@ export function CalledAwayPositions({ positions }: CalledAwayPositionsProps) {
           </Table>
         </div>
         <p className="text-xs text-muted-foreground mt-3 italic">
-          These wheel cycles completed successfully. Shares were called away at the covered call strike price.
+          Completed positions. Includes wheel cycles (called away) and direct sales.
         </p>
       </CardContent>
     </Card>

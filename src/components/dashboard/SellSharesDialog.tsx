@@ -29,7 +29,7 @@ interface SellSharesDialogProps {
     coveredCallPremiums: number;
     covered_calls?: Array<{ is_active: boolean; contracts: number }>;
   };
-  onConfirm: (sharesToSell: number) => void;
+  onConfirm: (sharesToSell: number, salePrice: number) => void;
 }
 
 export const SellSharesDialog = ({
@@ -43,17 +43,20 @@ export const SellSharesDialog = ({
   const freeShares = position.shares - sharesUnderCall;
   
   const [sharesToSell, setSharesToSell] = useState(freeShares);
+  const [salePriceInput, setSalePriceInput] = useState(position.currentPrice.toString());
+  const salePrice = parseFloat(salePriceInput) || 0;
 
-  // Reset shares when dialog opens
+  // Reset shares and price when dialog opens
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen) {
       setSharesToSell(freeShares);
+      setSalePriceInput(position.currentPrice.toString());
     }
     onOpenChange(newOpen);
   };
 
   const orderPreview = useMemo(() => {
-    const proceeds = sharesToSell * position.currentPrice;
+    const proceeds = sharesToSell * salePrice;
     const costBasisForShares = (position.cost_basis / position.shares) * sharesToSell;
     const capitalGain = proceeds - costBasisForShares;
     const capitalGainPct = costBasisForShares > 0 ? (capitalGain / costBasisForShares) * 100 : 0;
@@ -74,7 +77,7 @@ export const SellSharesDialog = ({
       premiumForSoldShares,
       totalReturn,
     };
-  }, [sharesToSell, position]);
+  }, [sharesToSell, salePrice, position]);
 
   const handleSliderChange = (value: number[]) => {
     setSharesToSell(value[0]);
@@ -86,13 +89,13 @@ export const SellSharesDialog = ({
   };
 
   const handleConfirm = () => {
-    if (sharesToSell > 0 && sharesToSell <= freeShares) {
-      onConfirm(sharesToSell);
+    if (sharesToSell > 0 && sharesToSell <= freeShares && salePrice > 0) {
+      onConfirm(sharesToSell, salePrice);
       onOpenChange(false);
     }
   };
 
-  const isValidOrder = sharesToSell > 0 && sharesToSell <= freeShares;
+  const isValidOrder = sharesToSell > 0 && sharesToSell <= freeShares && salePrice > 0;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -135,6 +138,24 @@ export const SellSharesDialog = ({
               <span className="text-muted-foreground">Available to Sell</span>
               <span className="font-medium text-success">{freeShares}</span>
             </div>
+          </div>
+
+          <Separator />
+
+          {/* Sale Price (editable for historical sales) */}
+          <div className="space-y-2">
+            <Label htmlFor="salePrice">Sale Price per Share</Label>
+            <Input
+              id="salePrice"
+              type="number"
+              min={0}
+              step={0.01}
+              value={salePriceInput}
+              onChange={(e) => setSalePriceInput(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Defaults to current market price. Edit to record a historical sale.
+            </p>
           </div>
 
           <Separator />
@@ -184,7 +205,7 @@ export const SellSharesDialog = ({
               Order Preview
               {sharesToSell > 0 && (
                 <Badge variant="outline" className="text-xs">
-                  {sharesToSell} shares @ ${position.currentPrice.toFixed(2)}
+                  {sharesToSell} shares @ ${salePrice.toFixed(2)}
                 </Badge>
               )}
             </h4>
