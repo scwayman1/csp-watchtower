@@ -97,18 +97,28 @@ serve(async (req) => {
 
     console.log(`Refreshing option prices for ${positions.length} positions`);
 
-    // Get Yahoo crumb
+    // Get Yahoo crumb with retry on failure
     let crumb: string, cookie: string;
-    try {
-      const auth = await getCrumbAndCookie();
-      crumb = auth.crumb;
-      cookie = auth.cookie;
-    } catch (err) {
-      console.error('Failed to get Yahoo crumb:', err);
-      return new Response(
-        JSON.stringify({ error: 'Market data authentication failed' }),
-        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        if (attempt > 0) {
+          // Invalidate cache on retry
+          crumbCache = null;
+          await delay(1000 * attempt);
+        }
+        const auth = await getCrumbAndCookie();
+        crumb = auth.crumb;
+        cookie = auth.cookie;
+        break;
+      } catch (err) {
+        console.error(`Crumb attempt ${attempt + 1}/3 failed:`, err);
+        if (attempt === 2) {
+          return new Response(
+            JSON.stringify({ error: 'Market data authentication failed' }),
+            { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
     }
 
     // Group by symbol+expiration
