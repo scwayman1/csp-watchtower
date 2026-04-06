@@ -514,12 +514,13 @@ serve(async (req) => {
       };
     });
 
-    console.log(`Parsed ${putResults.length} PUT(s) and ${callResults.length} CALL(s)`);
+    console.log(`Parsed ${putResults.length} PUT(s), ${callResults.length} CALL(s), ${sharePurchases.length} share purchase(s)`);
 
     return new Response(
       JSON.stringify({ 
         puts: putResults, 
         calls: callResults,
+        shares: sharePurchases,
         raw_order_text: orderText 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
