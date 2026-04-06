@@ -21,6 +21,7 @@ export interface AssignedPosition {
   is_active: boolean;
   sold_price?: number | null;
   closed_at?: string | null;
+  source?: string;
   current_price?: number;
   day_change_pct?: number;
   unrealized_pnl?: number;

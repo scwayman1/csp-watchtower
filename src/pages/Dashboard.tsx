@@ -19,6 +19,7 @@ import { CalledAwayPositions } from "@/components/dashboard/CalledAwayPositions"
 import { CalledAwayConfirmDialog } from "@/components/dashboard/CalledAwayConfirmDialog";
 import { PutAssignmentConfirmDialog } from "@/components/dashboard/PutAssignmentConfirmDialog";
 import { AssignedCapitalDialog } from "@/components/dashboard/AssignedCapitalDialog";
+import { BuySharesDialog } from "@/components/dashboard/BuySharesDialog";
 import { ActivePositionsBatchHeader } from "@/components/dashboard/ActivePositionsBatchHeader";
 import { CoveredCallHistory } from "@/components/dashboard/CoveredCallHistory";
 import { MiniSparkline } from "@/components/dashboard/MiniSparkline";
@@ -68,6 +69,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
   const [assignedCapitalDialogOpen, setAssignedCapitalDialogOpen] = useState(false);
+  const [buySharesDialogOpen, setBuySharesDialogOpen] = useState(false);
   
   // FAIL-PROOF PREMIUM CALCULATION - single source of truth with time period filtering
   const { breakdown: premiumBreakdown, refetch: refetchPremiums } = usePremiumAudit(effectiveUserId, {
@@ -162,6 +164,46 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const onPutAssigned = useCallback(async () => {
     await Promise.all([refetch(), refetchAssigned()]);
   }, [refetch, refetchAssigned]);
+
+  const handleBuyShares = useCallback(async (data: {
+    symbol: string;
+    shares: number;
+    purchasePrice: number;
+    purchaseDate: string;
+  }) => {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) return;
+
+      const { error } = await supabase
+        .from('assigned_positions')
+        .insert({
+          user_id: currentUser.id,
+          symbol: data.symbol,
+          shares: data.shares,
+          assignment_date: data.purchaseDate,
+          assignment_price: data.purchasePrice,
+          cost_basis: data.purchasePrice,
+          original_put_premium: 0,
+          is_active: true,
+          source: 'purchase',
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Stock Purchase Recorded",
+        description: `${data.shares} shares of ${data.symbol} at $${data.purchasePrice.toFixed(2)}`,
+      });
+      refetchAssigned();
+    } catch (error: any) {
+      toast({
+        title: "Error recording purchase",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  }, [refetchAssigned, toast]);
 
   const {
     pendingAssignments,
@@ -991,12 +1033,23 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
         {/* Assigned Positions Zone */}
         <Card id="assignments" className="scroll-mt-6">
           <CardHeader className="border-b border-border">
-            <CardTitle className="text-lg">Assigned Positions Zone</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Assigned Positions Zone</CardTitle>
+              <Button size="sm" variant="outline" onClick={() => setBuySharesDialogOpen(true)}>
+                Buy Shares
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-6">
             <AssignedPositionsTable positions={filteredAssignedPositions} onRefetch={refetchAssigned} />
           </CardContent>
         </Card>
+
+        <BuySharesDialog
+          open={buySharesDialogOpen}
+          onOpenChange={setBuySharesDialogOpen}
+          onConfirm={handleBuyShares}
+        />
 
         {/* Covered Call History - Past Cycles */}
         <CoveredCallHistory userId={viewAsUserId} />

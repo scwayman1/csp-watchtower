@@ -130,7 +130,7 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
           {positions.length === 0 ? (
             <TableRow>
               <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
-                No assigned positions yet. When your puts get assigned, they'll appear here.
+                No positions yet. When your puts get assigned or you record a stock purchase, they'll appear here.
               </TableCell>
             </TableRow>
           ) : (
@@ -150,7 +150,16 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
               
               return (
                 <TableRow key={position.id} className="hover:bg-muted/50">
-                  <TableCell className="font-semibold">{position.symbol}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{position.symbol}</span>
+                      {position.source === 'purchase' && (
+                        <Badge variant="outline" className="text-xs text-primary border-primary/40">
+                          Bought
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       <span className="font-medium">{position.shares.toLocaleString()}</span>
@@ -200,7 +209,7 @@ export function AssignedPositionsTable({ positions, onRefetch }: AssignedPositio
                     <div className="flex flex-col gap-1">
                       <span className="text-sm">{formatDate(position.assignment_date)}</span>
                       <span className="text-xs text-muted-foreground">
-                        @ {formatCurrency(position.assignment_price)}
+                        {position.source === 'purchase' ? 'Bought' : 'Assigned'} @ {formatCurrency(position.assignment_price)}
                       </span>
                     </div>
                   </TableCell>
