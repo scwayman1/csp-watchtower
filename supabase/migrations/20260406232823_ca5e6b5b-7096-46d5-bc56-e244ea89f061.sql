@@ -1,0 +1,2 @@
+ALTER TABLE public.assigned_positions ADD COLUMN IF NOT EXISTS source text DEFAULT 'assignment';
+ALTER TABLE public.learning_assigned_positions ADD COLUMN IF NOT EXISTS source text DEFAULT 'assignment';
