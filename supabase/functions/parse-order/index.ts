@@ -152,7 +152,53 @@ serve(async (req) => {
       }
     }
     
-    // Format 0: Broker activity format (multi-line blocks)
+    // Share purchases array
+    const sharePurchases: any[] = [];
+
+    // Format 0a: "Sell 1 QQQ 5/1/26 601 Call @ 8.51 = +$850.96" style
+    // Also handles "Sell 2 META 5/1/26 640 Calls @ 7.08 = +$1,415.92"
+    {
+      const sellPattern = /Sell\s+(\d+)\s+([A-Z]{1,6})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d+(?:\.\d+)?)\s+(Call|Put|Calls|Puts)\s*@\s*(\d+(?:\.\d+)?)/gi;
+      let m;
+      while ((m = sellPattern.exec(orderText)) !== null) {
+        const [, contracts, symbol, dateStr, strike, optionType, premium] = m;
+        
+        // Parse date M/D/YY or M/D/YYYY
+        const [month, day, year] = dateStr.split('/');
+        const fullYear = year.length === 2 ? `20${year}` : year;
+        const exp = `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        
+        const parsedOption = {
+          symbol: symbol.toUpperCase(),
+          strike,
+          exp,
+          premium,
+          contracts,
+        };
+        
+        if (/^put/i.test(optionType)) {
+          positions.push(parsedOption);
+        } else {
+          calls.push(parsedOption);
+        }
+      }
+    }
+
+    // Format 0b: "Buy 100 shares DIA @ 474.00" style (share purchases)
+    {
+      const buyPattern = /Buy\s+(\d+)\s+shares?\s+([A-Z]{1,6})\s*@\s*(\d+(?:\.\d+)?)/gi;
+      let m;
+      while ((m = buyPattern.exec(orderText)) !== null) {
+        const [, shares, symbol, price] = m;
+        sharePurchases.push({
+          symbol: symbol.toUpperCase(),
+          shares: parseInt(shares),
+          price: parseFloat(price),
+        });
+      }
+    }
+
+    // Format 0c: Broker activity format (multi-line blocks)
     // Example:
     // CALL (AMZN) AMAZON.COM INC JAN 30 26 $245 (100 SHS)
     // Sell
@@ -166,7 +212,6 @@ serve(async (req) => {
     while ((brokerMatch = brokerActivityPattern.exec(orderText)) !== null) {
       const [, optionType, symbol, monthStr, day, year, strike, contracts, premium] = brokerMatch;
       
-      // Convert month name to number
       const monthMap: Record<string, string> = {
         'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
         'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
