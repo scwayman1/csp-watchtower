@@ -17,6 +17,22 @@ export function usePutAssignmentDetection(
   onAssigned: () => void
 ) {
   const processedPositionsRef = useRef<Set<string>>(new Set());
+  const isProcessingRef = useRef(false);
+  const initializedRef = useRef(false);
+
+  // Seed in-memory ref from localStorage on first render so processed
+  // positions persist across component remounts / page navigations
+  if (!initializedRef.current) {
+    initializedRef.current = true;
+    try {
+      const stored = localStorage.getItem('auto_processed_put_assignments');
+      if (stored) {
+        for (const id of JSON.parse(stored)) {
+          processedPositionsRef.current.add(id);
+        }
+      }
+    } catch { /* ignore */ }
+  }
 
   const getProcessedPositions = useCallback((): Set<string> => {
     try {
@@ -111,27 +127,36 @@ export function usePutAssignmentDetection(
   }, []);
 
   const processExpiredPositions = useCallback(async () => {
-    const persisted = getProcessedPositions();
+    // Prevent concurrent executions from rapid effect re-fires
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
 
-    for (const position of expiredPositions) {
-      if (
-        assignedPositionIds.has(position.id) ||
-        processedPositionsRef.current.has(position.id) ||
-        persisted.has(position.id)
-      ) {
-        continue;
+    try {
+      for (const position of expiredPositions) {
+        // Read localStorage fresh each iteration to catch concurrent writes
+        const persisted = getProcessedPositions();
+
+        if (
+          assignedPositionIds.has(position.id) ||
+          processedPositionsRef.current.has(position.id) ||
+          persisted.has(position.id)
+        ) {
+          continue;
+        }
+
+        processedPositionsRef.current.add(position.id);
+        persistProcessed(position.id);
+
+        const isITM = position.underlyingPrice < position.strikePrice;
+
+        if (isITM) {
+          await autoAssign(position);
+        } else {
+          await autoExpire(position);
+        }
       }
-
-      processedPositionsRef.current.add(position.id);
-      persistProcessed(position.id);
-
-      const isITM = position.underlyingPrice < position.strikePrice;
-
-      if (isITM) {
-        await autoAssign(position);
-      } else {
-        await autoExpire(position);
-      }
+    } finally {
+      isProcessingRef.current = false;
     }
   }, [expiredPositions, assignedPositionIds, getProcessedPositions, persistProcessed, autoAssign, autoExpire]);
 

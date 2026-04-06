@@ -145,8 +145,12 @@ export function useCalledAwayDetection(
         const isExpiredOrExpiringToday = expirationStr <= todayStr;
         const isWithinLookback = expirationStr >= lookbackStr;
         const isITM = currentPrice >= call.strike_price;
+        const isAlreadyExpired = expirationStr < todayStr;
 
-        if (isExpiredOrExpiringToday && isWithinLookback && isITM) {
+        // For calls expiring today, check ITM status.
+        // For already-expired calls, always prompt — the price may have moved
+        // since expiration, so the user should confirm via the dialog.
+        if (isExpiredOrExpiringToday && isWithinLookback && (isITM || isAlreadyExpired)) {
           processedCallsRef.current.add(call.id);
 
           const sharesCalledAway = call.contracts * 100;

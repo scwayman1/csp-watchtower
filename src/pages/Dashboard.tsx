@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { CommandPanelCard } from "@/components/dashboard/CommandPanelCard";
 import { FirstTimeUserGuide } from "@/components/onboarding/FirstTimeUserGuide";
@@ -159,6 +159,10 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     });
   }, [filteredPositions]);
 
+  const onPutAssigned = useCallback(async () => {
+    await Promise.all([refetch(), refetchAssigned()]);
+  }, [refetch, refetchAssigned]);
+
   const {
     pendingAssignments,
     confirmAssignment,
@@ -166,9 +170,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   } = usePutAssignmentDetection(
     recentlyExpiredForDetection,
     assignedPositionIds,
-    async () => {
-      await Promise.all([refetch(), refetchAssigned()]);
-    }
+    onPutAssigned
   );
 
   // Filter assigned positions by time period
