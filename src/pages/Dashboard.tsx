@@ -17,7 +17,6 @@ import { AIPerformanceTracker } from "@/components/dashboard/AIPerformanceTracke
 import { LearningCenter } from "@/components/dashboard/LearningCenter";
 import { CalledAwayPositions } from "@/components/dashboard/CalledAwayPositions";
 import { CalledAwayConfirmDialog } from "@/components/dashboard/CalledAwayConfirmDialog";
-import { PutAssignmentConfirmDialog } from "@/components/dashboard/PutAssignmentConfirmDialog";
 import { AssignedCapitalDialog } from "@/components/dashboard/AssignedCapitalDialog";
 import { BuySharesDialog } from "@/components/dashboard/BuySharesDialog";
 import { ActivePositionsBatchHeader } from "@/components/dashboard/ActivePositionsBatchHeader";
@@ -276,11 +275,8 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     }
   }, [refetchAssigned, toast]);
 
-  const {
-    pendingAssignments,
-    confirmAssignment,
-    dismissAssignment
-  } = usePutAssignmentDetection(
+  // Auto-process expired puts (assigns ITM, expires OTM). No interactive dialog.
+  usePutAssignmentDetection(
     recentlyExpiredForDetection,
     assignedPositionIds,
     onPutAssigned
