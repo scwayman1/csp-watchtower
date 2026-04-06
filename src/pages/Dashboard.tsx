@@ -58,8 +58,8 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions(effectiveUserId);
   const { assignedPositions, closedPositions, loading: assignedLoading, refetch: refetchAssigned } = useAssignedPositions(effectiveUserId);
   
-  // Auto-detect called away positions with confirmation - DISABLED to prevent mislabeling legacy data
-  const { pendingEvents, confirmCalledAway, dismissEvent } = useCalledAwayDetection([], refetchAssigned);
+  // Auto-detect called away positions with confirmation
+  const { pendingEvents, confirmCalledAway, dismissEvent } = useCalledAwayDetection(assignedPositions, refetchAssigned);
   const { settings } = useSettings(effectiveUserId);
   const { history: portfolioHistory, recordSnapshot } = usePortfolioHistory(effectiveUserId);
   

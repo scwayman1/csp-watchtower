@@ -115,38 +115,45 @@ export function useCalledAwayDetection(
   const checkForCalledAway = useCallback(async () => {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
-    
+
+    // Lookback window: only detect calls that expired within the last 90 days
+    // to avoid mislabeling very old legacy data
+    const lookbackDate = new Date(now);
+    lookbackDate.setDate(lookbackDate.getDate() - 90);
+    const lookbackStr = lookbackDate.toISOString().split('T')[0];
+
     const newPendingEvents: PendingCalledAway[] = [];
-    
+
     for (const position of assignedPositions) {
       if (!position.covered_calls?.length) continue;
-      
+
       const currentPrice = position.current_price || 0;
-      
+
       for (const call of position.covered_calls) {
         // Skip if already processed, dismissed, not active, or already closed
         const dismissed = getDismissedCalls();
         if (
-          !call.is_active || 
-          call.closed_at || 
+          !call.is_active ||
+          call.closed_at ||
           processedCallsRef.current.has(call.id) ||
           dismissed.has(call.id)
         ) {
           continue;
         }
-        
+
         const expirationStr = call.expiration;
         const isExpiredOrExpiringToday = expirationStr <= todayStr;
+        const isWithinLookback = expirationStr >= lookbackStr;
         const isITM = currentPrice >= call.strike_price;
-        
-        if (isExpiredOrExpiringToday && isITM) {
+
+        if (isExpiredOrExpiringToday && isWithinLookback && isITM) {
           processedCallsRef.current.add(call.id);
-          
+
           const sharesCalledAway = call.contracts * 100;
           const callPremium = call.premium_per_contract * 100 * call.contracts;
           const capitalGain = (call.strike_price - position.cost_basis) * sharesCalledAway;
           const realizedGain = capitalGain + callPremium;
-          
+
           newPendingEvents.push({
             position,
             coveredCall: call,
