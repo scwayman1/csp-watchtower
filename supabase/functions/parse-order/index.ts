@@ -445,7 +445,7 @@ serve(async (req) => {
       }
     }
 
-    if (positions.length === 0 && calls.length === 0) {
+    if (positions.length === 0 && calls.length === 0 && sharePurchases.length === 0) {
       return new Response(
         JSON.stringify({ error: 'Could not parse order text. Please check format.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
