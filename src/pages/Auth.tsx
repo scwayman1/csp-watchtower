@@ -19,6 +19,8 @@ const Auth = () => {
   const [authMode, setAuthMode] = useState<"signup" | "login" | "reset">("signup");
   // Track whether a recovery session has been confirmed
   const [recoverySessionReady, setRecoverySessionReady] = useState(false);
+  // Track whether verification timed out
+  const [recoveryTimedOut, setRecoveryTimedOut] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get("returnUrl") || "/";
@@ -26,7 +28,8 @@ const Auth = () => {
   const isPasswordReset = searchParams.get("reset") === "true";
 
   useEffect(() => {
-    // Listen for auth state changes — this catches the hash-fragment recovery token
+    // Listen for auth state changes — this catches both hash-fragment (implicit)
+    // and PKCE recovery tokens
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("[Auth] onAuthStateChange:", event, !!session);
       if (event === "PASSWORD_RECOVERY" && session) {
@@ -34,8 +37,6 @@ const Auth = () => {
         setStep("update-password");
       }
       // When on the reset page, accept any session-establishing event
-      // (PASSWORD_RECOVERY may fire as INITIAL_SESSION or SIGNED_IN
-      // if the hash was already processed before this listener registered)
       if (isPasswordReset && session && (event === "INITIAL_SESSION" || event === "SIGNED_IN")) {
         setRecoverySessionReady(true);
         setStep("update-password");
@@ -44,8 +45,25 @@ const Auth = () => {
 
     if (isPasswordReset) {
       setStep("update-password");
-      // Poll for session — the hash fragment is processed asynchronously
-      // and may complete before or after the listener above fires
+
+      // PKCE flow: Supabase redirects back with a `code` query parameter
+      // that must be exchanged for a session
+      const code = searchParams.get("code");
+      if (code) {
+        supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+          if (error) {
+            console.error("[Auth] Code exchange failed:", error.message);
+            setRecoveryTimedOut(true);
+          } else if (data.session) {
+            setRecoverySessionReady(true);
+          }
+        });
+        return () => {
+          subscription.unsubscribe();
+        };
+      }
+
+      // Implicit flow fallback: poll for session from hash-fragment tokens
       let attempts = 0;
       const poll = setInterval(async () => {
         attempts++;
@@ -54,8 +72,8 @@ const Auth = () => {
           setRecoverySessionReady(true);
           clearInterval(poll);
         } else if (attempts >= 20) {
-          // After ~10 seconds, stop polling
           clearInterval(poll);
+          setRecoveryTimedOut(true);
         }
       }, 500);
       return () => {
@@ -196,6 +214,14 @@ const Auth = () => {
             <UpdatePasswordStep
               onSuccess={handlePasswordUpdateSuccess}
               sessionReady={recoverySessionReady}
+              timedOut={recoveryTimedOut}
+              onBackToReset={() => {
+                setRecoveryTimedOut(false);
+                setRecoverySessionReady(false);
+                setStep("auth");
+                setAuthMode("reset");
+                navigate("/auth", { replace: true });
+              }}
             />
           )}
 

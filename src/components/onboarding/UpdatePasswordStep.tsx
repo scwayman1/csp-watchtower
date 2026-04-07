@@ -10,9 +10,13 @@ interface UpdatePasswordStepProps {
   onSuccess: () => void;
   /** Whether the recovery session has been confirmed by the parent */
   sessionReady: boolean;
+  /** Whether verification timed out */
+  timedOut?: boolean;
+  /** Callback to go back and request a new reset link */
+  onBackToReset?: () => void;
 }
 
-export function UpdatePasswordStep({ onSuccess, sessionReady }: UpdatePasswordStepProps) {
+export function UpdatePasswordStep({ onSuccess, sessionReady, timedOut, onBackToReset }: UpdatePasswordStepProps) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,6 +50,31 @@ export function UpdatePasswordStep({ onSuccess, sessionReady }: UpdatePasswordSt
       setLoading(false);
     }
   };
+
+  // Show error if verification timed out
+  if (timedOut) {
+    return (
+      <div className="space-y-6 animate-in fade-in-50 duration-500">
+        <div className="text-center space-y-2">
+          <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+            <svg className="w-6 h-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold">Reset link expired or invalid</h2>
+          <p className="text-muted-foreground text-sm">
+            Your password reset link may have expired or already been used. Please request a new one.
+          </p>
+        </div>
+        {onBackToReset && (
+          <Button variant="outline" className="w-full" onClick={onBackToReset}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Request new reset link
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   // Show loading while waiting for the recovery session from the hash fragment
   if (!sessionReady) {
