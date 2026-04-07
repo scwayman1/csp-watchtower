@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { Position } from "@/hooks/positions/types";
+import { recordPositionOutcome } from "@/lib/aiOutcomeTracking";
 
 export interface PendingPutAssignment {
   position: Position;
@@ -79,6 +80,15 @@ export function usePutAssignmentDetection(
 
       if (closeError) throw closeError;
 
+      // Record AI recommendation outcome (best-effort)
+      const assignmentLoss = Math.max(0, position.strikePrice - position.underlyingPrice) * shares;
+      await recordPositionOutcome({
+        positionId: position.id,
+        actualPnL: position.totalPremium - assignmentLoss,
+        wasAssigned: true,
+        closedAt: position.expiration,
+      });
+
       toast({
         title: "Position Auto-Assigned",
         description: (
@@ -111,6 +121,14 @@ export function usePutAssignmentDetection(
         .from('positions')
         .update({ is_active: false, closed_at: position.expiration })
         .eq('id', position.id);
+
+      // Record AI recommendation outcome (best-effort)
+      await recordPositionOutcome({
+        positionId: position.id,
+        actualPnL: position.totalPremium,
+        wasAssigned: false,
+        closedAt: position.expiration,
+      });
 
       toast({
         title: "Put Expired Worthless",
