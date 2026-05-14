@@ -52,6 +52,33 @@ export function StatementReconciliation({ onBaselineUpdate }: StatementReconcili
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [report, setReport] = useState<ReconciliationReport | null>(null);
+  const [applyingVerified, setApplyingVerified] = useState(false);
+  const [verifiedRunId, setVerifiedRunId] = useState<string | null>(null);
+
+  const handleApplyVerifiedPayload = async () => {
+    setApplyingVerified(true);
+    try {
+      const { data, error } = await supabase.rpc("apply_account_reconciliation", {
+        p_payload: verifiedMay2026Payload as any,
+      });
+      if (error) throw error;
+      const runId = data as unknown as string;
+      setVerifiedRunId(runId);
+      toast({
+        title: "Reconciliation applied",
+        description: `Run id: ${runId}`,
+      });
+      onBaselineUpdate?.();
+    } catch (error: any) {
+      toast({
+        title: "Apply failed",
+        description: error.message || "RPC failed",
+        variant: "destructive",
+      });
+    } finally {
+      setApplyingVerified(false);
+    }
+  };
 
   const handleUpdateBaseline = async () => {
     if (!report?.totalAccountValue) {
