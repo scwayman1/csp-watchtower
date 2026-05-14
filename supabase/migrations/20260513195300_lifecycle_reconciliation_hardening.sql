@@ -90,6 +90,7 @@ BEGIN
     SET
       reconciliation_status = CASE
         WHEN p_event_type = 'needs_reconciliation' THEN 'needs_reconciliation'
+        WHEN p_status = 'detected' THEN 'unreviewed'
         ELSE p_status
       END,
       reconciled_at = CASE
@@ -103,6 +104,7 @@ BEGIN
     SET
       reconciliation_status = CASE
         WHEN p_event_type = 'needs_reconciliation' THEN 'needs_reconciliation'
+        WHEN p_status = 'detected' THEN 'unreviewed'
         ELSE p_status
       END,
       reconciled_at = CASE

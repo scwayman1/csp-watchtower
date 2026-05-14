@@ -67,6 +67,7 @@ describe("buildAccountReconciliationSummary", () => {
     expect(summary.currentAum).toBe(719497.09);
     expect(summary.currentOptionLiability).toBe(-4995);
     expect(summary.currentOpenPremium).toBe(9925.3);
+    expect(summary.postBaselineOpenPremium).toBe(9925.3);
     expect(summary.cumulativePremiumToDate).toBe(68262.3);
     expect(summary.realizedPremiumToDate).toBe(58337);
     expect(summary.realizedCapitalGainToDate).toBe(-5506.98);
@@ -74,6 +75,45 @@ describe("buildAccountReconciliationSummary", () => {
     expect(summary.currentUnrealizedPnl).toBe(-41213.22);
     expect(summary.totalStrategyPnl).toBe(11616.8);
     expect(summary.postBaselineCashIncome).toBe(20.62);
+  });
+
+  it("does not re-add options that were already open in the statement baseline", () => {
+    const summary = buildAccountReconciliationSummary({
+      baseline: {
+        ...apr30Baseline,
+        cumulativePremium: 1000,
+        openPremium: 300,
+      },
+      currentHoldings: {
+        asOfDate: "2026-05-01",
+        cashBalance: 10000,
+        equities: [],
+        options: [
+          {
+            symbol: "STILL",
+            type: "PUT",
+            contracts: 1,
+            premiumCollected: 300,
+            marketValue: -150,
+            alreadyInBaseline: true,
+          },
+          {
+            symbol: "NEW",
+            type: "CALL",
+            contracts: 1,
+            premiumCollected: 75,
+            marketValue: -20,
+          },
+        ],
+      },
+      lifecycleEvents: [],
+      cashEvents: [],
+    });
+
+    expect(summary.currentOpenPremium).toBe(375);
+    expect(summary.postBaselineOpenPremium).toBe(75);
+    expect(summary.cumulativePremiumToDate).toBe(1075);
+    expect(summary.realizedPremiumToDate).toBe(700);
   });
 
   it("flags stale statement cash events as redundant instead of adding them again", () => {
