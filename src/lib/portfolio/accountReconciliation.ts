@@ -27,6 +27,7 @@ export interface ReconciliationOptionHolding {
   premiumCollected: number;
   marketValue: number;
   unrealizedPnl?: number;
+  alreadyInBaseline?: boolean;
 }
 
 export interface ReconciliationCurrentHoldings {
@@ -66,6 +67,7 @@ export interface AccountReconciliationSummary {
   currentEquityMarketValue: number;
   currentOptionLiability: number;
   currentOpenPremium: number;
+  postBaselineOpenPremium: number;
   currentOpenPutPremium: number;
   currentOpenCallPremium: number;
   cumulativePremiumToDate: number;
@@ -108,6 +110,10 @@ export function buildAccountReconciliationSummary({
   const currentEquityMarketValue = sumBy(currentHoldings.equities, (holding) => holding.marketValue);
   const currentOptionLiability = sumBy(currentHoldings.options, (option) => option.marketValue);
   const currentOpenPremium = sumBy(currentHoldings.options, (option) => option.premiumCollected);
+  const postBaselineOpenPremium = sumBy(
+    currentHoldings.options.filter((option) => option.alreadyInBaseline !== true),
+    (option) => option.premiumCollected
+  );
   const currentOpenPutPremium = sumBy(
     currentHoldings.options.filter((option) => option.type === "PUT"),
     (option) => option.premiumCollected
@@ -135,9 +141,7 @@ export function buildAccountReconciliationSummary({
     (event) => event.amount
   );
 
-  const cumulativePremiumToDate = money(
-    baseline.cumulativePremium - baseline.openPremium + baseline.openPremium + currentOpenPremium
-  );
+  const cumulativePremiumToDate = money(baseline.cumulativePremium + postBaselineOpenPremium);
   const realizedPremiumToDate = money(cumulativePremiumToDate - currentOpenPremium);
   const realizedCapitalGainToDate = money(baseline.realizedCapitalGain + lifecycleRealizedCapitalGain);
   const totalRealizedPnl = money(realizedPremiumToDate + realizedCapitalGainToDate);
@@ -151,6 +155,7 @@ export function buildAccountReconciliationSummary({
     currentEquityMarketValue,
     currentOptionLiability,
     currentOpenPremium,
+    postBaselineOpenPremium,
     currentOpenPutPremium,
     currentOpenCallPremium,
     cumulativePremiumToDate,
