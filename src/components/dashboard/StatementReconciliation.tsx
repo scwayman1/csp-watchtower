@@ -54,12 +54,12 @@ export function StatementReconciliation({ onBaselineUpdate }: StatementReconcili
     setUpdating(true);
     try {
       await updateSettings({
-        other_holdings_value: report.totalAccountValue,
+        broker_account_value: report.totalAccountValue,
       });
 
       toast({
         title: "Baseline updated",
-        description: `Total Assets baseline set to $${report.totalAccountValue.toLocaleString()}`,
+        description: `Broker account value set to $${report.totalAccountValue.toLocaleString()}`,
       });
 
       onBaselineUpdate?.();
@@ -158,7 +158,7 @@ export function StatementReconciliation({ onBaselineUpdate }: StatementReconcili
             {report.totalAccountValue && (
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
                 <div>
-                  <p className="text-sm text-muted-foreground">Extracted Total Account Value</p>
+                  <p className="text-sm text-muted-foreground">Extracted Broker Account Value</p>
                   <p className="text-2xl font-bold">${report.totalAccountValue.toLocaleString()}</p>
                 </div>
                 <Button 
