@@ -4,11 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { AlertCircle, CheckCircle, FileSearch, RefreshCw } from "lucide-react";
+import { AlertCircle, CheckCircle, FileSearch, RefreshCw, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSettings";
+import { verifiedMay2026Payload } from "@/lib/portfolio/verifiedMay2026Payload";
 
 interface ReconciliationReport {
   totalAccountValue?: number;
