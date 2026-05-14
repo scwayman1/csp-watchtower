@@ -14,6 +14,198 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_reconciliation_events: {
+        Row: {
+          already_in_baseline: boolean
+          amount: number
+          cost_basis_per_share: number | null
+          created_at: string
+          event_date: string | null
+          event_type: string
+          id: string
+          metadata: Json
+          price: number | null
+          realized_gain: number
+          run_id: string
+          shares: number | null
+          symbol: string | null
+          user_id: string
+        }
+        Insert: {
+          already_in_baseline?: boolean
+          amount?: number
+          cost_basis_per_share?: number | null
+          created_at?: string
+          event_date?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json
+          price?: number | null
+          realized_gain?: number
+          run_id: string
+          shares?: number | null
+          symbol?: string | null
+          user_id: string
+        }
+        Update: {
+          already_in_baseline?: boolean
+          amount?: number
+          cost_basis_per_share?: number | null
+          created_at?: string
+          event_date?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json
+          price?: number | null
+          realized_gain?: number
+          run_id?: string
+          shares?: number | null
+          symbol?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_reconciliation_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "account_reconciliation_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_reconciliation_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "current_account_reconciliation_rollup"
+            referencedColumns: ["run_id"]
+          },
+        ]
+      }
+      account_reconciliation_holdings: {
+        Row: {
+          as_of_date: string
+          contracts: number | null
+          cost_basis: number | null
+          created_at: string
+          expiration: string | null
+          holding_type: string
+          id: string
+          liability_value: number
+          market_value: number
+          metadata: Json
+          option_type: string | null
+          premium_collected: number
+          price: number | null
+          run_id: string
+          shares: number | null
+          strike_price: number | null
+          symbol: string | null
+          unrealized_pnl: number
+          user_id: string
+        }
+        Insert: {
+          as_of_date: string
+          contracts?: number | null
+          cost_basis?: number | null
+          created_at?: string
+          expiration?: string | null
+          holding_type: string
+          id?: string
+          liability_value?: number
+          market_value?: number
+          metadata?: Json
+          option_type?: string | null
+          premium_collected?: number
+          price?: number | null
+          run_id: string
+          shares?: number | null
+          strike_price?: number | null
+          symbol?: string | null
+          unrealized_pnl?: number
+          user_id: string
+        }
+        Update: {
+          as_of_date?: string
+          contracts?: number | null
+          cost_basis?: number | null
+          created_at?: string
+          expiration?: string | null
+          holding_type?: string
+          id?: string
+          liability_value?: number
+          market_value?: number
+          metadata?: Json
+          option_type?: string | null
+          premium_collected?: number
+          price?: number | null
+          run_id?: string
+          shares?: number | null
+          strike_price?: number | null
+          symbol?: string | null
+          unrealized_pnl?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_reconciliation_holdings_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "account_reconciliation_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_reconciliation_holdings_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "current_account_reconciliation_rollup"
+            referencedColumns: ["run_id"]
+          },
+        ]
+      }
+      account_reconciliation_runs: {
+        Row: {
+          applied_at: string
+          baseline_as_of: string | null
+          created_at: string
+          current_as_of: string
+          id: string
+          payload: Json
+          payload_hash: string
+          source: string
+          status: string
+          summary: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          applied_at?: string
+          baseline_as_of?: string | null
+          created_at?: string
+          current_as_of: string
+          id?: string
+          payload: Json
+          payload_hash: string
+          source?: string
+          status?: string
+          summary: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          applied_at?: string
+          baseline_as_of?: string | null
+          created_at?: string
+          current_as_of?: string
+          id?: string
+          payload?: Json
+          payload_hash?: string
+          source?: string
+          status?: string
+          summary?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       advisor_invites: {
         Row: {
           accepted_at: string | null
@@ -340,10 +532,13 @@ export type Database = {
           contracts: number
           created_at: string
           expiration: string
+          expiration_close_price: number | null
           id: string
           is_active: boolean
           opened_at: string
           premium_per_contract: number
+          reconciled_at: string | null
+          reconciliation_status: string | null
           strike_price: number
           updated_at: string
         }
@@ -353,10 +548,13 @@ export type Database = {
           contracts?: number
           created_at?: string
           expiration: string
+          expiration_close_price?: number | null
           id?: string
           is_active?: boolean
           opened_at?: string
           premium_per_contract: number
+          reconciled_at?: string | null
+          reconciliation_status?: string | null
           strike_price: number
           updated_at?: string
         }
@@ -366,10 +564,13 @@ export type Database = {
           contracts?: number
           created_at?: string
           expiration?: string
+          expiration_close_price?: number | null
           id?: string
           is_active?: boolean
           opened_at?: string
           premium_per_contract?: number
+          reconciled_at?: string | null
+          reconciliation_status?: string | null
           strike_price?: number
           updated_at?: string
         }
@@ -847,6 +1048,51 @@ export type Database = {
         }
         Relationships: []
       }
+      position_events: {
+        Row: {
+          created_at: string
+          detected_at: string
+          event_date: string | null
+          event_type: string
+          id: string
+          metadata: Json
+          resolved_at: string | null
+          source_id: string
+          source_table: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          detected_at?: string
+          event_date?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json
+          resolved_at?: string | null
+          source_id: string
+          source_table: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          detected_at?: string
+          event_date?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json
+          resolved_at?: string | null
+          source_id?: string
+          source_table?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       position_shares: {
         Row: {
           accepted_at: string | null
@@ -885,12 +1131,15 @@ export type Database = {
           contracts: number
           created_at: string | null
           expiration: string
+          expiration_close_price: number | null
           id: string
           is_active: boolean | null
           open_fees: number | null
           opened_at: string | null
           premium_per_contract: number
           raw_order_text: string | null
+          reconciled_at: string | null
+          reconciliation_status: string | null
           source: string | null
           strike_price: number
           symbol: string
@@ -905,12 +1154,15 @@ export type Database = {
           contracts?: number
           created_at?: string | null
           expiration: string
+          expiration_close_price?: number | null
           id?: string
           is_active?: boolean | null
           open_fees?: number | null
           opened_at?: string | null
           premium_per_contract: number
           raw_order_text?: string | null
+          reconciled_at?: string | null
+          reconciliation_status?: string | null
           source?: string | null
           strike_price: number
           symbol: string
@@ -925,12 +1177,15 @@ export type Database = {
           contracts?: number
           created_at?: string | null
           expiration?: string
+          expiration_close_price?: number | null
           id?: string
           is_active?: boolean | null
           open_fees?: number | null
           opened_at?: string | null
           premium_per_contract?: number
           raw_order_text?: string | null
+          reconciled_at?: string | null
+          reconciliation_status?: string | null
           source?: string | null
           strike_price?: number
           symbol?: string
@@ -1153,6 +1408,8 @@ export type Database = {
       }
       user_settings: {
         Row: {
+          broker_account_value: number | null
+          broker_account_value_as_of: string | null
           cash_balance: number | null
           created_at: string | null
           id: string
@@ -1167,6 +1424,8 @@ export type Database = {
           warning_threshold: number | null
         }
         Insert: {
+          broker_account_value?: number | null
+          broker_account_value_as_of?: string | null
           cash_balance?: number | null
           created_at?: string | null
           id?: string
@@ -1181,6 +1440,8 @@ export type Database = {
           warning_threshold?: number | null
         }
         Update: {
+          broker_account_value?: number | null
+          broker_account_value_as_of?: string | null
           cash_balance?: number | null
           created_at?: string | null
           id?: string
@@ -1198,9 +1459,52 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      current_account_reconciliation_rollup: {
+        Row: {
+          applied_at: string | null
+          baseline_as_of: string | null
+          broker_account_value: number | null
+          cash_balance: number | null
+          cumulative_premium_to_date: number | null
+          current_as_of: string | null
+          current_open_premium: number | null
+          current_unrealized_pnl: number | null
+          equity_market_value: number | null
+          option_liability: number | null
+          realized_capital_gain_to_date: number | null
+          realized_premium_to_date: number | null
+          run_id: string | null
+          summary: Json | null
+          total_realized_pnl: number | null
+          total_strategy_pnl: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      portfolio_accounting_rollup: {
+        Row: {
+          active_put_mark_value: number | null
+          active_put_requirement: number | null
+          assigned_share_cost_basis: number | null
+          assigned_share_market_value: number | null
+          available_cash: number | null
+          broker_account_value: number | null
+          cash_balance: number | null
+          open_csp_count: number | null
+          other_holdings_value: number | null
+          portfolio_value: number | null
+          realized_capital_gains: number | null
+          total_premiums_collected: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      apply_account_reconciliation: {
+        Args: { p_payload: Json }
+        Returns: string
+      }
       get_client_by_invite_token: {
         Args: { p_token: string }
         Returns: {
@@ -1234,6 +1538,18 @@ export type Database = {
       is_household_member: {
         Args: { _target_user_id: string; _user_id: string }
         Returns: boolean
+      }
+      record_position_reconciliation_event: {
+        Args: {
+          p_event_date: string
+          p_event_type: string
+          p_metadata?: Json
+          p_source_id: string
+          p_source_table: string
+          p_status?: string
+          p_user_id: string
+        }
+        Returns: string
       }
     }
     Enums: {
