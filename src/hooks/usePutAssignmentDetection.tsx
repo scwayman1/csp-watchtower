@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { Position } from "@/hooks/positions/types";
@@ -178,13 +178,9 @@ export function usePutAssignmentDetection(
     }
   }, [expiredPositions, assignedPositionIds, getProcessedPositions, persistProcessed, autoAssign, autoExpire]);
 
-  useEffect(() => {
-    if (expiredPositions.length > 0) {
-      processExpiredPositions();
-    }
-  }, [expiredPositions, processExpiredPositions]);
+  // Reconciliation is intentionally explicit. The dashboard exposes checkForAssignments
+  // as a user-triggered action instead of mutating portfolio state during render/load.
 
-  // Return empty array for backwards compat - no more pending assignments
   return {
     pendingAssignments: [] as PendingPutAssignment[],
     confirmAssignment: () => {},

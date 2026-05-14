@@ -16,7 +16,6 @@ import { ExpirationCalendar } from "@/components/dashboard/ExpirationCalendar";
 import { AIPerformanceTracker } from "@/components/dashboard/AIPerformanceTracker";
 import { LearningCenter } from "@/components/dashboard/LearningCenter";
 import { CalledAwayPositions } from "@/components/dashboard/CalledAwayPositions";
-import { CalledAwayConfirmDialog } from "@/components/dashboard/CalledAwayConfirmDialog";
 import { AssignedCapitalDialog } from "@/components/dashboard/AssignedCapitalDialog";
 import { BuySharesDialog } from "@/components/dashboard/BuySharesDialog";
 import { ActivePositionsBatchHeader } from "@/components/dashboard/ActivePositionsBatchHeader";
@@ -44,6 +43,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { startOfMonth, startOfYear, isAfter, isBefore, isWithinInterval } from "date-fns";
 import { retryWithBackoff } from "@/lib/retryWithBackoff";
+import { calculatePortfolioAccounting } from "@/lib/portfolio/accounting";
 
 interface DashboardProps {
   viewAsUserId?: string;
@@ -58,8 +58,8 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const { positions, loading: positionsLoading, sharedOwners, refetch } = usePositions(effectiveUserId);
   const { assignedPositions, closedPositions, loading: assignedLoading, refetch: refetchAssigned } = useAssignedPositions(effectiveUserId);
   
-  // Auto-detect called away positions with confirmation
-  const { pendingEvents, confirmCalledAway, dismissEvent } = useCalledAwayDetection(assignedPositions, refetchAssigned);
+  // Explicit called-away reconciliation; results render inline instead of opening automatically
+  const { pendingEvents, confirmCalledAway, dismissEvent, checkForCalledAway } = useCalledAwayDetection(assignedPositions, refetchAssigned);
   const { settings } = useSettings(effectiveUserId);
   const { history: portfolioHistory, recordSnapshot } = usePortfolioHistory(effectiveUserId);
   
@@ -275,12 +275,23 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
     }
   }, [refetchAssigned, toast]);
 
-  // Auto-process expired puts (assigns ITM, expires OTM). No interactive dialog.
-  usePutAssignmentDetection(
+  // Explicitly process expired puts only when the user runs reconciliation.
+  const { checkForAssignments } = usePutAssignmentDetection(
     recentlyExpiredForDetection,
     assignedPositionIds,
     onPutAssigned
   );
+
+  const handleRunLifecycleReconciliation = useCallback(async () => {
+    await Promise.all([
+      checkForAssignments(),
+      checkForCalledAway(),
+    ]);
+    toast({
+      title: "Reconciliation complete",
+      description: "Lifecycle checks ran for expired puts and covered calls. Review any inline findings below.",
+    });
+  }, [checkForAssignments, checkForCalledAway, toast]);
 
   // Filter assigned positions by time period
   const filteredAssignedPositions = useMemo(() => {
@@ -389,16 +400,24 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const atRiskCount = activePositions.filter(p => p.pctAboveStrike < 5).length;
   const cashSecured = activePositions.reduce((sum, p) => sum + (p.strikePrice * 100 * p.contracts), 0);
   
-  // 4. Total Portfolio Value
-  // Baseline (from broker statement) + premiums collected + unrealized P/L from active positions + capital gains
-  // Premiums increase total assets as they represent new income collected since baseline was set
-  const baseline = (settings.other_holdings_value || 0) > 0 
-    ? (settings.other_holdings_value || 0) 
-    : (settings.cash_balance || 0);
-  const totalPortfolioValue = baseline + totalPremium + assignedSharesUnrealizedPnL + totalUnrealizedPnL + totalCapitalGains;
-  
-  // 5. Available Cash = Total Assets - Assigned Capital
-  const availableCash = totalPortfolioValue - assignedSharesMarketValue;
+  // 4. Canonical Portfolio Accounting
+  // AUM should recognize assets/liabilities directly. Premiums and gains are performance,
+  // not additive top-ups when a broker account value is already supplied.
+  const activePutMarkValue = activePositions.reduce((sum, p) => sum + p.contractValue, 0);
+  const portfolioAccounting = calculatePortfolioAccounting({
+    cashBalance: settings.cash_balance || 0,
+    otherHoldingsValue: settings.other_holdings_value || 0,
+    brokerAccountValue: settings.broker_account_value || null,
+    assignedShareMarketValue: assignedSharesMarketValue,
+    assignedShareCostBasis: assignedSharesCostBasis,
+    activePutRequirement: cashSecured,
+    activePutMarkValue,
+    totalPremiumsCollected: totalPremium,
+    realizedCapitalGains: totalCapitalGains,
+    activeOptionUnrealizedPnl: totalUnrealizedPnL,
+  });
+  const totalPortfolioValue = portfolioAccounting.portfolioValue;
+  const availableCash = portfolioAccounting.availableCash;
   
   // Record portfolio snapshot when key metrics change (skip in advisor view)
   useEffect(() => {
@@ -709,6 +728,48 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
               </div>
             </div>
             
+            {/* Explicit Lifecycle Reconciliation */}
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="font-semibold">Lifecycle Reconciliation</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Run assignment and called-away checks intentionally. No background popups or browser-only state changes.
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={handleRunLifecycleReconciliation} className="shrink-0">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Run Reconciliation
+                  </Button>
+                </div>
+
+                {pendingEvents.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {pendingEvents.map((event) => (
+                      <Alert key={event.coveredCall.id}>
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>
+                          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <strong>{event.position.symbol}</strong> covered call may have been called away.
+                              <span className="block text-sm text-muted-foreground">
+                                {event.coveredCall.contracts * 100} shares at ${event.coveredCall.strike_price.toFixed(2)} · estimated capital gain ${event.realizedGain.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={() => confirmCalledAway(event)}>Apply</Button>
+                              <Button size="sm" variant="ghost" onClick={() => dismissEvent(event.coveredCall.id)}>Dismiss</Button>
+                            </div>
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Metrics Grid */}
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
               <HoverCard>
@@ -1161,14 +1222,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
         totalAssignedCapital={assignedSharesMarketValue}
       />
 
-      {/* Called Away Confirmation Dialog */}
-      <CalledAwayConfirmDialog
-        pendingEvents={pendingEvents}
-        onConfirm={confirmCalledAway}
-        onDismiss={dismissEvent}
-      />
-
-      {/* Put assignments are now auto-processed - no dialog needed */}
+      {/* Put assignments are now reconciled explicitly from the Lifecycle Reconciliation panel */}
 
       {/* First-time user guide */}
       {showGuide && !isAdvisorView && (

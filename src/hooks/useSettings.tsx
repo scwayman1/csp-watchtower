@@ -10,6 +10,7 @@ interface UserSettings {
   volatility_sensitivity: number;
   cash_balance: number;
   other_holdings_value: number;
+  broker_account_value: number;
 }
 
 export function useSettings(userId: string | undefined) {
@@ -22,6 +23,7 @@ export function useSettings(userId: string | undefined) {
     volatility_sensitivity: 0.15,
     cash_balance: 0,
     other_holdings_value: 0,
+    broker_account_value: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -37,6 +39,7 @@ export function useSettings(userId: string | undefined) {
           .maybeSingle();
 
         if (data) {
+          const settingsData = data as typeof data & { broker_account_value?: number | null };
           setSettings({
             probability_model: data.probability_model || 'delta',
             safe_threshold: data.safe_threshold || 10,
@@ -46,6 +49,7 @@ export function useSettings(userId: string | undefined) {
             volatility_sensitivity: data.volatility_sensitivity || 0.15,
             cash_balance: data.cash_balance || 0,
             other_holdings_value: data.other_holdings_value || 0,
+            broker_account_value: settingsData.broker_account_value || 0,
           });
         }
       } catch (error) {

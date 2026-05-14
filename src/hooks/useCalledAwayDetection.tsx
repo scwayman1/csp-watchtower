@@ -1,7 +1,8 @@
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { AssignedPosition, CoveredCall } from "@/hooks/assigned/types";
+import { classifyCoveredCallExpiration } from "@/lib/portfolio/accounting";
 
 export interface PendingCalledAway {
   position: AssignedPosition;
@@ -144,13 +145,19 @@ export function useCalledAwayDetection(
         const expirationStr = call.expiration;
         const isExpiredOrExpiringToday = expirationStr <= todayStr;
         const isWithinLookback = expirationStr >= lookbackStr;
-        const isITM = currentPrice >= call.strike_price;
         const isAlreadyExpired = expirationStr < todayStr;
+        const classification = classifyCoveredCallExpiration({
+          strikePrice: call.strike_price,
+          // Without an expiration-close price, old expired calls are reconciliation items,
+          // not recurring blocking prompts. For expiration-day checks, current price is
+          // the best available proxy until broker statement reconciliation is recorded.
+          expirationClosePrice: isAlreadyExpired ? undefined : currentPrice,
+          currentPrice,
+          expiration: expirationStr,
+          asOfDate: todayStr,
+        });
 
-        // For calls expiring today, check ITM status.
-        // For already-expired calls, always prompt — the price may have moved
-        // since expiration, so the user should confirm via the dialog.
-        if (isExpiredOrExpiringToday && isWithinLookback && (isITM || isAlreadyExpired)) {
+        if (isExpiredOrExpiringToday && isWithinLookback && classification.outcome === "called_away") {
           processedCallsRef.current.add(call.id);
 
           const sharesCalledAway = call.contracts * 100;
@@ -172,11 +179,9 @@ export function useCalledAwayDetection(
     }
   }, [assignedPositions]);
 
-  useEffect(() => {
-    if (assignedPositions.length > 0) {
-      checkForCalledAway();
-    }
-  }, [assignedPositions, checkForCalledAway]);
+  // Reconciliation is intentionally explicit. The dashboard calls checkForCalledAway
+  // from a user-triggered action and renders results inline rather than opening a
+  // blocking dialog after a predictive background scan.
 
   return { 
     pendingEvents, 
