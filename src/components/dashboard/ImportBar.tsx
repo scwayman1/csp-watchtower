@@ -7,7 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import * as pdfjsLib from 'pdfjs-dist';
-import { buildOrderIngestionKey } from '@/lib/orderIngestion';
+import { buildOrderIngestionKey, hasBrokerExecutionIdentity } from '@/lib/orderIngestion';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -149,6 +149,7 @@ export function ImportBar() {
       let insertedPuts = 0;
       let insertedCalls = 0;
       let insertedShares = 0;
+      let skippedDuplicateRows = 0;
 
       // Insert PUTs into positions table
       if (puts.length > 0) {
@@ -166,6 +167,7 @@ export function ImportBar() {
 
         if (insertError) throw insertError;
         insertedPuts = insertedRows?.length ?? 0;
+        skippedDuplicateRows += puts.length - insertedPuts;
       }
 
       // Insert share purchases as assigned positions
@@ -192,6 +194,7 @@ export function ImportBar() {
 
         if (shareError) throw shareError;
         insertedShares = insertedRows?.length ?? 0;
+        skippedDuplicateRows += shares.length - insertedShares;
       }
 
       // Insert CALLs into covered_calls table
@@ -249,6 +252,7 @@ export function ImportBar() {
             throw callInsertError;
           }
           insertedCalls = insertedRows?.length ?? 0;
+          skippedDuplicateRows += callsToInsert.length - insertedCalls;
           console.log(`Successfully inserted ${insertedCalls} covered call(s)`);
         }
 
@@ -281,10 +285,21 @@ export function ImportBar() {
       if (insertedCalls > 0) parts.push(`${insertedCalls} CALL${insertedCalls !== 1 ? 's' : ''}`);
       if (insertedShares > 0) parts.push(`${insertedShares} share purchase${insertedShares !== 1 ? 's' : ''}`);
       
-      toast({
-        title: "Orders parsed successfully",
-        description: `${parts.join(' and ')} added.`,
-      });
+      if (skippedDuplicateRows > 0) {
+        const hasUnidentifiedRows = [...puts, ...calls, ...shares].some(
+          (trade: any) => !hasBrokerExecutionIdentity(trade),
+        );
+        toast({
+          title: "Possible replay detected",
+          description: `${skippedDuplicateRows} row(s) were not added. ${hasUnidentifiedRows ? "No broker execution ID was available, so a replay cannot be distinguished from a separate identical fill; review the statement before retrying." : "The broker execution identity was already imported."}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Orders parsed successfully",
+          description: `${parts.join(' and ')} added.`,
+        });
+      }
       setOrderText("");
       setFileName("");
     } catch (error: any) {

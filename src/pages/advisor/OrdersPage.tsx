@@ -8,7 +8,7 @@ import { Upload, FileText, Users } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import * as pdfjsLib from 'pdfjs-dist';
-import { buildOrderIngestionKey } from '@/lib/orderIngestion';
+import { buildOrderIngestionKey, hasBrokerExecutionIdentity } from '@/lib/orderIngestion';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -178,6 +178,7 @@ export default function OrdersPage() {
 
       let insertedPuts = 0;
       let insertedCalls = 0;
+      let skippedDuplicateRows = 0;
 
       // Insert PUTs into positions table
       if (puts.length > 0) {
@@ -196,6 +197,7 @@ export default function OrdersPage() {
 
         if (insertError) throw insertError;
         insertedPuts = insertedRows?.length ?? 0;
+        skippedDuplicateRows += puts.length - insertedPuts;
       }
 
       // Insert CALLs into covered_calls table
@@ -241,6 +243,7 @@ export default function OrdersPage() {
 
           if (callInsertError) throw callInsertError;
           insertedCalls = insertedRows?.length ?? 0;
+          skippedDuplicateRows += callsToInsert.length - insertedCalls;
         }
 
         if (unmatchedCalls.length > 0) {
@@ -262,10 +265,21 @@ export default function OrdersPage() {
         );
       }
 
-      toast({
-        title: "Orders imported successfully",
-        description: `${insertedPuts} PUT${insertedPuts !== 1 ? 's' : ''} and ${insertedCalls} CALL${insertedCalls !== 1 ? 's' : ''} added to ${selectedClient.name}'s account.`,
-      });
+      if (skippedDuplicateRows > 0) {
+        const hasUnidentifiedRows = [...puts, ...calls].some(
+          (trade: any) => !hasBrokerExecutionIdentity(trade),
+        );
+        toast({
+          title: "Possible replay detected",
+          description: `${skippedDuplicateRows} row(s) were not added. ${hasUnidentifiedRows ? "No broker execution ID was available, so review before retrying." : "The broker execution identity was already imported."}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Orders imported successfully",
+          description: `${insertedPuts} PUT${insertedPuts !== 1 ? 's' : ''} and ${insertedCalls} CALL${insertedCalls !== 1 ? 's' : ''} added to ${selectedClient.name}'s account.`,
+        });
+      }
       setOrderText("");
       setFileName("");
     } catch (error: any) {
