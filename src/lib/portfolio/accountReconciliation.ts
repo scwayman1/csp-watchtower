@@ -81,6 +81,7 @@ export interface ReconciliationCashEvent {
 
 export interface ReconciliationAccountingEvent extends ReconciliationCashEvent {
   eventCategory: "income" | "fee" | "external_flow" | "security_trade" | "reinvestment" | "corporate_action" | "other";
+  realizedGain?: number | null;
 }
 
 export interface ReconciliationPremiumEvent {
@@ -153,6 +154,9 @@ export interface AccountReconciliationSummary {
   statementPremiumGross: number;
   statementPremiumNetSettlement: number;
   statementPremiumFees: number;
+  cumulativePremiumGrossToDate: number;
+  realizedPremiumGrossToDate: number;
+  realizedPremiumFeesToDate: number;
   redundantCashEventsTotal: number;
 }
 
@@ -203,6 +207,10 @@ export function buildAccountReconciliationSummary({
   const lifecycleRealizedCapitalGain = sumBy(
     lifecycleEvents,
     (event) => (event.price - event.costBasisPerShare) * event.shares
+  );
+  const accountingRealizedCapitalGain = sumBy(
+    accountingEvents.filter((event) => event.eventCategory === "security_trade"),
+    (event) => event.realizedGain ?? 0
   );
 
   const currentEquityUnrealizedPnl = sumBy(currentHoldings.equities, (holding) => holding.unrealizedPnl);
@@ -258,10 +266,15 @@ export function buildAccountReconciliationSummary({
   );
 
   const cumulativePremiumToDate = premiumEvents.length > 0
-    ? money(baseline.cumulativePremium + statementPremiumGross)
+    ? money(baseline.cumulativePremium + statementPremiumNetSettlement)
     : money(baseline.cumulativePremium + postBaselineOpenPremium);
   const realizedPremiumToDate = money(cumulativePremiumToDate - currentOpenPremium);
-  const realizedCapitalGainToDate = money(baseline.realizedCapitalGain + lifecycleRealizedCapitalGain);
+  const cumulativePremiumGrossToDate = premiumEvents.length > 0
+    ? money(baseline.cumulativePremium + statementPremiumGross)
+    : cumulativePremiumToDate;
+  const realizedPremiumGrossToDate = money(cumulativePremiumGrossToDate - currentOpenPremium);
+  const realizedPremiumFeesToDate = premiumEvents.length > 0 ? statementPremiumFees : 0;
+  const realizedCapitalGainToDate = money(baseline.realizedCapitalGain + lifecycleRealizedCapitalGain + accountingRealizedCapitalGain);
   const totalRealizedPnl = money(realizedPremiumToDate + realizedCapitalGainToDate);
   const currentAum = money(currentCashBalance + currentEquityMarketValue + currentOptionLiability);
 
@@ -294,6 +307,9 @@ export function buildAccountReconciliationSummary({
     statementPremiumGross,
     statementPremiumNetSettlement,
     statementPremiumFees,
+    cumulativePremiumGrossToDate,
+    realizedPremiumGrossToDate,
+    realizedPremiumFeesToDate,
     redundantCashEventsTotal,
   };
 }

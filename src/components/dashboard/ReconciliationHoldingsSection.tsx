@@ -33,12 +33,32 @@ interface ReconciliationSnapshot {
   cashBalance: number;
   equityMarketValue: number;
   optionLiability: number;
+  realizedPremium: number;
+  realizedPremiumGross: number;
+  realizedPremiumFees: number;
+  realizedCapitalGain: number;
+  totalRealizedPnl: number;
+  currentUnrealizedPnl: number;
+  totalStrategyPnl: number;
+  flowAdjustedAccountValueChange: number;
+  realizedCapitalGainBreakdown: {
+    assignedCallStockProceedsMinusBasis?: number;
+    otherSecuritySalesRecognizedGain?: number;
+  };
+  strategyPnlStatus: string;
   holdings: ReconciliationHolding[];
   coveredCalls: ReconciliationCoveredCall[];
 }
 
 function isMissingReconciliationRelation(error: { code?: string } | null) {
   return error?.code === "42P01" || error?.code === "PGRST205";
+}
+
+function formatAmount(value: number, options: { signed?: boolean } = {}) {
+  const amount = Number(value) || 0;
+  const formatted = Math.abs(amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (amount < 0) return `($${formatted})`;
+  return `${options.signed ? "+" : ""}$${formatted}`;
 }
 
 export function ReconciliationHoldingsSection({ userId }: { userId?: string }) {
@@ -50,7 +70,7 @@ export function ReconciliationHoldingsSection({ userId }: { userId?: string }) {
 
       const { data: rollup, error: rollupError } = await supabase
         .from("current_account_reconciliation_rollup")
-        .select("run_id, current_as_of, cash_balance, equity_market_value, option_liability")
+        .select("run_id, current_as_of, cash_balance, equity_market_value, option_liability, realized_premium_to_date, total_realized_pnl, current_unrealized_pnl, total_strategy_pnl, statement_premium_gross, statement_premium_fees, summary")
         .eq("user_id", userId)
         .maybeSingle();
 
@@ -80,6 +100,16 @@ export function ReconciliationHoldingsSection({ userId }: { userId?: string }) {
         cashBalance: rollup.cash_balance || 0,
         equityMarketValue: rollup.equity_market_value || 0,
         optionLiability: rollup.option_liability || 0,
+        realizedPremium: rollup.realized_premium_to_date || 0,
+        realizedPremiumGross: Number((rollup.summary as { realizedPremiumGrossToDate?: number } | null)?.realizedPremiumGrossToDate) || Number(rollup.statement_premium_gross) || 0,
+        realizedPremiumFees: Number(rollup.statement_premium_fees) || 0,
+        realizedCapitalGain: Number((rollup.summary as { realizedCapitalGainToDate?: number } | null)?.realizedCapitalGainToDate) || 0,
+        totalRealizedPnl: rollup.total_realized_pnl || 0,
+        currentUnrealizedPnl: rollup.current_unrealized_pnl || 0,
+        totalStrategyPnl: rollup.total_strategy_pnl || 0,
+        flowAdjustedAccountValueChange: Number((rollup.summary as { flowAdjustedAccountValueChange?: number } | null)?.flowAdjustedAccountValueChange) || 0,
+        realizedCapitalGainBreakdown: ((rollup.summary as { realizedCapitalGainBreakdown?: ReconciliationSnapshot["realizedCapitalGainBreakdown"] } | null)?.realizedCapitalGainBreakdown) || {},
+        strategyPnlStatus: String((rollup.summary as { strategyPnlStatus?: string } | null)?.strategyPnlStatus || "whole_account_control"),
         holdings: (holdingsResult.data || []) as ReconciliationHolding[],
         coveredCalls: (callsResult.data || []) as ReconciliationCoveredCall[],
       };
@@ -138,6 +168,36 @@ export function ReconciliationHoldingsSection({ userId }: { userId?: string }) {
           <div className="rounded border bg-background/70 p-2 text-xs">
             <div className="text-muted-foreground">Puts</div>
             <div className="font-semibold">{puts.length} lots · {putContracts} contracts</div>
+          </div>
+        </div>
+
+        <div className="rounded border bg-background/70 p-3">
+          <div className="mb-2 text-sm font-medium">Statement-backed P/L controls</div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded border bg-background/60 p-2 text-xs">
+              <div className="text-muted-foreground">Realized premium (net)</div>
+              <div className="font-semibold">{formatAmount(snapshot.realizedPremium, { signed: true })}</div>
+              <div className="text-muted-foreground">Gross {formatAmount(snapshot.realizedPremiumGross)} · fees {formatAmount(snapshot.realizedPremiumFees)}</div>
+            </div>
+            <div className="rounded border bg-background/60 p-2 text-xs">
+              <div className="text-muted-foreground">Realized equity P/L · stock-only</div>
+              <div className={`font-semibold ${snapshot.realizedCapitalGain < 0 ? "text-destructive" : "text-success"}`}>{formatAmount(snapshot.realizedCapitalGain, { signed: true })}</div>
+              <div className="text-muted-foreground">Assigned {formatAmount(snapshot.realizedCapitalGainBreakdown.assignedCallStockProceedsMinusBasis || 0)} · other sales {formatAmount(snapshot.realizedCapitalGainBreakdown.otherSecuritySalesRecognizedGain || 0)}</div>
+            </div>
+            <div className="rounded border bg-background/60 p-2 text-xs">
+              <div className="text-muted-foreground">Total realized P/L</div>
+              <div className={`font-semibold ${snapshot.totalRealizedPnl < 0 ? "text-destructive" : "text-success"}`}>{formatAmount(snapshot.totalRealizedPnl, { signed: true })}</div>
+              <div className="text-muted-foreground">Net premium + stock-only equity sales</div>
+            </div>
+            <div className="rounded border bg-background/60 p-2 text-xs">
+              <div className="text-muted-foreground">Derived trading P/L</div>
+              <div className={`font-semibold ${snapshot.totalStrategyPnl < 0 ? "text-destructive" : "text-success"}`}>{formatAmount(snapshot.totalStrategyPnl, { signed: true })}</div>
+              <div className="text-muted-foreground">Trading control; current unrealized {formatAmount(snapshot.currentUnrealizedPnl)}</div>
+            </div>
+          </div>
+          <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Derived trading control through {snapshot.asOf}: {formatAmount(snapshot.totalStrategyPnl, { signed: true })}. Separate flow-adjusted account-value control: {formatAmount(snapshot.flowAdjustedAccountValueChange, { signed: true })}. Wheel-only attribution remains pending because the statement includes non-wheel trades, dividends, fees, transfers, and reinvestments.</span>
           </div>
         </div>
 

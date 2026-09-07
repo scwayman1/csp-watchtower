@@ -176,4 +176,42 @@ describe("buildAccountReconciliationSummary", () => {
     expect(summary.postBaselineReinvestments).toBe(-25);
     expect(summary.reconciliationCoveredCallPremium).toBe(250);
   });
+
+  it("uses net premium settlement and source realized gains without double-counting fees", () => {
+    const summary = buildAccountReconciliationSummary({
+      baseline: { ...apr30Baseline, cumulativePremium: 0 },
+      currentHoldings: {
+        asOfDate: "2026-05-31",
+        cashBalance: 100_000,
+        equities: [],
+        options: [{ symbol: "XYZ", type: "CALL", contracts: 1, premiumCollected: 25, marketValue: -10 }],
+      },
+      lifecycleEvents: [],
+      cashEvents: [],
+      accountingEvents: [
+        { eventType: "security_trade", eventCategory: "security_trade", amount: 1_000, eventDate: "2026-05-20", realizedGain: -125.5 },
+      ],
+      premiumEvents: [{
+        eventDate: "2026-05-01",
+        symbol: "XYZ",
+        side: "CALL",
+        expiration: "2026-06-19",
+        strikePrice: 100,
+        contracts: 1,
+        quotedPremiumPerShare: 0.5,
+        statementAmount: 49.98,
+        feeAmount: -0.02,
+        sourceEventKey: "stmt:xyz",
+        sourceDocument: "statement.pdf",
+        sourcePage: 1,
+      }],
+    });
+
+    expect(summary.cumulativePremiumToDate).toBe(49.98);
+    expect(summary.cumulativePremiumGrossToDate).toBe(50);
+    expect(summary.realizedPremiumToDate).toBe(24.98);
+    expect(summary.realizedPremiumGrossToDate).toBe(25);
+    expect(summary.realizedPremiumFeesToDate).toBe(-0.02);
+    expect(summary.realizedCapitalGainToDate).toBe(3345.5);
+  });
 });

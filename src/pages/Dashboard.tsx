@@ -585,13 +585,13 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                     <div className="p-2 rounded-lg bg-success/20">
                       <TrendingUp className="h-5 w-5 text-success" />
                     </div>
-                    <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Returns</span>
+                    <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Legacy Wheel View</span>
                   </div>
                   <div className="text-4xl font-bold text-success">
                     ${(totalPremium + totalCapitalGains).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Verified statement opening premium + capital gains; exact fills and fees remain under review
+                    Operational wheel ledger only; use the statement-backed P/L controls above for reconciled whole-account values
                   </p>
                 </div>
                 
@@ -694,7 +694,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                       <div className="cursor-help flex-1 min-w-[160px] p-4 rounded-lg bg-background/50 border border-border/50 hover:border-success/30 transition-colors">
                         <div className="flex items-center gap-2 mb-1">
                           <Target className="h-4 w-4 text-success" />
-                          <span className="text-xs text-muted-foreground uppercase tracking-wider">Capital Gains</span>
+                          <span className="text-xs text-muted-foreground uppercase tracking-wider">Legacy Capital Gains</span>
                         </div>
                         <div className="text-2xl font-bold">
                           ${totalCapitalGains.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
@@ -753,7 +753,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                     <div className="text-2xl font-bold text-success">
                       ${(totalPremium + totalCapitalGains).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </div>
-                    <p className="text-xs text-success/80 mt-0.5">Your earnings</p>
+                    <p className="text-xs text-success/80 mt-0.5">Statement controls above are authoritative</p>
                   </div>
                 </div>
               </div>
