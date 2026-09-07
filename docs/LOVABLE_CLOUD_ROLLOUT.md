@@ -19,8 +19,10 @@ Apply or publish the following in filename order:
 
 Deploy the compatible Edge Function sources after the schema is present:
 
+- `supabase/functions/bootstrap-admin/index.ts`
 - `supabase/functions/validate-advisor-invite/index.ts`
 - `supabase/functions/complete-advisor-signup/index.ts`
+- `supabase/functions/_shared/access-control.ts`
 
 The frontend compatibility fix is `src/pages/AcceptInvite.tsx`; it uses the authenticated `accept_dashboard_invite` RPC instead of a direct client-side update. `src/integrations/supabase/types.ts` is updated for the deployed columns and RPC.
 
@@ -31,6 +33,8 @@ The frontend compatibility fix is `src/pages/AcceptInvite.tsx`; it uses the auth
 - Older writes omit the new ingestion columns. Because the columns are nullable, those writes remain valid; the unique indexes do not merge or constrain legacy NULL rows.
 - The duplicate-preview view uses `security_invoker` and is granted only to authenticated users, so base-table RLS remains in force.
 - The dashboard-share acceptance RPC is now the only authenticated update path. The old direct update was not atomic and was not covered by the existing RLS policy.
+- `bootstrap-admin` keeps the existing `{ user_id }` request and success response, but now requires both a bearer session and an existing admin caller before granting roles. If the database has no admin, first-admin provisioning must be performed through an owner-controlled out-of-band path; no arbitrary authenticated user is elevated automatically.
+- `parse-order` was not changed in this restoration; its existing response contract remains the source for the frontend replay-key builder. No separate parse-order deployment is required for this package.
 
 ## Lovable Cloud execution path
 
@@ -47,7 +51,7 @@ References:
 1. Confirm the release is pointed at the existing Lovable Cloud ref and record read-only counts for the invite tables, positions, assigned positions, covered calls, and reconciliation runs.
 2. Apply/publish the four migrations in order. Verify the schema before enabling the new function sources.
 3. Verify function behavior with invalid-token probes, then exercise authenticated invite flows in preview using a test invitation; do not use a financial import for the first probe.
-4. Deploy the Cloudflare preview build and validate `/auth`, `/accept-invite/:token`, `/accept-advisor-invite/:token`, and advisor dashboard routes. Leave the old published URL unchanged.
+4. Deploy the Cloudflare preview build and validate `/auth`, `/accept-invite/:token`, `/accept-advisor-invite/:token`, and advisor dashboard routes. Leave the old published URL unchanged. Exercise `bootstrap-admin` only with an existing admin session in a non-production/test account; if no admin exists, stop and obtain owner-controlled provisioning rather than bypassing the guard.
 5. Only after compatibility passes should a separate production cutover be considered.
 
 The migrations are additive and have no safe automatic down migration. If application validation fails, roll back the frontend/function release while leaving the new nullable columns, indexes, views, and RPCs in place; the old schema consumers ignore those additions. Do not drop the new columns or revoke the RPCs while a new frontend is deployed. Do not attempt a data rollback or cleanup as part of this restoration.

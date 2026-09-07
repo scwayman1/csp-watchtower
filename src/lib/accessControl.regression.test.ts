@@ -42,5 +42,7 @@ describe("access-control regression coverage", () => {
     expect(source).toContain("supabaseAdmin.auth.getUser(accessToken)");
     expect(source).toContain("eq('role', 'admin')");
     expect(source).toContain("Admin authority required");
+    expect(source).not.toContain("hasExistingAdmin");
+    expect(source).not.toContain("Initial bootstrap must target the authenticated user");
   });
 });
