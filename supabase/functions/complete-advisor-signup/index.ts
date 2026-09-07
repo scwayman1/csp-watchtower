@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
+import { getClientIp, normalizeEmail, sha256Hex } from "../_shared/access-control.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,9 +26,21 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`Completing advisor signup for user ${userId}, invite ${inviteId}`);
+    // Rate limit by client IP and SHA-256 token hash before any privileged work.
+    const tokenHash = await sha256Hex(token);
+    const ip = getClientIp(req);
+    const { data: rateCheck, error: rateError } = await supabase.rpc(
+      "check_invite_rate_limit",
+      { p_ip_address: ip, p_token_hash: tokenHash }
+    );
+    if (!rateError && rateCheck && rateCheck.allowed === false) {
+      return new Response(
+        JSON.stringify({ error: rateCheck.reason ?? "Too many attempts. Please try again later." }),
+        { status: 429, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
-    // Verify the invite token matches
+    // Verify the invite exists and matches the provided id + token.
     const { data: invite, error: inviteError } = await supabase
       .from("advisor_invites")
       .select("*")
@@ -36,7 +49,6 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (inviteError || !invite) {
-      console.error("Invite verification failed:", inviteError);
       return new Response(
         JSON.stringify({ error: "Invalid invitation" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -50,64 +62,55 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Assign advisor role to the user
-    const { error: roleError } = await supabase
-      .from("user_roles")
-      .insert({
-        user_id: userId,
-        role: "advisor",
-      });
-
-    if (roleError) {
-      // Might already have the role if trigger assigned it
-      console.log("Role assignment result:", roleError.message);
-      
-      // Try upsert approach
-      const { error: upsertError } = await supabase
-        .from("user_roles")
-        .upsert({
-          user_id: userId,
-          role: "advisor",
-        }, { onConflict: "user_id,role" });
-      
-      if (upsertError) {
-        console.error("Role upsert failed:", upsertError);
-      }
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+      return new Response(
+        JSON.stringify({ error: "Invitation has expired" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
 
-    console.log(`Advisor role assigned to user ${userId}`);
-
-    // Update the invite status
-    const { error: updateError } = await supabase
-      .from("advisor_invites")
-      .update({
-        status: "ACCEPTED",
-        user_id: userId,
-        accepted_at: new Date().toISOString(),
-      })
-      .eq("id", inviteId);
-
-    if (updateError) {
-      console.error("Error updating invite status:", updateError);
+    // Use the authoritative auth user email — never trust a client-supplied email.
+    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+    const userEmail = userData?.user?.email;
+    if (userError || !userEmail) {
+      return new Response(
+        JSON.stringify({ error: "User not found" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
 
-    console.log(`Invite ${inviteId} marked as accepted`);
+    if (normalizeEmail(userEmail) !== normalizeEmail(invite.email)) {
+      return new Response(
+        JSON.stringify({ error: "Invitation email does not match this account" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Atomically assign the advisor role and mark the invite accepted via RPC.
+    const { error: rpcError } = await supabase.rpc("complete_advisor_signup", {
+      p_invite_id: inviteId,
+      p_token: token,
+      p_user_id: userId,
+      p_user_email: userEmail,
+    });
+
+    if (rpcError) {
+      console.error("complete_advisor_signup RPC failed:", rpcError);
+      return new Response(
+        JSON.stringify({ error: rpcError.message }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ success: true }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error completing advisor signup:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 };
