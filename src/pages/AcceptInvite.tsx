@@ -69,7 +69,10 @@ export default function AcceptInvite() {
       }
 
       // Client-side email check for UX (server enforces this too)
-      if (user.email !== share.shared_with_email) {
+      if (
+        user.email?.trim().toLowerCase() !==
+        share.shared_with_email.trim().toLowerCase()
+      ) {
         setStatus("error");
         setMessage(`This invite is for ${share.shared_with_email}. Please sign in with that email.`);
         setLoading(false);
