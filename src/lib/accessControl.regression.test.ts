@@ -26,6 +26,17 @@ describe("access-control regression coverage", () => {
     expect(migration).toContain("ON CONFLICT (user_id, role) DO NOTHING");
   });
 
+  it("uses the authenticated dashboard-share RPC instead of a direct client update", () => {
+    const source = read("src/pages/AcceptInvite.tsx");
+    const migration = read("supabase/migrations/20260906000200_invite_rpc_security.sql");
+    expect(source).toContain('"accept_dashboard_invite"');
+    expect(source).not.toContain("from('position_shares')");
+    expect(migration).toContain("auth.uid() <> p_user_id");
+    expect(migration).toContain("REVOKE ALL ON FUNCTION public.accept_dashboard_invite");
+    expect(migration).toContain("GRANT EXECUTE ON FUNCTION public.accept_dashboard_invite(TEXT, UUID, TEXT)");
+    expect(migration).toContain("REVOKE ALL ON FUNCTION public.check_invite_rate_limit");
+  });
+
   it("requires current admin authority for bootstrap-admin", () => {
     const source = read("supabase/functions/bootstrap-admin/index.ts");
     expect(source).toContain("supabaseAdmin.auth.getUser(accessToken)");

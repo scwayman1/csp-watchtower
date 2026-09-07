@@ -76,17 +76,24 @@ export default function AcceptInvite() {
         return;
       }
 
-      // Accept the invite by updating the share record directly
-      const { error: acceptError } = await supabase
-        .from('position_shares')
-        .update({
-          shared_with_user_id: user.id,
-          accepted_at: new Date().toISOString(),
-        })
-        .eq('invite_token', token)
-        .eq('shared_with_email', user.email!);
+      // Accept through the server-side RPC so the update remains atomic and
+      // the function can enforce auth.uid(), expiry, and email ownership.
+      const { data: acceptResult, error: acceptError } = await supabase.rpc(
+        "accept_dashboard_invite",
+        {
+          p_token: token,
+          p_user_id: user.id,
+          p_user_email: user.email,
+        },
+      );
 
       if (acceptError) throw acceptError;
+      if (!acceptResult?.success) {
+        setStatus("error");
+        setMessage(acceptResult?.error || "Failed to accept invite");
+        setLoading(false);
+        return;
+      }
 
       setStatus("success");
       setMessage("Successfully accepted invite! You now have access to the shared dashboard.");

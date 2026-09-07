@@ -211,6 +211,7 @@ export type Database = {
           accepted_at: string | null
           created_at: string
           email: string
+          expires_at: string
           id: string
           invite_token: string
           invited_by: string | null
@@ -222,6 +223,7 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string
           email: string
+          expires_at?: string
           id?: string
           invite_token?: string
           invited_by?: string | null
@@ -233,6 +235,7 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string
           email?: string
+          expires_at?: string
           id?: string
           invite_token?: string
           invited_by?: string | null
@@ -473,6 +476,7 @@ export type Database = {
           email: string | null
           id: string
           invite_status: string | null
+          invite_expires_at: string | null
           invite_token: string | null
           invited_at: string | null
           name: string
@@ -494,6 +498,7 @@ export type Database = {
           email?: string | null
           id?: string
           invite_status?: string | null
+          invite_expires_at?: string | null
           invite_token?: string | null
           invited_at?: string | null
           name: string
@@ -515,6 +520,7 @@ export type Database = {
           email?: string | null
           id?: string
           invite_status?: string | null
+          invite_expires_at?: string | null
           invite_token?: string | null
           invited_at?: string | null
           name?: string
@@ -1112,6 +1118,7 @@ export type Database = {
         Row: {
           accepted_at: string | null
           created_at: string | null
+          expires_at: string
           id: string
           invite_token: string
           owner_id: string
@@ -1121,6 +1128,7 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           created_at?: string | null
+          expires_at?: string
           id?: string
           invite_token?: string
           owner_id: string
@@ -1130,6 +1138,7 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           created_at?: string | null
+          expires_at?: string
           id?: string
           invite_token?: string
           owner_id?: string
@@ -1518,6 +1527,14 @@ export type Database = {
       }
     }
     Functions: {
+      accept_dashboard_invite: {
+        Args: {
+          p_token: string
+          p_user_email: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       apply_account_reconciliation: {
         Args: { p_payload: Json }
         Returns: string
@@ -1529,6 +1546,7 @@ export type Database = {
           email: string
           id: string
           invite_status: string
+          invite_expires_at: string | null
           invite_token: string
           name: string
         }[]
@@ -1538,6 +1556,7 @@ export type Database = {
         Returns: {
           accepted_at: string
           created_at: string
+          expires_at: string
           id: string
           invite_token: string
           owner_id: string
