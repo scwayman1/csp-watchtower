@@ -1,0 +1,7 @@
+# Account-neutral Cloudflare Pages configuration.
+# Set the Pages project and account in the Cloudflare dashboard or deployment
+# command; do not commit account IDs, API tokens, or project-specific secrets.
+pages_build_output_dir = "dist"
+
+[build]
+command = "npm run build"

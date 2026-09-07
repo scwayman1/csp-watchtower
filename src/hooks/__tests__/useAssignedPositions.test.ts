@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react-hooks';
+import { renderHook } from '@testing-library/react';
 import { useAssignedPositions } from '../useAssignedPositions';
 
 // Mock the subscription hook to prevent realtime setup during tests

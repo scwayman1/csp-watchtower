@@ -1,0 +1,2 @@
+# Preserve client-side routing for the Vite SPA on Cloudflare Pages.
+/* /index.html 200

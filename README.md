@@ -62,7 +62,10 @@ This project is built with:
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/4a3dd8fc-b37b-488a-bf64-5615b1dfae3e) and click on Share -> Publish.
+The frontend can be reviewed and deployed as a Cloudflare Pages Vite SPA.
+See [docs/HOSTING.md](docs/HOSTING.md) for the account-neutral configuration,
+environment variables, and Supabase/Auth verification checklist. This does not
+replace the existing Lovable hosting or the Supabase backend.
 
 ## Can I connect a custom domain to my Lovable project?
 
