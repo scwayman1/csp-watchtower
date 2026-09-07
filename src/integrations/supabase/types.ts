@@ -211,6 +211,7 @@ export type Database = {
           accepted_at: string | null
           created_at: string
           email: string
+          expires_at: string
           id: string
           invite_token: string
           invited_by: string | null
@@ -222,6 +223,7 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string
           email: string
+          expires_at?: string
           id?: string
           invite_token?: string
           invited_by?: string | null
@@ -233,6 +235,7 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string
           email?: string
+          expires_at?: string
           id?: string
           invite_token?: string
           invited_by?: string | null
@@ -405,9 +408,11 @@ export type Database = {
           cost_basis: number
           created_at: string
           id: string
+          ingestion_key: string | null
           is_active: boolean
           original_position_id: string | null
           original_put_premium: number
+          raw_order_text: string | null
           shares: number
           sold_price: number | null
           source: string | null
@@ -422,9 +427,11 @@ export type Database = {
           cost_basis: number
           created_at?: string
           id?: string
+          ingestion_key?: string | null
           is_active?: boolean
           original_position_id?: string | null
           original_put_premium?: number
+          raw_order_text?: string | null
           shares: number
           sold_price?: number | null
           source?: string | null
@@ -439,9 +446,11 @@ export type Database = {
           cost_basis?: number
           created_at?: string
           id?: string
+          ingestion_key?: string | null
           is_active?: boolean
           original_position_id?: string | null
           original_put_premium?: number
+          raw_order_text?: string | null
           shares?: number
           sold_price?: number | null
           source?: string | null
@@ -466,6 +475,7 @@ export type Database = {
           created_at: string | null
           email: string | null
           id: string
+          invite_expires_at: string | null
           invite_status: string | null
           invite_token: string | null
           invited_at: string | null
@@ -487,6 +497,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          invite_expires_at?: string | null
           invite_status?: string | null
           invite_token?: string | null
           invited_at?: string | null
@@ -508,6 +519,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          invite_expires_at?: string | null
           invite_status?: string | null
           invite_token?: string | null
           invited_at?: string | null
@@ -534,13 +546,16 @@ export type Database = {
           expiration: string
           expiration_close_price: number | null
           id: string
+          ingestion_key: string | null
           is_active: boolean
           opened_at: string
           premium_per_contract: number
+          raw_order_text: string | null
           reconciled_at: string | null
           reconciliation_status: string | null
           strike_price: number
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           assigned_position_id: string
@@ -550,13 +565,16 @@ export type Database = {
           expiration: string
           expiration_close_price?: number | null
           id?: string
+          ingestion_key?: string | null
           is_active?: boolean
           opened_at?: string
           premium_per_contract: number
+          raw_order_text?: string | null
           reconciled_at?: string | null
           reconciliation_status?: string | null
           strike_price: number
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           assigned_position_id?: string
@@ -566,13 +584,16 @@ export type Database = {
           expiration?: string
           expiration_close_price?: number | null
           id?: string
+          ingestion_key?: string | null
           is_active?: boolean
           opened_at?: string
           premium_per_contract?: number
+          raw_order_text?: string | null
           reconciled_at?: string | null
           reconciliation_status?: string | null
           strike_price?: number
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -644,6 +665,30 @@ export type Database = {
           primary_user_id?: string
           relationship?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      invite_acceptance_attempts: {
+        Row: {
+          attempted_at: string
+          id: string
+          ip_address: unknown
+          success: boolean
+          token_hash: string
+        }
+        Insert: {
+          attempted_at?: string
+          id?: string
+          ip_address?: unknown
+          success?: boolean
+          token_hash: string
+        }
+        Update: {
+          attempted_at?: string
+          id?: string
+          ip_address?: unknown
+          success?: boolean
+          token_hash?: string
         }
         Relationships: []
       }
@@ -1097,6 +1142,7 @@ export type Database = {
         Row: {
           accepted_at: string | null
           created_at: string | null
+          expires_at: string
           id: string
           invite_token: string
           owner_id: string
@@ -1106,6 +1152,7 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           created_at?: string | null
+          expires_at?: string
           id?: string
           invite_token?: string
           owner_id: string
@@ -1115,6 +1162,7 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           created_at?: string | null
+          expires_at?: string
           id?: string
           invite_token?: string
           owner_id?: string
@@ -1133,6 +1181,7 @@ export type Database = {
           expiration: string
           expiration_close_price: number | null
           id: string
+          ingestion_key: string | null
           is_active: boolean | null
           open_fees: number | null
           opened_at: string | null
@@ -1156,6 +1205,7 @@ export type Database = {
           expiration: string
           expiration_close_price?: number | null
           id?: string
+          ingestion_key?: string | null
           is_active?: boolean | null
           open_fees?: number | null
           opened_at?: string | null
@@ -1179,6 +1229,7 @@ export type Database = {
           expiration?: string
           expiration_close_price?: number | null
           id?: string
+          ingestion_key?: string | null
           is_active?: boolean | null
           open_fees?: number | null
           opened_at?: string | null
@@ -1481,6 +1532,15 @@ export type Database = {
         }
         Relationships: []
       }
+      order_ingestion_duplicate_preview: {
+        Row: {
+          ingestion_key: string | null
+          row_count: number | null
+          source_table: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       portfolio_accounting_rollup: {
         Row: {
           active_put_mark_value: number | null
@@ -1501,9 +1561,33 @@ export type Database = {
       }
     }
     Functions: {
+      accept_dashboard_invite: {
+        Args: { p_token: string; p_user_email: string; p_user_id: string }
+        Returns: Json
+      }
       apply_account_reconciliation: {
         Args: { p_payload: Json }
         Returns: string
+      }
+      check_invite_rate_limit: {
+        Args: {
+          p_ip_address: unknown
+          p_max_attempts_per_ip?: number
+          p_max_attempts_per_token?: number
+          p_token_hash: string
+          p_window_minutes?: number
+        }
+        Returns: Json
+      }
+      cleanup_old_invite_attempts: { Args: never; Returns: undefined }
+      complete_advisor_signup: {
+        Args: {
+          p_invite_id: string
+          p_token: string
+          p_user_email: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       get_client_by_invite_token: {
         Args: { p_token: string }
@@ -1511,6 +1595,7 @@ export type Database = {
           advisor_id: string
           email: string
           id: string
+          invite_expires_at: string
           invite_status: string
           invite_token: string
           name: string
@@ -1521,6 +1606,7 @@ export type Database = {
         Returns: {
           accepted_at: string
           created_at: string
+          expires_at: string
           id: string
           invite_token: string
           owner_id: string
