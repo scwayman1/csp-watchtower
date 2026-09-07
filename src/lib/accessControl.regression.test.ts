@@ -16,7 +16,8 @@ describe("access-control regression coverage", () => {
   it("keeps advisor acceptance authenticated, rate-limited, and atomic", () => {
     const source = read("supabase/functions/complete-advisor-signup/index.ts");
     const migration = read("supabase/migrations/20260906000000_atomic_advisor_invite_acceptance.sql");
-    expect(source).toContain("supabase.auth.getUser(accessToken)");
+    expect(source).toContain("supabase.auth.admin.getUserById(userId)");
+    expect(source).not.toContain("supabase.auth.getUser(accessToken)");
     expect(source).toContain("check_invite_rate_limit");
     expect(source).toContain('rpc("complete_advisor_signup"');
     expect(migration).toContain("FOR UPDATE");

@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 import type { AssignedPosition } from "./types";
 
 async function fetchAssignedPositionsData(userId?: string) {
@@ -168,12 +170,22 @@ async function fetchAssignedPositionsData(userId?: string) {
 }
 
 export function useAssignedPositionsQueries(userId?: string) {
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, refetch, error } = useQuery({
     queryKey: ['assigned-positions', userId],
     queryFn: () => fetchAssignedPositionsData(userId),
     staleTime: 30000, // Consider data fresh for 30 seconds
     refetchOnWindowFocus: true,
   });
+
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error loading assigned positions",
+        description: error instanceof Error ? error.message : "Unable to load assigned positions",
+        variant: "destructive",
+      });
+    }
+  }, [error]);
 
   return {
     assignedPositions: data?.active || [],

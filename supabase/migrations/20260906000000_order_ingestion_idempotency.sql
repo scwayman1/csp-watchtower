@@ -48,10 +48,31 @@ SELECT user_id, ingestion_key, 'covered_calls'::TEXT, COUNT(*)
 FROM public.covered_calls
 WHERE ingestion_key IS NOT NULL
 GROUP BY user_id, ingestion_key
+HAVING COUNT(*) > 1
+UNION ALL
+-- Legacy rows have no importer key. These are review candidates only:
+-- repeated economics can be legitimate separate executions.
+SELECT user_id, NULL::TEXT, 'positions_legacy_candidate'::TEXT, COUNT(*)
+FROM public.positions
+WHERE ingestion_key IS NULL
+GROUP BY user_id, symbol, strike_price, expiration, contracts, premium_per_contract
+HAVING COUNT(*) > 1
+UNION ALL
+SELECT user_id, NULL::TEXT, 'assigned_positions_legacy_candidate'::TEXT, COUNT(*)
+FROM public.assigned_positions
+WHERE ingestion_key IS NULL
+GROUP BY user_id, symbol, shares, assignment_date, assignment_price, cost_basis, original_put_premium
+HAVING COUNT(*) > 1
+UNION ALL
+SELECT ap.user_id, NULL::TEXT, 'covered_calls_legacy_candidate'::TEXT, COUNT(*)
+FROM public.covered_calls cc
+JOIN public.assigned_positions ap ON ap.id = cc.assigned_position_id
+WHERE cc.ingestion_key IS NULL
+GROUP BY ap.user_id, cc.assigned_position_id, cc.strike_price, cc.expiration, cc.contracts, cc.premium_per_contract
 HAVING COUNT(*) > 1;
 
 ALTER VIEW public.order_ingestion_duplicate_preview SET (security_invoker = true);
 GRANT SELECT ON public.order_ingestion_duplicate_preview TO authenticated;
 
 COMMENT ON VIEW public.order_ingestion_duplicate_preview IS
-  'Read-only preview of duplicate import keys. It never mutates live financial data.';
+  'Read-only preview of duplicate import keys and legacy economic duplicate candidates. Candidates require statement/execution review and are never auto-merged or deleted.';

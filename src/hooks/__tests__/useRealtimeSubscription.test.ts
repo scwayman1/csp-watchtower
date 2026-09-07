@@ -153,7 +153,7 @@ describe('useRealtimeSubscription', () => {
 
     // Wait for the initial refresh
     await act(async () => {
-      await vi.runOnlyPendingTimersAsync();
+      await Promise.resolve();
     });
 
     expect(supabase.functions.invoke).toHaveBeenCalledWith('refresh-market-data');
@@ -189,21 +189,19 @@ describe('useRealtimeSubscription', () => {
 
     // Initial call
     await act(async () => {
-      await vi.runOnlyPendingTimersAsync();
+      await Promise.resolve();
     });
     expect(supabase.functions.invoke).toHaveBeenCalledTimes(1);
 
     // Advance timer by refresh interval
     await act(async () => {
-      vi.advanceTimersByTime(refreshInterval);
-      await vi.runOnlyPendingTimersAsync();
+      await vi.advanceTimersByTimeAsync(refreshInterval);
     });
     expect(supabase.functions.invoke).toHaveBeenCalledTimes(2);
 
     // Advance again
     await act(async () => {
-      vi.advanceTimersByTime(refreshInterval);
-      await vi.runOnlyPendingTimersAsync();
+      await vi.advanceTimersByTimeAsync(refreshInterval);
     });
     expect(supabase.functions.invoke).toHaveBeenCalledTimes(3);
   });
@@ -222,7 +220,7 @@ describe('useRealtimeSubscription', () => {
 
     // Initial call
     await act(async () => {
-      await vi.runOnlyPendingTimersAsync();
+      await Promise.resolve();
     });
     expect(supabase.functions.invoke).toHaveBeenCalledTimes(1);
 
@@ -230,8 +228,7 @@ describe('useRealtimeSubscription', () => {
 
     // Advance timers - should not trigger more calls
     await act(async () => {
-      vi.advanceTimersByTime(60000);
-      await vi.runOnlyPendingTimersAsync();
+      await vi.advanceTimersByTimeAsync(60000);
     });
     expect(supabase.functions.invoke).toHaveBeenCalledTimes(1);
   });

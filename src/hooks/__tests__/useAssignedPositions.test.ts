@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook as rtlRenderHook, type RenderHookOptions } from '@testing-library/react';
+import { createQueryClientWrapper } from './testUtils';
 import { useAssignedPositions } from '../useAssignedPositions';
 
 // Mock the subscription hook to prevent realtime setup during tests
@@ -8,12 +9,12 @@ vi.mock('../assigned/useAssignedPositionsSubscriptions', () => ({
 }));
 
 // Mock Supabase client
-const mockSupabase = {
+const mockSupabase = vi.hoisted(() => ({
   auth: {
     getUser: vi.fn(),
   },
   from: vi.fn(),
-};
+}));
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: mockSupabase,
@@ -23,6 +24,14 @@ vi.mock('@/integrations/supabase/client', () => ({
 vi.mock('@/hooks/use-toast', () => ({
   toast: vi.fn(),
 }));
+
+const renderHook = <Result, Props = unknown>(
+  callback: (props: Props) => Result,
+  options?: Omit<RenderHookOptions<Props>, 'wrapper'>,
+) => rtlRenderHook<Result, Props>(callback, {
+  ...options,
+  wrapper: createQueryClientWrapper(),
+});
 
 describe('useAssignedPositions', () => {
   beforeEach(() => {

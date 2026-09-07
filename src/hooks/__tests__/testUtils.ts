@@ -196,4 +196,6 @@ export const createToastMock = () => {
 
 // ============= Wait Utilities =============
 
-export const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
+// React Query schedules observer notifications across a few macrotasks under
+// React 18. Give those notifications time to settle before assertions.
+export const flushPromises = () => new Promise(resolve => setTimeout(resolve, 20));

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
-import { getBearerToken, getClientIp, normalizeEmail, sha256Hex } from "../_shared/access-control.ts";
+import { getClientIp, normalizeEmail, sha256Hex } from "../_shared/access-control.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,17 +26,14 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const accessToken = getBearerToken(req);
-    if (!accessToken) {
-      return new Response(JSON.stringify({ error: "Authentication required" }), {
-        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
-    if (authError || !user || user.id !== userId || !user.email) {
-      return new Response(JSON.stringify({ error: "Authenticated user does not match signup" }), {
-        status: 403, headers: { "Content-Type": "application/json", ...corsHeaders },
+    // This function intentionally remains pre-auth: Supabase may require email
+    // confirmation and return no session immediately after sign-up. The
+    // service-role lookup supplies the authoritative email for the new user;
+    // the RPC then compares it to the invite inside the same transaction.
+    const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);
+    if (userError || !user || !user.email) {
+      return new Response(JSON.stringify({ error: "Signup account not found" }), {
+        status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 

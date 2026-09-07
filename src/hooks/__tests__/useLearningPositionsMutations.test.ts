@@ -5,17 +5,19 @@ import React from 'react';
 import { useLearningPositionsMutations } from '../learningPositions/useLearningPositionsMutations';
 
 // Mock Supabase client
-const mockFrom = vi.fn();
-const mockSupabase = {
-  from: mockFrom,
-};
+const { mockToast } = vi.hoisted(() => ({
+  mockToast: vi.fn(),
+}));
+const mockSupabase = vi.hoisted(() => ({
+  from: vi.fn(),
+}));
+const mockFrom = mockSupabase.from;
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: mockSupabase,
 }));
 
 // Mock toast
-const mockToast = vi.fn();
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
@@ -136,7 +138,7 @@ describe('useLearningPositionsMutations', () => {
       
       mockFrom.mockReturnValue({ insert: insertMock });
 
-      const { result, waitFor } = renderHook(
+      const { result } = renderHook(
         () => useLearningPositionsMutations('test-user-id'),
         { wrapper: createWrapper() }
       );

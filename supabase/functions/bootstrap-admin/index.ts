@@ -68,10 +68,10 @@ Deno.serve(async (req) => {
     // Insert admin role (service role bypasses RLS)
     const { error: insertError } = await supabaseAdmin
       .from('user_roles')
-      .insert([
+      .upsert([
         { user_id, role: 'admin' },
         { user_id, role: 'investor' }, // Also add investor role
-      ]);
+      ], { onConflict: 'user_id,role' });
 
     if (insertError) throw insertError;
 

@@ -8,7 +8,7 @@ vi.mock('../learningPositions/useLearningPositionsSubscriptions', () => ({
   useLearningPositionsSubscriptions: vi.fn(),
 }));
 
-const mockSupabase = {
+const mockSupabase = vi.hoisted(() => ({
   from: vi.fn(),
   channel: vi.fn(() => ({
     on: vi.fn(() => ({
@@ -16,14 +16,14 @@ const mockSupabase = {
     })),
   })),
   removeChannel: vi.fn(),
-};
+}));
 
 // Mock supabase client
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: mockSupabase,
 }));
 
-const mockToast = vi.fn();
+const mockToast = vi.hoisted(() => vi.fn());
 // Mock toast
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({

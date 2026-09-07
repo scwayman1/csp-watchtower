@@ -161,7 +161,7 @@ export function ImportBar() {
 
         const { data: insertedRows, error: insertError } = await supabase
           .from('positions')
-          .insert(positionsToInsert, { onConflict: 'user_id,ingestion_key', ignoreDuplicates: true })
+          .upsert(positionsToInsert, { onConflict: 'user_id,ingestion_key', ignoreDuplicates: true })
           .select('id');
 
         if (insertError) throw insertError;
@@ -187,7 +187,7 @@ export function ImportBar() {
 
         const { data: insertedRows, error: shareError } = await supabase
           .from('assigned_positions')
-          .insert(sharesToInsert, { onConflict: 'user_id,ingestion_key', ignoreDuplicates: true })
+          .upsert(sharesToInsert, { onConflict: 'user_id,ingestion_key', ignoreDuplicates: true })
           .select('id');
 
         if (shareError) throw shareError;
@@ -241,7 +241,7 @@ export function ImportBar() {
         if (callsToInsert.length > 0) {
           const { data: insertedRows, error: callInsertError } = await supabase
             .from('covered_calls')
-            .insert(callsToInsert, { onConflict: 'assigned_position_id,ingestion_key', ignoreDuplicates: true })
+            .upsert(callsToInsert, { onConflict: 'assigned_position_id,ingestion_key', ignoreDuplicates: true })
             .select('id');
 
           if (callInsertError) {

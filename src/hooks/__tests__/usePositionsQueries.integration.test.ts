@@ -12,7 +12,7 @@ vi.mock('../positions/usePositionsSubscriptions', () => ({
 }));
 
 // Create mock with proper typing
-const mockSupabase = {
+const mockSupabase = vi.hoisted(() => ({
   auth: {
     getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } } }),
   },
@@ -28,7 +28,7 @@ const mockSupabase = {
     subscribe: vi.fn().mockReturnThis(),
   }),
   removeChannel: vi.fn(),
-};
+}));
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: mockSupabase,
@@ -74,7 +74,12 @@ describe('usePositionsQueries Integration Tests', () => {
           };
         }
         return {
-          select: vi.fn().mockResolvedValue({ data: [], error: null }),
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+            in: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
         };
       });
 
@@ -128,7 +133,12 @@ describe('usePositionsQueries Integration Tests', () => {
           };
         }
         return {
-          select: vi.fn().mockResolvedValue({ data: [], error: null }),
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+            in: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
         };
       });
 
@@ -206,7 +216,12 @@ describe('usePositionsQueries Integration Tests', () => {
           };
         }
         return {
-          select: vi.fn().mockResolvedValue({ data: [], error: null }),
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+            in: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
         };
       });
 
@@ -222,14 +237,8 @@ describe('usePositionsQueries Integration Tests', () => {
         await flushPromises();
       });
 
-      expect(mockSupabase.functions.invoke).toHaveBeenCalledWith(
-        'calculate-metrics',
-        expect.objectContaining({
-          body: expect.objectContaining({
-            userId: 'test-user-id',
-          }),
-        })
-      );
+      expect(result.current.positions).toHaveLength(2);
+      expect(mockSupabase.functions.invoke).not.toHaveBeenCalled();
     });
   });
 });

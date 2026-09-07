@@ -8,7 +8,7 @@ vi.mock('../positions/usePositionsSubscriptions', () => ({
 }));
 
 // Mock Supabase client
-const mockSupabase = {
+const mockSupabase = vi.hoisted(() => ({
   auth: {
     getUser: vi.fn(),
   },
@@ -16,7 +16,7 @@ const mockSupabase = {
   functions: {
     invoke: vi.fn(),
   },
-};
+}));
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: mockSupabase,

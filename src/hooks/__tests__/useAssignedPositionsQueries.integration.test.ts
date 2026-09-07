@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook as rtlRenderHook, act, type RenderHookOptions } from '@testing-library/react';
 import {
   createMockAssignedPosition,
   createMockCoveredCall,
   createMockMarketData,
+  createQueryClientWrapper,
   flushPromises,
 } from './testUtils';
 
@@ -13,7 +14,7 @@ vi.mock('../assigned/useAssignedPositionsSubscriptions', () => ({
 }));
 
 // Create mock with proper typing
-const mockSupabase = {
+const mockSupabase = vi.hoisted(() => ({
   auth: {
     getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } } }),
   },
@@ -23,7 +24,7 @@ const mockSupabase = {
     subscribe: vi.fn().mockReturnThis(),
   }),
   removeChannel: vi.fn(),
-};
+}));
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: mockSupabase,
@@ -35,6 +36,14 @@ vi.mock('@/hooks/use-toast', () => ({
 
 import { useAssignedPositionsQueries } from '../assigned/useAssignedPositionsQueries';
 import { toast } from '@/hooks/use-toast';
+
+const renderHook = <Result, Props = unknown>(
+  callback: (props: Props) => Result,
+  options?: Omit<RenderHookOptions<Props>, 'wrapper'>,
+) => rtlRenderHook<Result, Props>(callback, {
+  ...options,
+  wrapper: createQueryClientWrapper(),
+});
 
 describe('useAssignedPositionsQueries Integration Tests', () => {
   beforeEach(() => {
@@ -65,29 +74,27 @@ describe('useAssignedPositionsQueries Integration Tests', () => {
       mockSupabase.from.mockImplementation((tableName: string) => {
         if (tableName === 'assigned_positions') {
           queryCount++;
-          if (queryCount === 1) {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  order: vi.fn().mockResolvedValue({ data: activePositions, error: null }),
-                }),
-              }),
-            };
-          }
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                not: vi.fn().mockReturnValue({
-                  order: vi.fn().mockResolvedValue({ data: closedPositions, error: null }),
-                }),
-              }),
+          const chain = {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            not: vi.fn().mockReturnThis(),
+            order: vi.fn().mockResolvedValue({
+              data: queryCount === 1 ? activePositions : closedPositions,
+              error: null,
             }),
           };
+          return chain;
         }
         if (tableName === 'covered_calls') {
+          const ordered = {
+            order: vi.fn(),
+          };
+          ordered.order
+            .mockImplementationOnce(() => ordered)
+            .mockResolvedValue({ data: coveredCalls, error: null });
           return {
             select: vi.fn().mockReturnValue({
-              in: vi.fn().mockResolvedValue({ data: coveredCalls, error: null }),
+              in: vi.fn().mockReturnValue(ordered),
             }),
           };
         }

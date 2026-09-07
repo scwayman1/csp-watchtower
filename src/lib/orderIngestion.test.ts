@@ -15,6 +15,11 @@ describe('buildOrderIngestionKey', () => {
       .toBe(buildOrderIngestionKey('same order', 'put', 0, put));
   });
 
+  it('tolerates case and whitespace-only formatting changes', () => {
+    expect(buildOrderIngestionKey('  SAME\nORDER  ', 'put', 0, put))
+      .toBe(buildOrderIngestionKey('same order', 'put', 0, put));
+  });
+
   it('keeps distinct trades distinct', () => {
     expect(buildOrderIngestionKey('same order', 'put', 0, put))
       .not.toBe(buildOrderIngestionKey('same order', 'put', 1, put));

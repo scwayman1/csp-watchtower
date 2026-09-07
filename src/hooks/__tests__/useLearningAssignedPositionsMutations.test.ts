@@ -5,17 +5,19 @@ import React from 'react';
 import { useLearningAssignedPositionsMutations } from '../learning/useLearningAssignedPositionsMutations';
 
 // Mock Supabase client
-const mockFrom = vi.fn();
-const mockSupabase = {
-  from: mockFrom,
-};
+const { mockToast } = vi.hoisted(() => ({
+  mockToast: vi.fn(),
+}));
+const mockSupabase = vi.hoisted(() => ({
+  from: vi.fn(),
+}));
+const mockFrom = mockSupabase.from;
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: mockSupabase,
 }));
 
 // Mock toast
-const mockToast = vi.fn();
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));

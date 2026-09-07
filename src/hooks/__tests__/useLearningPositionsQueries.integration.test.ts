@@ -19,7 +19,7 @@ vi.mock('@/hooks/learningPositions/useLearningPositionsSubscriptions', () => ({
 }));
 
 // Create mock with proper typing
-const mockSupabase = {
+const mockSupabase = vi.hoisted(() => ({
   auth: {
     getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } } }),
   },
@@ -29,7 +29,7 @@ const mockSupabase = {
     subscribe: vi.fn().mockReturnThis(),
   }),
   removeChannel: vi.fn(),
-};
+}));
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: mockSupabase,
