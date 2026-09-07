@@ -8,6 +8,7 @@ import { Upload, FileText, Users } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import * as pdfjsLib from 'pdfjs-dist';
+import { buildOrderIngestionKey } from '@/lib/orderIngestion';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -180,19 +181,21 @@ export default function OrdersPage() {
 
       // Insert PUTs into positions table
       if (puts.length > 0) {
-        const positionsToInsert = puts.map((p: any) => ({
+        const positionsToInsert = puts.map((p: any, index: number) => ({
           user_id: selectedClient.user_id,
           raw_order_text: parseResult.raw_order_text || orderText,
           source: 'ADVISOR_ALLOCATION',
+          ingestion_key: buildOrderIngestionKey(orderText, 'put', index, p),
           ...p,
         }));
 
-        const { error: insertError } = await supabase
+        const { data: insertedRows, error: insertError } = await supabase
           .from('positions')
-          .insert(positionsToInsert);
+          .insert(positionsToInsert, { onConflict: 'user_id,ingestion_key', ignoreDuplicates: true })
+          .select('id');
 
         if (insertError) throw insertError;
-        insertedPuts = puts.length;
+        insertedPuts = insertedRows?.length ?? 0;
       }
 
       // Insert CALLs into covered_calls table
@@ -209,7 +212,7 @@ export default function OrdersPage() {
         const callsToInsert = [];
         const unmatchedCalls = [];
 
-        for (const call of calls) {
+        for (const [index, call] of calls.entries()) {
           const matchingPosition = assignedPositions?.find(
             ap => ap.symbol === call.symbol
           );
@@ -221,6 +224,9 @@ export default function OrdersPage() {
               expiration: call.expiration,
               contracts: call.contracts,
               premium_per_contract: call.premium_per_contract,
+              user_id: selectedClient.user_id,
+              raw_order_text: parseResult.raw_order_text || orderText,
+              ingestion_key: buildOrderIngestionKey(orderText, 'call', index, call),
             });
           } else {
             unmatchedCalls.push(call.symbol);
@@ -228,12 +234,13 @@ export default function OrdersPage() {
         }
 
         if (callsToInsert.length > 0) {
-          const { error: callInsertError } = await supabase
+          const { data: insertedRows, error: callInsertError } = await supabase
             .from('covered_calls')
-            .insert(callsToInsert);
+            .insert(callsToInsert, { onConflict: 'assigned_position_id,ingestion_key', ignoreDuplicates: true })
+            .select('id');
 
           if (callInsertError) throw callInsertError;
-          insertedCalls = callsToInsert.length;
+          insertedCalls = insertedRows?.length ?? 0;
         }
 
         if (unmatchedCalls.length > 0) {

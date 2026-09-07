@@ -405,6 +405,7 @@ export type Database = {
           cost_basis: number
           created_at: string
           id: string
+          ingestion_key: string | null
           is_active: boolean
           original_position_id: string | null
           original_put_premium: number
@@ -412,6 +413,7 @@ export type Database = {
           sold_price: number | null
           source: string | null
           symbol: string
+          raw_order_text: string | null
           updated_at: string
           user_id: string
         }
@@ -422,6 +424,7 @@ export type Database = {
           cost_basis: number
           created_at?: string
           id?: string
+          ingestion_key?: string | null
           is_active?: boolean
           original_position_id?: string | null
           original_put_premium?: number
@@ -429,6 +432,7 @@ export type Database = {
           sold_price?: number | null
           source?: string | null
           symbol: string
+          raw_order_text?: string | null
           updated_at?: string
           user_id: string
         }
@@ -439,6 +443,7 @@ export type Database = {
           cost_basis?: number
           created_at?: string
           id?: string
+          ingestion_key?: string | null
           is_active?: boolean
           original_position_id?: string | null
           original_put_premium?: number
@@ -446,6 +451,7 @@ export type Database = {
           sold_price?: number | null
           source?: string | null
           symbol?: string
+          raw_order_text?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -534,13 +540,16 @@ export type Database = {
           expiration: string
           expiration_close_price: number | null
           id: string
+          ingestion_key: string | null
           is_active: boolean
           opened_at: string
           premium_per_contract: number
+          raw_order_text: string | null
           reconciled_at: string | null
           reconciliation_status: string | null
           strike_price: number
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           assigned_position_id: string
@@ -550,13 +559,16 @@ export type Database = {
           expiration: string
           expiration_close_price?: number | null
           id?: string
+          ingestion_key?: string | null
           is_active?: boolean
           opened_at?: string
           premium_per_contract: number
+          raw_order_text?: string | null
           reconciled_at?: string | null
           reconciliation_status?: string | null
           strike_price: number
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           assigned_position_id?: string
@@ -566,13 +578,16 @@ export type Database = {
           expiration?: string
           expiration_close_price?: number | null
           id?: string
+          ingestion_key?: string | null
           is_active?: boolean
           opened_at?: string
           premium_per_contract?: number
+          raw_order_text?: string | null
           reconciled_at?: string | null
           reconciliation_status?: string | null
           strike_price?: number
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1133,6 +1148,7 @@ export type Database = {
           expiration: string
           expiration_close_price: number | null
           id: string
+          ingestion_key: string | null
           is_active: boolean | null
           open_fees: number | null
           opened_at: string | null
@@ -1161,6 +1177,7 @@ export type Database = {
           opened_at?: string | null
           premium_per_contract: number
           raw_order_text?: string | null
+          ingestion_key?: string | null
           reconciled_at?: string | null
           reconciliation_status?: string | null
           source?: string | null

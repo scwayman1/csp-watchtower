@@ -7,6 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import * as pdfjsLib from 'pdfjs-dist';
+import { buildOrderIngestionKey } from '@/lib/orderIngestion';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -151,24 +152,26 @@ export function ImportBar() {
 
       // Insert PUTs into positions table
       if (puts.length > 0) {
-        const positionsToInsert = puts.map((p: any) => ({
+        const positionsToInsert = puts.map((p: any, index: number) => ({
           user_id: user.id,
           raw_order_text: parseResult.raw_order_text || orderText,
+          ingestion_key: buildOrderIngestionKey(orderText, 'put', index, p),
           ...p,
         }));
 
-        const { error: insertError } = await supabase
+        const { data: insertedRows, error: insertError } = await supabase
           .from('positions')
-          .insert(positionsToInsert);
+          .insert(positionsToInsert, { onConflict: 'user_id,ingestion_key', ignoreDuplicates: true })
+          .select('id');
 
         if (insertError) throw insertError;
-        insertedPuts = puts.length;
+        insertedPuts = insertedRows?.length ?? 0;
       }
 
       // Insert share purchases as assigned positions
       if (shares.length > 0) {
         const today = new Date().toISOString().split('T')[0];
-        const sharesToInsert = shares.map((s: any) => ({
+        const sharesToInsert = shares.map((s: any, index: number) => ({
           user_id: user.id,
           symbol: s.symbol,
           shares: s.shares,
@@ -178,14 +181,17 @@ export function ImportBar() {
           original_put_premium: 0,
           is_active: true,
           source: 'manual_purchase',
+          raw_order_text: parseResult.raw_order_text || orderText,
+          ingestion_key: buildOrderIngestionKey(orderText, 'share', index, s),
         }));
 
-        const { error: shareError } = await supabase
+        const { data: insertedRows, error: shareError } = await supabase
           .from('assigned_positions')
-          .insert(sharesToInsert);
+          .insert(sharesToInsert, { onConflict: 'user_id,ingestion_key', ignoreDuplicates: true })
+          .select('id');
 
         if (shareError) throw shareError;
-        insertedShares = shares.length;
+        insertedShares = insertedRows?.length ?? 0;
       }
 
       // Insert CALLs into covered_calls table
@@ -207,7 +213,7 @@ export function ImportBar() {
         const unmatchedCalls = [];
         const matchDetails = [];
 
-        for (const call of calls) {
+        for (const [index, call] of calls.entries()) {
           const matchingPosition = assignedPositions?.find(
             ap => ap.symbol === call.symbol
           );
@@ -219,6 +225,9 @@ export function ImportBar() {
               expiration: call.expiration,
               contracts: call.contracts,
               premium_per_contract: call.premium_per_contract,
+              user_id: user.id,
+              raw_order_text: parseResult.raw_order_text || orderText,
+              ingestion_key: buildOrderIngestionKey(orderText, 'call', index, call),
             });
             matchDetails.push(`✓ ${call.symbol}: Matched to ${matchingPosition.shares} shares`);
           } else {
@@ -230,15 +239,16 @@ export function ImportBar() {
         console.log('Call matching results:', matchDetails);
 
         if (callsToInsert.length > 0) {
-          const { error: callInsertError } = await supabase
+          const { data: insertedRows, error: callInsertError } = await supabase
             .from('covered_calls')
-            .insert(callsToInsert);
+            .insert(callsToInsert, { onConflict: 'assigned_position_id,ingestion_key', ignoreDuplicates: true })
+            .select('id');
 
           if (callInsertError) {
             console.error('Failed to insert covered calls:', callInsertError);
             throw callInsertError;
           }
-          insertedCalls = callsToInsert.length;
+          insertedCalls = insertedRows?.length ?? 0;
           console.log(`Successfully inserted ${insertedCalls} covered call(s)`);
         }
 
