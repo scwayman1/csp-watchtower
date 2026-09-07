@@ -1,6 +1,16 @@
 export type ReconciliationOptionType = "PUT" | "CALL";
 export type ReconciliationLifecycleEventType = "called_away" | "stock_sale" | "assigned" | "expired";
-export type ReconciliationCashEventType = "dividend" | "interest" | "deposit" | "withdrawal" | "reinvestment";
+export type ReconciliationCashEventType =
+  | "dividend"
+  | "interest"
+  | "deposit"
+  | "withdrawal"
+  | "reinvestment"
+  | "fee"
+  | "transfer_in"
+  | "transfer_out"
+  | "security_trade"
+  | "corporate_action";
 
 export interface ReconciliationBaseline {
   asOfDate: string;
@@ -18,6 +28,13 @@ export interface ReconciliationEquityHolding {
   shares: number;
   marketValue: number;
   unrealizedPnl: number;
+  costBasis?: number | null;
+  price?: number | null;
+  holdingKey?: string;
+  holdingCategory?: "equity" | "etp" | "cash_equivalent" | "purchased_or_transferred" | "other";
+  sourceEventKey?: string;
+  sourceDocument?: string;
+  sourcePage?: number;
 }
 
 export interface ReconciliationOptionHolding {
@@ -43,6 +60,9 @@ export interface ReconciliationLifecycleEvent {
   shares: number;
   price: number;
   costBasisPerShare: number;
+  sourceEventKey?: string;
+  sourceDocument?: string;
+  sourcePage?: number;
 }
 
 export interface ReconciliationCashEvent {
@@ -50,6 +70,48 @@ export interface ReconciliationCashEvent {
   amount: number;
   eventDate: string;
   alreadyInBaseline?: boolean;
+  sourceEventKey?: string;
+  sourceDocument?: string;
+  sourcePage?: number;
+  symbol?: string | null;
+  shares?: number | null;
+  price?: number | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ReconciliationAccountingEvent extends ReconciliationCashEvent {
+  eventCategory: "income" | "fee" | "external_flow" | "security_trade" | "reinvestment" | "corporate_action" | "other";
+}
+
+export interface ReconciliationPremiumEvent {
+  eventDate: string;
+  symbol: string;
+  side: ReconciliationOptionType;
+  expiration: string;
+  strikePrice: number;
+  contracts: number;
+  quotedPremiumPerShare: number;
+  statementAmount: number;
+  feeAmount?: number;
+  sourceEventKey: string;
+  sourceDocument: string;
+  sourcePage: number;
+}
+
+export interface ReconciliationCoveredCall {
+  symbol: string;
+  expiration: string;
+  strikePrice: number;
+  contracts: number;
+  premiumPerContract: number;
+  openedAt?: string | null;
+  closedAt?: string | null;
+  status?: "open" | "closed" | "expired" | "assigned" | "needs_review";
+  underlyingSource?: "assigned_position" | "reconciliation_holding" | "purchased_or_transferred" | "unknown";
+  assignedPositionId?: string | null;
+  underlyingHoldingKey?: string | null;
+  sourceEventKey: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AccountReconciliationSummaryInput {
@@ -57,6 +119,9 @@ export interface AccountReconciliationSummaryInput {
   currentHoldings: ReconciliationCurrentHoldings;
   lifecycleEvents: ReconciliationLifecycleEvent[];
   cashEvents: ReconciliationCashEvent[];
+  accountingEvents?: ReconciliationAccountingEvent[];
+  premiumEvents?: ReconciliationPremiumEvent[];
+  reconciliationCoveredCalls?: ReconciliationCoveredCall[];
 }
 
 export interface AccountReconciliationSummary {
@@ -80,6 +145,14 @@ export interface AccountReconciliationSummary {
   currentUnrealizedPnl: number;
   totalStrategyPnl: number;
   postBaselineCashIncome: number;
+  postBaselineCashFees: number;
+  postBaselineExternalFlows: number;
+  postBaselineReinvestments: number;
+  postBaselineOtherCashActivity: number;
+  reconciliationCoveredCallPremium: number;
+  statementPremiumGross: number;
+  statementPremiumNetSettlement: number;
+  statementPremiumFees: number;
   redundantCashEventsTotal: number;
 }
 
@@ -105,7 +178,11 @@ export function buildAccountReconciliationSummary({
   currentHoldings,
   lifecycleEvents,
   cashEvents,
+  accountingEvents = [],
+  premiumEvents = [],
+  reconciliationCoveredCalls = [],
 }: AccountReconciliationSummaryInput): AccountReconciliationSummary {
+  const allCashEvents = [...cashEvents, ...accountingEvents];
   const currentCashBalance = money(currentHoldings.cashBalance);
   const currentEquityMarketValue = sumBy(currentHoldings.equities, (holding) => holding.marketValue);
   const currentOptionLiability = sumBy(currentHoldings.options, (option) => option.marketValue);
@@ -133,15 +210,56 @@ export function buildAccountReconciliationSummary({
   const currentUnrealizedPnl = money(currentEquityUnrealizedPnl + currentOptionUnrealizedPnl);
 
   const postBaselineCashIncome = sumBy(
-    cashEvents.filter((event) => !event.alreadyInBaseline),
+    allCashEvents.filter(
+      (event) => !event.alreadyInBaseline && (event.eventType === "dividend" || event.eventType === "interest")
+    ),
     (event) => event.amount
   );
+  const postBaselineCashFees = sumBy(
+    allCashEvents.filter((event) => !event.alreadyInBaseline && event.eventType === "fee"),
+    (event) => event.amount
+  );
+  const postBaselineExternalFlows = sumBy(
+    allCashEvents.filter(
+      (event) =>
+        !event.alreadyInBaseline &&
+        (event.eventType === "deposit" || event.eventType === "withdrawal" || event.eventType === "transfer_in" || event.eventType === "transfer_out")
+    ),
+    (event) => event.amount
+  );
+  const postBaselineReinvestments = sumBy(
+    allCashEvents.filter((event) => !event.alreadyInBaseline && event.eventType === "reinvestment"),
+    (event) => event.amount
+  );
+  const postBaselineOtherCashActivity = sumBy(
+    allCashEvents.filter(
+      (event) =>
+        !event.alreadyInBaseline &&
+        !["dividend", "interest", "fee", "deposit", "withdrawal", "transfer_in", "transfer_out", "reinvestment"].includes(event.eventType)
+    ),
+    (event) => event.amount
+  );
+  const reconciliationCoveredCallPremium = sumBy(
+    reconciliationCoveredCalls,
+    (call) => call.premiumPerContract * call.contracts * 100
+  );
+  const statementPremiumGross = sumBy(
+    premiumEvents,
+    (event) => event.quotedPremiumPerShare * event.contracts * 100
+  );
+  const statementPremiumNetSettlement = sumBy(premiumEvents, (event) => event.statementAmount);
+  const statementPremiumFees = sumBy(
+    premiumEvents,
+    (event) => event.feeAmount ?? event.statementAmount - event.quotedPremiumPerShare * event.contracts * 100
+  );
   const redundantCashEventsTotal = sumBy(
-    cashEvents.filter((event) => event.alreadyInBaseline),
+    allCashEvents.filter((event) => event.alreadyInBaseline),
     (event) => event.amount
   );
 
-  const cumulativePremiumToDate = money(baseline.cumulativePremium + postBaselineOpenPremium);
+  const cumulativePremiumToDate = premiumEvents.length > 0
+    ? money(baseline.cumulativePremium + statementPremiumGross)
+    : money(baseline.cumulativePremium + postBaselineOpenPremium);
   const realizedPremiumToDate = money(cumulativePremiumToDate - currentOpenPremium);
   const realizedCapitalGainToDate = money(baseline.realizedCapitalGain + lifecycleRealizedCapitalGain);
   const totalRealizedPnl = money(realizedPremiumToDate + realizedCapitalGainToDate);
@@ -168,6 +286,14 @@ export function buildAccountReconciliationSummary({
     currentUnrealizedPnl,
     totalStrategyPnl: money(totalRealizedPnl + currentUnrealizedPnl),
     postBaselineCashIncome,
+    postBaselineCashFees,
+    postBaselineExternalFlows,
+    postBaselineReinvestments,
+    postBaselineOtherCashActivity,
+    reconciliationCoveredCallPremium,
+    statementPremiumGross,
+    statementPremiumNetSettlement,
+    statementPremiumFees,
     redundantCashEventsTotal,
   };
 }

@@ -21,13 +21,17 @@ export type Database = {
           cost_basis_per_share: number | null
           created_at: string
           event_date: string | null
+          event_category: string | null
           event_type: string
           id: string
           metadata: Json
           price: number | null
-          realized_gain: number
+            realized_gain: number
           run_id: string
           shares: number | null
+          source_document: string | null
+          source_event_key: string | null
+          source_page: number | null
           symbol: string | null
           user_id: string
         }
@@ -37,6 +41,7 @@ export type Database = {
           cost_basis_per_share?: number | null
           created_at?: string
           event_date?: string | null
+          event_category?: string | null
           event_type: string
           id?: string
           metadata?: Json
@@ -44,6 +49,9 @@ export type Database = {
           realized_gain?: number
           run_id: string
           shares?: number | null
+          source_document?: string | null
+          source_event_key?: string | null
+          source_page?: number | null
           symbol?: string | null
           user_id: string
         }
@@ -53,6 +61,7 @@ export type Database = {
           cost_basis_per_share?: number | null
           created_at?: string
           event_date?: string | null
+          event_category?: string | null
           event_type?: string
           id?: string
           metadata?: Json
@@ -60,6 +69,9 @@ export type Database = {
           realized_gain?: number
           run_id?: string
           shares?: number | null
+          source_document?: string | null
+          source_event_key?: string | null
+          source_page?: number | null
           symbol?: string | null
           user_id?: string
         }
@@ -101,6 +113,11 @@ export type Database = {
           symbol: string | null
           unrealized_pnl: number
           user_id: string
+          holding_category: string | null
+          holding_key: string | null
+          source_document: string | null
+          source_event_key: string | null
+          source_page: number | null
         }
         Insert: {
           as_of_date: string
@@ -122,6 +139,11 @@ export type Database = {
           symbol?: string | null
           unrealized_pnl?: number
           user_id: string
+          holding_category?: string | null
+          holding_key?: string | null
+          source_document?: string | null
+          source_event_key?: string | null
+          source_page?: number | null
         }
         Update: {
           as_of_date?: string
@@ -143,6 +165,11 @@ export type Database = {
           symbol?: string | null
           unrealized_pnl?: number
           user_id?: string
+          holding_category?: string | null
+          holding_key?: string | null
+          source_document?: string | null
+          source_event_key?: string | null
+          source_page?: number | null
         }
         Relationships: [
           {
@@ -161,6 +188,81 @@ export type Database = {
           },
         ]
       }
+      account_reconciliation_covered_calls: {
+        Row: {
+          assigned_position_id: string | null
+          closed_at: string | null
+          contracts: number
+          created_at: string
+          expiration: string
+          id: string
+          metadata: Json
+          opened_at: string | null
+          premium_per_contract: number
+          run_id: string
+          source_event_key: string
+          status: string
+          strike_price: number
+          symbol: string
+          underlying_holding_key: string | null
+          underlying_source: string
+          user_id: string
+        }
+        Insert: {
+          assigned_position_id?: string | null
+          closed_at?: string | null
+          contracts: number
+          created_at?: string
+          expiration: string
+          id?: string
+          metadata?: Json
+          opened_at?: string | null
+          premium_per_contract: number
+          run_id: string
+          source_event_key: string
+          status?: string
+          strike_price: number
+          symbol: string
+          underlying_holding_key?: string | null
+          underlying_source?: string
+          user_id: string
+        }
+        Update: {
+          assigned_position_id?: string | null
+          closed_at?: string | null
+          contracts?: number
+          created_at?: string
+          expiration?: string
+          id?: string
+          metadata?: Json
+          opened_at?: string | null
+          premium_per_contract?: number
+          run_id?: string
+          source_event_key?: string
+          status?: string
+          strike_price?: number
+          symbol?: string
+          underlying_holding_key?: string | null
+          underlying_source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_reconciliation_covered_calls_assigned_position_id_fkey"
+            columns: ["assigned_position_id"]
+            isOneToOne: false
+            referencedRelation: "assigned_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_reconciliation_covered_calls_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "account_reconciliation_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      },
       account_reconciliation_runs: {
         Row: {
           applied_at: string
@@ -417,6 +519,7 @@ export type Database = {
           source: string | null
           symbol: string
           raw_order_text: string | null
+          reconciliation_status: string | null
           updated_at: string
           user_id: string
         }
@@ -436,6 +539,7 @@ export type Database = {
           source?: string | null
           symbol: string
           raw_order_text?: string | null
+          reconciliation_status?: string | null
           updated_at?: string
           user_id: string
         }
@@ -455,6 +559,7 @@ export type Database = {
           source?: string | null
           symbol?: string
           raw_order_text?: string | null
+          reconciliation_status?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1504,6 +1609,14 @@ export type Database = {
           total_realized_pnl: number | null
           total_strategy_pnl: number | null
           user_id: string | null
+          post_baseline_cash_income: number | null
+          post_baseline_cash_fees: number | null
+          post_baseline_external_flows: number | null
+          post_baseline_reinvestments: number | null
+          reconciliation_covered_call_premium: number | null
+          statement_premium_gross: number | null
+          statement_premium_net_settlement: number | null
+          statement_premium_fees: number | null
         }
         Relationships: []
       }

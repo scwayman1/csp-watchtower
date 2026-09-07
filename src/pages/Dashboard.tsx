@@ -21,6 +21,7 @@ import { BuySharesDialog } from "@/components/dashboard/BuySharesDialog";
 import { ActivePositionsBatchHeader } from "@/components/dashboard/ActivePositionsBatchHeader";
 import { CoveredCallHistory } from "@/components/dashboard/CoveredCallHistory";
 import { MiniSparkline } from "@/components/dashboard/MiniSparkline";
+import { ReconciliationHoldingsSection } from "@/components/dashboard/ReconciliationHoldingsSection";
 import { DollarSign, FileText, Calendar, AlertTriangle, LogOut, Download, Share2, TrendingUp, RefreshCw, Wallet, PiggyBank, Target, BarChart3 } from "lucide-react";
 import { TooltipHeader, TooltipRow, TooltipChartWrapper, TooltipContainer, TooltipPositionRow, TooltipScrollArea, TooltipDivider, TooltipEmptyState } from "@/components/dashboard/MetricTooltip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -368,6 +369,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
   const expiredPremiums = premiumBreakdown?.expiredPutPremium ?? 0;
   const assignedPutPremiums = premiumBreakdown?.assignedPutPremium ?? 0;
   const coveredCallPremiums = premiumBreakdown?.activeCallPremium ?? 0;
+  const reconciliationCallPremiums = premiumBreakdown?.reconciliationCallPremium ?? 0;
   const closedPutPremiums = 0; // Already included in assignedPutPremiums (no separate "closed put" category)
   const closedCallPremiums = premiumBreakdown?.closedCallPremium ?? 0;
   
@@ -567,6 +569,8 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
           onCustomDateRangeChange={setCustomDateRange}
         />
 
+        <ReconciliationHoldingsSection userId={effectiveUserId} />
+
         {/* Portfolio Command Panel */}
         <Card id="dashboard" className="scroll-mt-6 overflow-hidden">
           <CardHeader className="border-b border-border">
@@ -587,7 +591,7 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                     ${(totalPremium + totalCapitalGains).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Combined premium income + capital gains from completed wheel cycles
+                    Verified statement opening premium + capital gains; exact fills and fees remain under review
                   </p>
                 </div>
                 
@@ -597,12 +601,12 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                       <div className="cursor-help flex-1 min-w-[160px] p-4 rounded-lg bg-background/50 border border-border/50 hover:border-success/30 transition-colors">
                         <div className="flex items-center gap-2 mb-1">
                           <DollarSign className="h-4 w-4 text-success" />
-                          <span className="text-xs text-muted-foreground uppercase tracking-wider">Premium</span>
+                          <span className="text-xs text-muted-foreground uppercase tracking-wider">Premium (verified)</span>
                         </div>
                         <div className="text-2xl font-bold">
                           ${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">All options sold</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Exact fills / fees pending review</p>
                       </div>
                     </HoverCardTrigger>
                     <HoverCardContent side="bottom" align="start">
@@ -612,6 +616,15 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                         title="Premium Breakdown"
                       />
                       <TooltipContainer>
+                        <p className="text-xs text-muted-foreground mb-2">STATEMENT OPENING LEDGER</p>
+                        {premiumBreakdown?.statementVerifiedPremium != null && (
+                          <TooltipRow
+                            label="Verified openings (173 rows)"
+                            value={`$${premiumBreakdown.statementVerifiedPremium.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                            isTotal
+                          />
+                        )}
+                        <p className="text-xs text-muted-foreground mb-2 mt-3">BOARD LIFECYCLE PREVIEW</p>
                         <p className="text-xs text-muted-foreground mb-2">PUT PREMIUMS</p>
                         <TooltipRow 
                           label={`Active (${premiumBreakdown?.activePutCount ?? 0} contracts)`}
@@ -630,8 +643,14 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                           value={`$${(premiumBreakdown?.totalPutPremium ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                           isTotal
                         />
+                        {(premiumBreakdown?.pendingReviewPutPremium ?? 0) > 0 && (
+                          <TooltipRow
+                            label={`Pending source review — puts (${premiumBreakdown?.pendingReviewPutCount ?? 0})`}
+                            value={`$${(premiumBreakdown?.pendingReviewPutPremium ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                          />
+                        )}
                         <TooltipDivider />
-                        <p className="text-xs text-muted-foreground mb-2">CALL PREMIUMS</p>
+                        <p className="text-xs text-muted-foreground mb-2 mt-3">CALL PREMIUMS</p>
                         <TooltipRow 
                           label={`Active Covered Calls (${premiumBreakdown?.activeCallCount ?? 0})`}
                           value={`$${coveredCallPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
@@ -640,11 +659,23 @@ const Dashboard = ({ viewAsUserId, isAdvisorView = false }: DashboardProps = {})
                           label={`Closed/Exercised (${premiumBreakdown?.closedCallCount ?? 0})`}
                           value={`$${closedCallPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                         />
+                        {reconciliationCallPremiums > 0 && (
+                          <TooltipRow
+                            label={`Non-assignment statement calls (${premiumBreakdown?.reconciliationCallCount ?? 0})`}
+                            value={`$${reconciliationCallPremiums.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                          />
+                        )}
                         <TooltipRow 
                           label="Subtotal Calls" 
                           value={`$${(premiumBreakdown?.totalCallPremium ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                           isTotal
                         />
+                        {(premiumBreakdown?.pendingReviewCallPremium ?? 0) > 0 && (
+                          <TooltipRow
+                            label={`Pending source review — calls (${premiumBreakdown?.pendingReviewCallCount ?? 0})`}
+                            value={`$${(premiumBreakdown?.pendingReviewCallPremium ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                          />
+                        )}
                         <TooltipDivider />
                         <TooltipRow 
                           label="TOTAL PREMIUM" 

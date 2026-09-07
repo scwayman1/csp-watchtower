@@ -130,4 +130,50 @@ describe("buildAccountReconciliationSummary", () => {
     expect(summary.postBaselineCashIncome).toBe(0);
     expect(summary.redundantCashEventsTotal).toBe(435.37);
   });
+
+  it("keeps statement fees, transfers, reinvestments, and non-assignment call evidence separate", () => {
+    const summary = buildAccountReconciliationSummary({
+      baseline: apr30Baseline,
+      currentHoldings: {
+        asOfDate: "2026-05-31",
+        cashBalance: 100_000,
+        equities: [
+          {
+            symbol: "XYZ",
+            shares: 100,
+            marketValue: 12_000,
+            unrealizedPnl: 500,
+            holdingCategory: "equity",
+          },
+        ],
+        options: [],
+      },
+      lifecycleEvents: [],
+      cashEvents: [],
+      accountingEvents: [
+        { eventType: "dividend", eventCategory: "income", amount: 25, eventDate: "2026-05-11" },
+        { eventType: "fee", eventCategory: "fee", amount: -3.25, eventDate: "2026-05-12" },
+        { eventType: "transfer_in", eventCategory: "external_flow", amount: 1000, eventDate: "2026-05-13" },
+        { eventType: "reinvestment", eventCategory: "reinvestment", amount: -25, eventDate: "2026-05-14" },
+      ],
+      reconciliationCoveredCalls: [
+        {
+          symbol: "XYZ",
+          expiration: "2026-06-19",
+          strikePrice: 125,
+          contracts: 1,
+          premiumPerContract: 2.5,
+          underlyingSource: "purchased_or_transferred",
+          underlyingHoldingKey: "equity:XYZ",
+          sourceEventKey: "stmt:call:XYZ:2026-05-15",
+        },
+      ],
+    });
+
+    expect(summary.postBaselineCashIncome).toBe(25);
+    expect(summary.postBaselineCashFees).toBe(-3.25);
+    expect(summary.postBaselineExternalFlows).toBe(1000);
+    expect(summary.postBaselineReinvestments).toBe(-25);
+    expect(summary.reconciliationCoveredCallPremium).toBe(250);
+  });
 });

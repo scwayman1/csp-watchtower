@@ -14,12 +14,15 @@ import { DateRange } from "react-day-picker";
  * 3. ASSIGNED_PUT_PREMIUM - CSPs that resulted in stock assignment (from assigned_positions table)
  * 4. ACTIVE_CALL_PREMIUM - Covered calls still open
  * 5. CLOSED_CALL_PREMIUM - Covered calls that expired or were exercised
+ * 6. RECONCILIATION_CALL_PREMIUM - Statement calls on non-assignment stock
  * 
  * RULES:
  * - Positions table: count premium for active + expired positions
  * - When a position becomes assigned → its premium moves to assigned_positions.original_put_premium
  * - We EXCLUDE positions that became assigned from the expired count to avoid double-counting
- * - Covered calls are ALWAYS from covered_calls table (never double-counted)
+ * - Assignment-backed calls come from covered_calls; statement calls on
+ *   purchased/transferred stock come from the latest reconciliation run.
+ *   The two sources are kept mutually exclusive by underlying_source.
  */
 
 export type TimePeriod = "all" | "mtd" | "ytd" | "custom";
@@ -38,6 +41,13 @@ export interface PremiumBreakdown {
   activeCallCount: number;
   closedCallPremium: number;
   closedCallCount: number;
+  reconciliationCallPremium: number;
+  reconciliationCallCount: number;
+  pendingReviewPutPremium: number;
+  pendingReviewPutCount: number;
+  pendingReviewCallPremium: number;
+  pendingReviewCallCount: number;
+  statementVerifiedPremium: number | null;
   
   // Totals
   totalPutPremium: number;
@@ -50,7 +60,7 @@ export interface PremiumBreakdown {
 
 export interface PremiumRecord {
   id: string;
-  source: 'position' | 'assigned_position' | 'covered_call';
+  source: 'position' | 'assigned_position' | 'covered_call' | 'reconciliation_covered_call';
   category: 'active_put' | 'expired_put' | 'assigned_put' | 'active_call' | 'closed_call';
   symbol: string;
   premium: number;
@@ -111,7 +121,7 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
       // 1. Get ALL positions for this user
       const { data: positions, error: posError } = await supabase
         .from('positions')
-        .select('id, symbol, premium_per_contract, contracts, expiration, is_active, opened_at')
+        .select('id, symbol, premium_per_contract, contracts, expiration, is_active, opened_at, reconciliation_status')
         .eq('user_id', userId);
       
       if (posError) throw posError;
@@ -119,7 +129,7 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
       // 2. Get ALL assigned positions (to know which position IDs were assigned)
       const { data: assignedPositions, error: apError } = await supabase
         .from('assigned_positions')
-        .select('id, symbol, original_put_premium, original_position_id, is_active, assignment_date, shares')
+        .select('id, symbol, original_put_premium, original_position_id, is_active, assignment_date, shares, reconciliation_status')
         .eq('user_id', userId);
       
       if (apError) throw apError;
@@ -131,15 +141,101 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
           id, 
           premium_per_contract, 
           contracts, 
+          ingestion_key,
           is_active, 
           opened_at,
           expiration,
+          strike_price,
+          reconciliation_status,
           assigned_position_id,
           assigned_positions!inner(symbol, user_id)
         `)
         .eq('assigned_positions.user_id', userId);
       
       if (ccError) throw ccError;
+
+      // Calls on purchased/transferred stock are intentionally stored in the
+      // reconciliation snapshot, not in the assignment-only covered_calls
+      // ledger. Read only the latest applied run and tolerate older databases
+      // before the additive migration is deployed.
+      let reconciliationCoveredCalls: Array<{
+        id: string;
+        symbol: string;
+        premium_per_contract: number;
+        contracts: number;
+        ingestion_key: string | null;
+        is_active: boolean;
+        opened_at: string | null;
+        expiration: string;
+        strike_price: number;
+        status: string;
+        underlying_source: string;
+        source_document?: string | null;
+        source_page?: number | null;
+      }> = [];
+      const { data: reconciliationRun, error: reconciliationRunError } = await supabase
+        .from('current_account_reconciliation_rollup')
+        .select('run_id, cumulative_premium_to_date')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      const isMissingReconciliationRelation = (error: { code?: string } | null) =>
+        error?.code === '42P01' || error?.code === 'PGRST205';
+
+      if (reconciliationRunError && !isMissingReconciliationRelation(reconciliationRunError)) {
+        throw reconciliationRunError;
+      }
+
+      const statementVerifiedPremium = reconciliationRun?.cumulative_premium_to_date == null
+        ? null
+        : Number(reconciliationRun.cumulative_premium_to_date);
+
+      if (reconciliationRun?.run_id) {
+        const { data: reconciliationCalls, error: reconciliationCallError } = await supabase
+          .from('account_reconciliation_covered_calls')
+          .select('id, symbol, premium_per_contract, contracts, opened_at, expiration, strike_price, status, underlying_source, source_event_key, metadata')
+          .eq('run_id', reconciliationRun.run_id)
+          .neq('underlying_source', 'assigned_position');
+
+        // This is an additive compatibility path: an older deployment simply
+        // has no table yet, and should continue using the core ledger.
+        if (reconciliationCallError && !isMissingReconciliationRelation(reconciliationCallError)) {
+          throw reconciliationCallError;
+        }
+        reconciliationCoveredCalls = (reconciliationCalls || []).map((call) => ({
+          ...call,
+          ingestion_key: call.source_event_key,
+          is_active: call.status === 'open',
+          source_document: typeof call.metadata?.source_document === 'string' ? call.metadata.source_document : null,
+          source_page: typeof call.metadata?.source_page === 'number' ? call.metadata.source_page : null,
+        }));
+      }
+
+      // An economic signature is not an identity: repeated executions can
+      // legitimately share it. Suppress a core row only when its staged
+      // ingestion key carries the same statement source location as a
+      // reconciliation row, consuming matches one-for-one.
+      const reconciliationSourcesBySignature = new Map<string, Array<{ document: string | null; page: number | null }>>();
+      for (const call of reconciliationCoveredCalls) {
+        const signature = `${call.symbol}|${call.expiration}|${Number(call.strike_price)}|${Number(call.contracts)}`;
+        const sources = reconciliationSourcesBySignature.get(signature) || [];
+        sources.push({ document: call.source_document || null, page: call.source_page || null });
+        reconciliationSourcesBySignature.set(signature, sources);
+      }
+      const parseStatementSourceLocation = (ingestionKey: string | null | undefined) => {
+        const match = ingestionKey?.match(/^stmt:canonical:option_open:([^:]+):([^:]+):/);
+        return match ? { document: match[1], page: Number(match[2]) } : null;
+      };
+      const isSourceLinkedReconciliationOverlap = (call: { symbol: string; expiration: string; strike_price: number; contracts: number; ingestion_key?: string | null }) => {
+        const source = parseStatementSourceLocation(call.ingestion_key);
+        if (!source) return false;
+        const signature = `${call.symbol}|${call.expiration}|${Number(call.strike_price)}|${Number(call.contracts)}`;
+        const candidates = reconciliationSourcesBySignature.get(signature) || [];
+        const matchIndex = candidates.findIndex((candidate) => candidate.document === source.document && candidate.page === source.page);
+        if (matchIndex < 0) return false;
+        candidates.splice(matchIndex, 1);
+        return true;
+      };
       
       // Create set of position IDs that became assigned (to exclude from expired count)
       const assignedPositionIds = new Set(
@@ -153,6 +249,8 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
       let activePutCount = 0;
       let expiredPutPremium = 0;
       let expiredPutCount = 0;
+      let pendingReviewPutPremium = 0;
+      let pendingReviewPutCount = 0;
       
       for (const pos of positions || []) {
         // Use opened_at for time filtering, fallback to expiration
@@ -160,6 +258,12 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
         if (!isDateInPeriod(relevantDate, timePeriod, customDateRange)) continue;
         
         const premium = parseFloat(String(pos.premium_per_contract)) * pos.contracts * 100;
+        const isVerified = pos.reconciliation_status === 'confirmed' || pos.reconciliation_status === 'auto_applied';
+        if (!isVerified) {
+          pendingReviewPutPremium += premium;
+          pendingReviewPutCount += pos.contracts;
+          continue;
+        }
         const isExpired = pos.expiration < today;
         const wasAssigned = assignedPositionIds.has(pos.id);
         
@@ -200,8 +304,16 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
       for (const ap of assignedPositions || []) {
         if (!isDateInPeriod(ap.assignment_date, timePeriod, customDateRange)) continue;
         
-        assignedPutPremium += parseFloat(String(ap.original_put_premium)) || 0;
-        assignedPutCount += Math.floor(ap.shares / 100); // Convert shares back to contracts
+        const premium = parseFloat(String(ap.original_put_premium)) || 0;
+        const contracts = Math.floor(ap.shares / 100); // Convert shares back to contracts
+        const isVerified = ap.reconciliation_status === 'confirmed' || ap.reconciliation_status === 'auto_applied';
+        if (!isVerified) {
+          pendingReviewPutPremium += premium;
+          pendingReviewPutCount += contracts;
+          continue;
+        }
+        assignedPutPremium += premium;
+        assignedPutCount += contracts;
         auditRecords.push({
           id: ap.id,
           source: 'assigned_position',
@@ -218,6 +330,10 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
       let activeCallCount = 0;
       let closedCallPremium = 0;
       let closedCallCount = 0;
+      let reconciliationCallPremium = 0;
+      let reconciliationCallCount = 0;
+      let pendingReviewCallPremium = 0;
+      let pendingReviewCallCount = 0;
       
       for (const cc of coveredCalls || []) {
         // Use opened_at for time filtering
@@ -225,6 +341,21 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
         
         const premium = parseFloat(String(cc.premium_per_contract)) * cc.contracts * 100;
         const symbol = (cc.assigned_positions as any)?.symbol || 'UNKNOWN';
+
+        if (isSourceLinkedReconciliationOverlap({
+          symbol,
+          expiration: cc.expiration,
+          strike_price: cc.strike_price,
+          contracts: cc.contracts,
+          ingestion_key: cc.ingestion_key,
+        })) continue;
+
+        const isVerified = cc.reconciliation_status === 'confirmed' || cc.reconciliation_status === 'auto_applied';
+        if (!isVerified) {
+          pendingReviewCallPremium += premium;
+          pendingReviewCallCount += cc.contracts;
+          continue;
+        }
         
         // A call is truly active only if is_active=true AND not expired
         // (handles stale is_active flags when expiration passed)
@@ -257,11 +388,42 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
           });
         }
       }
+
+      for (const cc of reconciliationCoveredCalls) {
+        if (!cc.opened_at || !isDateInPeriod(cc.opened_at, timePeriod, customDateRange)) continue;
+
+        const premium = parseFloat(String(cc.premium_per_contract)) * cc.contracts * 100;
+        const isExpired = cc.expiration < today;
+        const isTrulyActive = cc.is_active && !isExpired;
+        reconciliationCallPremium += premium;
+        reconciliationCallCount += cc.contracts;
+        if (isTrulyActive) {
+          activeCallPremium += premium;
+          activeCallCount += cc.contracts;
+        } else {
+          closedCallPremium += premium;
+          closedCallCount += cc.contracts;
+        }
+        auditRecords.push({
+          id: cc.id,
+          source: 'reconciliation_covered_call',
+          category: isTrulyActive ? 'active_call' : 'closed_call',
+          symbol: cc.symbol,
+          premium,
+          contracts: cc.contracts,
+          date: cc.opened_at,
+        });
+      }
       
       // Calculate totals
       const totalPutPremium = activePutPremium + expiredPutPremium + assignedPutPremium;
       const totalCallPremium = activeCallPremium + closedCallPremium;
-      const totalPremium = totalPutPremium + totalCallPremium;
+      const computedPremium = totalPutPremium + totalCallPremium;
+      // Once the reconciled statement run is present, its canonical opening
+      // ledger is the verified whole-account control. Assignment rows and
+      // board mirrors remain available for lifecycle review but cannot add a
+      // second copy of the same opening premium.
+      const totalPremium = statementVerifiedPremium ?? computedPremium;
       
       setBreakdown({
         activePutPremium,
@@ -274,6 +436,13 @@ export function usePremiumAudit(userId?: string, options?: PremiumAuditOptions) 
         activeCallCount,
         closedCallPremium,
         closedCallCount,
+        reconciliationCallPremium,
+        reconciliationCallCount,
+        pendingReviewPutPremium,
+        pendingReviewPutCount,
+        pendingReviewCallPremium,
+        pendingReviewCallCount,
+        statementVerifiedPremium,
         totalPutPremium,
         totalCallPremium,
         totalPremium,
