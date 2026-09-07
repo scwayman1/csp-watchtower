@@ -155,6 +155,8 @@ GRANT EXECUTE ON FUNCTION public.accept_dashboard_invite(TEXT, UUID, TEXT) TO au
 -- ---------------------------------------------------------------------------
 -- 6. Update get_share_by_invite_token to include expires_at
 -- ---------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.get_share_by_invite_token(text);
+
 CREATE OR REPLACE FUNCTION public.get_share_by_invite_token(token_input TEXT)
 RETURNS TABLE (
   id UUID,
