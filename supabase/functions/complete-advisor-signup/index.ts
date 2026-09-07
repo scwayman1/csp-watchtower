@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
+import { getBearerToken, getClientIp, normalizeEmail, sha256Hex } from "../_shared/access-control.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,73 +26,43 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`Completing advisor signup for user ${userId}, invite ${inviteId}`);
-
-    // Verify the invite token matches
-    const { data: invite, error: inviteError } = await supabase
-      .from("advisor_invites")
-      .select("*")
-      .eq("id", inviteId)
-      .eq("invite_token", token)
-      .single();
-
-    if (inviteError || !invite) {
-      console.error("Invite verification failed:", inviteError);
-      return new Response(
-        JSON.stringify({ error: "Invalid invitation" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    if (invite.status === "ACCEPTED") {
-      return new Response(
-        JSON.stringify({ error: "Invitation already accepted" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    // Assign advisor role to the user
-    const { error: roleError } = await supabase
-      .from("user_roles")
-      .insert({
-        user_id: userId,
-        role: "advisor",
+    const accessToken = getBearerToken(req);
+    if (!accessToken) {
+      return new Response(JSON.stringify({ error: "Authentication required" }), {
+        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
       });
-
-    if (roleError) {
-      // Might already have the role if trigger assigned it
-      console.log("Role assignment result:", roleError.message);
-      
-      // Try upsert approach
-      const { error: upsertError } = await supabase
-        .from("user_roles")
-        .upsert({
-          user_id: userId,
-          role: "advisor",
-        }, { onConflict: "user_id,role" });
-      
-      if (upsertError) {
-        console.error("Role upsert failed:", upsertError);
-      }
     }
 
-    console.log(`Advisor role assigned to user ${userId}`);
-
-    // Update the invite status
-    const { error: updateError } = await supabase
-      .from("advisor_invites")
-      .update({
-        status: "ACCEPTED",
-        user_id: userId,
-        accepted_at: new Date().toISOString(),
-      })
-      .eq("id", inviteId);
-
-    if (updateError) {
-      console.error("Error updating invite status:", updateError);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user || user.id !== userId || !user.email) {
+      return new Response(JSON.stringify({ error: "Authenticated user does not match signup" }), {
+        status: 403, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
-    console.log(`Invite ${inviteId} marked as accepted`);
+    const tokenHash = await sha256Hex(token);
+    const { data: limit, error: limitError } = await supabase.rpc("check_invite_rate_limit", {
+      p_ip_address: getClientIp(req),
+      p_token_hash: tokenHash,
+    });
+    if (limitError || !limit?.allowed) {
+      return new Response(JSON.stringify({ error: "Too many invitation attempts. Please try again later." }), {
+        status: 429, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const { data: result, error: completionError } = await supabase.rpc("complete_advisor_signup", {
+      p_invite_id: inviteId,
+      p_token: token,
+      p_user_id: userId,
+      p_user_email: normalizeEmail(user.email),
+    });
+    if (completionError) throw completionError;
+    if (!result?.success) {
+      return new Response(JSON.stringify({ error: result?.error || "Unable to accept invitation" }), {
+        status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
 
     return new Response(
       JSON.stringify({ success: true }),

@@ -115,6 +115,7 @@ export default function AcceptAdvisorInvite() {
       if (setupError) {
         console.error("Error completing advisor setup:", setupError);
         toast.error("Account created but role assignment failed. Please contact support.");
+        return;
       }
 
       setStep("success");

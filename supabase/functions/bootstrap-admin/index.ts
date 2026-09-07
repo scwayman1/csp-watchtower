@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
+import { getBearerToken } from '../_shared/access-control.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +17,32 @@ Deno.serve(async (req) => {
     
     // Create service role client (bypasses RLS)
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    const accessToken = getBearerToken(req);
+    if (!accessToken) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: { user: caller }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !caller) {
+      return new Response(JSON.stringify({ error: 'Invalid authentication' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: callerRole } = await supabaseAdmin
+      .from('user_roles')
+      .select('user_id')
+      .eq('user_id', caller.id)
+      .eq('role', 'admin')
+      .maybeSingle();
+    if (!callerRole) {
+      return new Response(JSON.stringify({ error: 'Admin authority required' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const { user_id } = await req.json();
 

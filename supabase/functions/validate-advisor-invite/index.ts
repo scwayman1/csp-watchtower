@@ -25,8 +25,6 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`Validating advisor invite token: ${token}`);
-
     const { data: invite, error } = await supabase
       .from("advisor_invites")
       .select("*")
@@ -41,7 +39,17 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`Found invite for ${invite.email}, status: ${invite.status}`);
+    if (invite.status === "ACCEPTED") {
+      return new Response(JSON.stringify({ error: "Invitation already accepted" }), {
+        status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    if (invite.expires_at && new Date(invite.expires_at) <= new Date()) {
+      return new Response(JSON.stringify({ error: "Invitation has expired" }), {
+        status: 410, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
 
     return new Response(
       JSON.stringify({ invite }),
