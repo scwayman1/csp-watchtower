@@ -14,89 +14,82 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Create service role client (bypasses RLS)
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Require a valid bearer session.
-    const token = getBearerToken(req);
-    if (!token) {
-      return new Response(
-        JSON.stringify({ error: "Authorization bearer token required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const accessToken = getBearerToken(req);
+    if (!accessToken) {
+      return new Response(JSON.stringify({ error: "Authentication required" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const { data: callerData, error: callerError } = await supabaseAdmin.auth.getUser(token);
-    const caller = callerData?.user;
-    if (callerError || !caller) {
-      return new Response(
-        JSON.stringify({ error: "Invalid or expired session" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const {
+      data: { user: caller },
+      error: authError,
+    } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !caller) {
+      return new Response(JSON.stringify({ error: "Invalid authentication" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Caller must already hold the admin role — no first-admin fallback.
     const { data: callerRole } = await supabaseAdmin
       .from("user_roles")
-      .select("id")
+      .select("user_id")
       .eq("user_id", caller.id)
       .eq("role", "admin")
       .maybeSingle();
-
     if (!callerRole) {
-      return new Response(
-        JSON.stringify({ error: "Admin role required" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Admin authority required" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const { user_id } = await req.json();
+
     if (!user_id) {
       throw new Error("user_id is required");
     }
 
-    // Target user must exist.
-    const { data: targetData, error: targetError } = await supabaseAdmin.auth.admin.getUserById(user_id);
-    if (targetError || !targetData?.user) {
-      return new Response(
-        JSON.stringify({ error: "Target user not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Check if user already has admin role.
+    // Check if user already has admin role
     const { data: existingRole } = await supabaseAdmin
       .from("user_roles")
       .select("*")
       .eq("user_id", user_id)
       .eq("role", "admin")
-      .maybeSingle();
+      .single();
 
     if (existingRole) {
-      return new Response(
-        JSON.stringify({ message: "User already has admin role" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ message: "User already has admin role" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const { error: insertError } = await supabaseAdmin
-      .from("user_roles")
-      .insert([
+    // Insert admin role (service role bypasses RLS)
+    const { error: insertError } = await supabaseAdmin.from("user_roles").upsert(
+      [
         { user_id, role: "admin" },
         { user_id, role: "investor" }, // Also add investor role
-      ]);
+      ],
+      { onConflict: "user_id,role" },
+    );
 
     if (insertError) throw insertError;
 
-    return new Response(
-      JSON.stringify({ message: "Admin role added successfully" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error: unknown) {
+    return new Response(JSON.stringify({ message: "Admin role added successfully" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (error) {
     console.error("Bootstrap admin error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
